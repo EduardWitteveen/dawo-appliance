@@ -13,12 +13,15 @@ Bureau / BZK distribution (see `CLAUDE.md`).
   1.4 GiB) builds, and the headless boot test passes: the VM boots to
   multi-user.target, `dawo-appliance-bootstrap` runs `plan` non-destructively
   (checksum verified, no disk writes), and the destructive flags are refused.
-- **Slice 2a DONE + verified.** Installable appliance host
+- **Slice 2 DONE + verified.** Installable appliance host
   (`nixosConfigurations.appliance`): disko single-disk layout (parameterised,
-  never a hard-coded device — sentinel `appliance.targetDisk`), minimal bootable
-  GRUB-EFI host. `appliance-disk-image` builds a bootable raw image (disko
-  format + nixos-install succeed); `test-appliance-boot` boots the host config
-  and asserts identity/operator/bootstrap/NetworkManager.
+  never a hard-coded device — sentinel `appliance.targetDisk`; Btrfs /, /home,
+  /nix + swap), minimal bootable GRUB-EFI host. Operator install via
+  `dawo-appliance-bootstrap install --target-disk DEV --confirm-destroy`
+  (drives `disko-install`; shipped on the ISO; `--dry-run` preview).
+  `appliance-disk-image` builds a bootable raw image; `test-appliance-boot`
+  boots the host config and asserts identity/operator/bootstrap/NetworkManager.
+  No disk encryption in v0.1 (demo decision).
 - Nix is installed (2.34.7, daemon). `nix flake check` is green (portable, no
   kvm). VM tests need kvm: `nix build .#test-installer-boot -L`,
   `.#test-appliance-boot -L`, `.#appliance-disk-image`.
@@ -28,10 +31,11 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Next
 
-- **Slice 2b**: (1) ✅ DONE — the gated `install` subcommand (`disko-install`,
-  `--target-disk` + `--confirm-destroy`, safety checks, `--dry-run`); shipped on
-  the ISO; 8 dry-run checks. (2) ⬜ swap subvolume + LUKS encryption (upstream
-  parity) — LUKS unlock strategy is a pending security-sensitive decision.
+- **Slice 2 DONE.** 2a = installable host + disko storage; 2b = gated `install`
+  subcommand (shipped on the ISO; 8 dry-run checks) + swap subvolume. LUKS
+  encryption is **out of v0.1 by decision** (experimental demo; basic is enough,
+  simpler to debug) — a documented post-MVP hardening option.
+- **Slice 3** (next): DAWO desktop + KVM/libvirt — consume DAWO-NixOS modules.
 - **Slice 3** (DAWO desktop + KVM/libvirt): consume DAWO-NixOS modules.
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
 - Repo has **no remote yet** — decide if/when to add one. Commits still need
@@ -65,6 +69,8 @@ Known limitation: disko's own `makeDiskoTest` is incompatible with nixpkgs
 - Added `test-installer-boot` (NixOS VM test); enabled KVM; boot test passes.
 - Slice 2a: pinned disko; `nixosConfigurations.appliance` + single-disk Btrfs
   layout; `appliance-disk-image` and `test-appliance-boot` both pass.
+- Slice 2b: gated `install` subcommand (disko-install, safety checks, dry-run,
+  8 tests) shipped on the ISO; swap subvolume added; LUKS deferred (demo).
 
 ## Quick pointers
 

@@ -42,15 +42,16 @@ that boots the live payload and asserts the bootstrap runs non-destructively.
   nixos-install succeed); `test-appliance-boot` boots the host config and
   asserts identity, the operator account, the bootstrap and NetworkManager.
 
-### Slice 2b
+### Slice 2b (DONE 2026-06-22)
 
 - ✅ Bootstrap `install` subcommand: drives `disko-install` on a confirmed
   target disk (`--target-disk` + `--confirm-destroy`, block-device / mount /
   live-medium safety checks, `--dry-run` preview). `disko-install` ships on the
   ISO. Gating covered by the dry-run suite (8 checks).
-- ⬜ Swap subvolume + LUKS encryption (upstream parity). LUKS unlock strategy is
-  a security-sensitive decision (auto-unlock keyfile vs TPM vs passphrase vs
-  defer) — pending maintainer choice.
+- ✅ Swap subvolume added to the disko layout.
+- ❌ LUKS encryption — **out of v0.1 by decision** (experimental demo; basic
+  unencrypted storage is enough and simpler to debug). Disk encryption is a
+  documented post-MVP hardening option.
 
 ## Slice 3 — DAWO desktop + virtualisation
 

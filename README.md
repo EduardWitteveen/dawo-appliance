@@ -32,7 +32,7 @@ Live session handoff: `docs/STATUS.md` (or run `bash scripts/status.sh`).
 | --- | --- | --- |
 | 0 | Scaffolding: pinned manifest + checksum, Nix flake/dev shell, bootstrap `plan`/`verify` | ✅ Done |
 | 1 | Non-destructive live ISO + bootstrap dry-run | ✅ **Done & verified** |
-| 2 | Host install to disk (disko, gated by `--target-disk` + `--confirm-destroy`) | 🟡 2a done (host + storage); 2b next (operator `install`, LUKS) |
+| 2 | Host install to disk (disko, gated by `--target-disk` + `--confirm-destroy`) | ✅ **Done** (host + storage + gated `install`; no LUKS in v0.1 — demo) |
 | 3 | DAWO desktop (KDE Plasma 6) + KVM/libvirt | ⬜ Scaffolding |
 | 4 | Ubuntu 24.04 VM (libvirt + cloud-init) | ⬜ Scaffolding |
 | 5 | Single-node K3s in the VM | ⬜ Scaffolding |

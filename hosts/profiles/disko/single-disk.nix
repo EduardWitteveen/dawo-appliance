@@ -4,15 +4,16 @@
 # EFI System Partition (/boot) and a Btrfs root carrying subvolumes for /, /home
 # and /nix (zstd, noatime).
 #
-# Scope: Slice 2a. LUKS encryption and a swap subvolume (upstream DAWO-NixOS
-# parity) are deferred to Slice 2b — see hosts/profiles/disko/README.md.
+# Scope: Slice 2. Btrfs root with /, /home, /nix and a swap subvolume. Disk
+# encryption (LUKS) is intentionally out of v0.1: this is an experimental demo
+# and basic (unencrypted) storage is sufficient; encryption is a documented
+# post-MVP hardening option (see hosts/profiles/disko/README.md).
 #
 # Used by:
 #   - the appliance host config (hosts/appliance/disko.nix), device from the
 #     `appliance.targetDisk` option, and
-#   - the install+boot test (flake `test-host-install`), device remapped by
-#     disko's test harness to a throwaway virtual disk.
-{ device }:
+#   - the disk-image build (flake `appliance-disk-image`).
+{ device, swapSize ? "2G" }:
 {
   disko.devices.disk.main = {
     type = "disk";
@@ -50,6 +51,10 @@
               "/nix" = {
                 mountpoint = "/nix";
                 mountOptions = [ "compress=zstd" "noatime" ];
+              };
+              "/swap" = {
+                mountpoint = "/.swapvol";
+                swap.swapfile.size = swapSize;
               };
             };
           };
