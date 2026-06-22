@@ -46,9 +46,11 @@
                 "test -f /etc/dawo-appliance/manifest/appliance-manifest.json.sha256")
 
             # `plan` verifies the checksum, prints the plan, and writes nothing.
+            # The bootstrap logs ("checksum verified") go to stderr, so capture
+            # both streams with 2>&1.
             manifest = "file:///etc/dawo-appliance/manifest/appliance-manifest.json"
             out = machine.succeed(
-                f"dawo-appliance-bootstrap plan --offline --manifest-url {manifest}")
+                f"dawo-appliance-bootstrap plan --offline --manifest-url {manifest} 2>&1")
             assert "INSTALL PLAN" in out, "plan did not print the install plan"
             assert "NO DISK WRITES PERFORMED" in out, "plan did not report no-writes"
             assert "checksum verified" in out, "plan did not verify the checksum"
