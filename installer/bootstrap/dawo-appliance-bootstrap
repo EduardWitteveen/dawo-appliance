@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+#
+# dawo-appliance-bootstrap — runs on the booted live ISO.
+#
+# v0.1 implements the NON-DESTRUCTIVE path only:
+#   1. (optional) check internet connectivity
+#   2. download a pinned release manifest of this repository
+#   3. verify the manifest against a trusted, version-controlled SHA-256
+#   4. show what WOULD be installed (the plan)
+#   5. write NOTHING to disk
+#
+# Any disk-writing action requires BOTH --target-disk and --confirm-destroy and
+# is intentionally NOT implemented in v0.1: it refuses and exits.
+#
+# Experimental and unofficial. Not an official DAWO / Mijn Bureau / BZK tool.
+
+set -euo pipefail
+
+PROGRAM_NAME="dawo-appliance-bootstrap"
+PROGRAM_VERSION="0.1.0-dev"
+
+# Resolve the directory this script lives in, to find the trusted checksum that
+# ships alongside it (inside the repo / read-only ISO).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# Placeholder. There is no published release yet (see OQ-8). Override with
+# --manifest-url. For local testing use a file:// URL.
+DEFAULT_MANIFEST_URL="https://example.invalid/dawo-appliance/RELEASE/appliance-manifest.json"
+
+# Trusted expected checksum: shipped in the repo / ISO, NOT downloaded with the
+# manifest. This is the root of trust for v0.1. We search known locations: the
+# repo checkout (development) and /etc (on the live ISO).
+pick_expected_sha_file() {
+  local candidates=(
+    "${REPO_ROOT}/manifest/appliance-manifest.json.sha256"
+    "/etc/dawo-appliance/manifest/appliance-manifest.json.sha256"
+  )
+  local c
+  for c in "${candidates[@]}"; do
+    [[ -f "${c}" ]] && { printf '%s' "${c}"; return 0; }
+  done
+  printf '%s' "${candidates[0]}"
+}
+DEFAULT_EXPECTED_SHA_FILE="$(pick_expected_sha_file)"
+
+# Host used only for the connectivity probe (the repo host).
+CONNECTIVITY_PROBE_URL="https://code.overheid.nl"
+
+# --- options ---------------------------------------------------------------
+MANIFEST_URL="${DEFAULT_MANIFEST_URL}"
+EXPECTED_SHA=""
+EXPECTED_SHA_FILE="${DEFAULT_EXPECTED_SHA_FILE}"
+OFFLINE=0
+TARGET_DISK=""
+CONFIRM_DESTROY=0
+WORK_DIR=""
+
+log()  { printf '[%s] %s\n' "${PROGRAM_NAME}" "$*" >&2; }
+err()  { printf '[%s] ERROR: %s\n' "${PROGRAM_NAME}" "$*" >&2; }
+die()  { err "$*"; exit 1; }
+
+usage() {
+  cat <<EOF
+${PROGRAM_NAME} ${PROGRAM_VERSION} (experimental, unofficial)
+
+Usage:
+  ${PROGRAM_NAME} <command> [options]
+
+Commands:
+  plan       Download + verify the manifest and print the install plan.
+             Writes nothing to disk. (default)
+  verify     Download + verify the manifest checksum only.
+  version    Print version.
+  help       Show this help.
+
+Options:
+  --manifest-url URL          Manifest location (http(s):// or file://).
+                              Default: ${DEFAULT_MANIFEST_URL}
+  --expected-sha256 HEX       Expected SHA-256 of the manifest (overrides file).
+  --expected-sha256-file F    File containing the expected SHA-256
+                              (default: <repo>/manifest/appliance-manifest.json.sha256).
+  --offline                   Skip the internet connectivity check.
+  --work-dir DIR              Scratch dir for the download (default: mktemp).
+  --target-disk DEV           (NOT IMPLEMENTED in v0.1) intended install target.
+  --confirm-destroy           (NOT IMPLEMENTED in v0.1) confirm destructive write.
+  -h, --help                  Show this help.
+
+Safety: v0.1 is non-destructive. Providing --target-disk or --confirm-destroy
+makes the tool refuse and exit, because the write path is not implemented yet.
+EOF
+}
+
+# --- helpers ---------------------------------------------------------------
+have() { command -v "$1" >/dev/null 2>&1; }
+
+check_connectivity() {
+  if [[ "${OFFLINE}" -eq 1 ]]; then
+    log "connectivity check skipped (--offline)"
+    return 0
+  fi
+  log "checking internet connectivity (${CONNECTIVITY_PROBE_URL}) ..."
+  if have curl && curl -fsS --max-time 10 -I "${CONNECTIVITY_PROBE_URL}" >/dev/null 2>&1; then
+    log "connectivity OK"
+    return 0
+  fi
+  die "no internet connectivity (use --offline for local testing)"
+}
+
+download_manifest() {
+  local url="$1" dest="$2"
+  log "downloading manifest: ${url}"
+  if [[ "${url}" == file://* ]]; then
+    local path="${url#file://}"
+    [[ -f "${path}" ]] || die "manifest file not found: ${path}"
+    cp -- "${path}" "${dest}"
+  elif have curl; then
+    curl -fsS --max-time 60 -o "${dest}" -- "${url}" \
+      || die "failed to download manifest from ${url}"
+  else
+    die "curl is required to download ${url}"
+  fi
+  [[ -s "${dest}" ]] || die "downloaded manifest is empty"
+}
+
+resolve_expected_sha() {
+  if [[ -n "${EXPECTED_SHA}" ]]; then
+    log "using expected SHA-256 from --expected-sha256"
+    return 0
+  fi
+  [[ -f "${EXPECTED_SHA_FILE}" ]] \
+    || die "expected-sha256 file not found: ${EXPECTED_SHA_FILE}"
+  # File format: "<sha256>  <filename>" (sha256sum output). Take the first field.
+  EXPECTED_SHA="$(awk 'NR==1{print $1}' "${EXPECTED_SHA_FILE}")"
+  [[ "${EXPECTED_SHA}" =~ ^[0-9a-f]{64}$ ]] \
+    || die "invalid expected SHA-256 in ${EXPECTED_SHA_FILE}"
+  log "using trusted expected SHA-256 from ${EXPECTED_SHA_FILE}"
+}
+
+verify_manifest() {
+  local file="$1" actual
+  actual="$(sha256sum "${file}" | awk '{print $1}')"
+  if [[ "${actual}" != "${EXPECTED_SHA}" ]]; then
+    err "manifest checksum MISMATCH"
+    err "  expected: ${EXPECTED_SHA}"
+    err "  actual:   ${actual}"
+    die "refusing to use an unverified manifest"
+  fi
+  log "manifest checksum verified: ${actual}"
+}
+
+render_plan() {
+  local file="$1"
+  echo
+  echo "=========================================================="
+  echo " dawo-appliance — INSTALL PLAN (dry-run, nothing written)"
+  echo "=========================================================="
+  if have jq; then
+    _render_plan_jq "${file}"
+  elif have python3; then
+    _render_plan_python "${file}"
+  else
+    echo "(no jq or python3 available to pretty-print; raw manifest follows)"
+    cat "${file}"
+  fi
+  echo
+  echo "NO DISK WRITES PERFORMED. This is a plan only (v0.1)."
+  echo "=========================================================="
+}
+
+_render_plan_jq() {
+  local file="$1"
+  jq -r '
+    "appliance:        \(.appliance.name) \(.appliance.version) (official: \(.appliance.official))",
+    "architecture:     \(.architecture)",
+    "DAWO-NixOS rev:   \(.upstream.dawo_nixos.rev)",
+    "Mijn Bureau rev:  \(.upstream.mijn_bureau_infra.rev)",
+    "nixpkgs rev:      \(.nix.nixpkgs.rev) (\(.nix.nixpkgs.ref))",
+    "host requirement: >= \(.host.min_vcpu) vCPU, >= \(.host.min_ram_gib) GiB RAM, desktop: \(.host.desktop)",
+    "VM:               \(.vm.os) — >= \(.vm.min_vcpu) vCPU, >= \(.vm.min_ram_gib) GiB RAM",
+    "Kubernetes:       \(.kubernetes.distribution) (\(.kubernetes.mode))",
+    "dashboard URL:    \(.mijn_bureau.dashboard.url_template)",
+    "",
+    "Steps that WOULD run:",
+    (.install_plan | to_entries[] | "  \(.key + 1). \(.value)"),
+    "",
+    "Pending pins / decisions (must be resolved before those steps):",
+    (.pending_pins[] | "  - \(.)")
+  ' "${file}"
+}
+
+_render_plan_python() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+a = m["appliance"]
+print(f"appliance:        {a['name']} {a['version']} (official: {a['official']})")
+print(f"architecture:     {m['architecture']}")
+print(f"DAWO-NixOS rev:   {m['upstream']['dawo_nixos']['rev']}")
+print(f"Mijn Bureau rev:  {m['upstream']['mijn_bureau_infra']['rev']}")
+nx = m["nix"]["nixpkgs"]
+print(f"nixpkgs rev:      {nx['rev']} ({nx['ref']})")
+h = m["host"]
+print(f"host requirement: >= {h['min_vcpu']} vCPU, >= {h['min_ram_gib']} GiB RAM, desktop: {h['desktop']}")
+v = m["vm"]
+print(f"VM:               {v['os']} — >= {v['min_vcpu']} vCPU, >= {v['min_ram_gib']} GiB RAM")
+k = m["kubernetes"]
+print(f"Kubernetes:       {k['distribution']} ({k['mode']})")
+print(f"dashboard URL:    {m['mijn_bureau']['dashboard']['url_template']}")
+print()
+print("Steps that WOULD run:")
+for i, step in enumerate(m["install_plan"], 1):
+    print(f"  {i}. {step}")
+print()
+print("Pending pins / decisions (must be resolved before those steps):")
+for p in m.get("pending_pins", []):
+    print(f"  - {p}")
+PY
+}
+
+guard_destructive() {
+  if [[ -n "${TARGET_DISK}" || "${CONFIRM_DESTROY}" -eq 1 ]]; then
+    err "destructive install is NOT implemented in v0.1."
+    err "  --target-disk / --confirm-destroy were given but no disk will be touched."
+    err "  The write path will require an explicit target disk AND confirmation"
+    err "  once implemented (Slice 2). Refusing."
+    exit 3
+  fi
+}
+
+# --- argument parsing ------------------------------------------------------
+COMMAND="plan"
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  COMMAND="$1"; shift
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --manifest-url)          MANIFEST_URL="${2:?}"; shift 2 ;;
+    --expected-sha256)       EXPECTED_SHA="${2:?}"; shift 2 ;;
+    --expected-sha256-file)  EXPECTED_SHA_FILE="${2:?}"; shift 2 ;;
+    --offline)               OFFLINE=1; shift ;;
+    --work-dir)              WORK_DIR="${2:?}"; shift 2 ;;
+    --target-disk)           TARGET_DISK="${2:?}"; shift 2 ;;
+    --confirm-destroy)       CONFIRM_DESTROY=1; shift ;;
+    -h|--help)               usage; exit 0 ;;
+    *) die "unknown option: $1 (try: ${PROGRAM_NAME} help)" ;;
+  esac
+done
+
+# --- commands --------------------------------------------------------------
+cmd_verify_or_plan() {
+  local do_plan="$1"
+  guard_destructive
+  check_connectivity
+  resolve_expected_sha
+
+  local cleanup=0 workdir manifest
+  if [[ -n "${WORK_DIR}" ]]; then
+    mkdir -p "${WORK_DIR}"; workdir="${WORK_DIR}"
+  else
+    workdir="$(mktemp -d "${TMPDIR:-/tmp}/dawo-bootstrap.XXXXXX")"; cleanup=1
+  fi
+  manifest="${workdir}/appliance-manifest.json"
+
+  download_manifest "${MANIFEST_URL}" "${manifest}"
+  verify_manifest "${manifest}"
+
+  if [[ "${do_plan}" -eq 1 ]]; then
+    render_plan "${manifest}"
+  else
+    log "verify OK"
+  fi
+
+  [[ "${cleanup}" -eq 1 ]] && rm -rf "${workdir}"
+  return 0
+}
+
+case "${COMMAND}" in
+  plan)    cmd_verify_or_plan 1 ;;
+  verify)  cmd_verify_or_plan 0 ;;
+  version) echo "${PROGRAM_NAME} ${PROGRAM_VERSION}" ;;
+  help|-h|--help) usage ;;
+  *) die "unknown command: ${COMMAND} (try: ${PROGRAM_NAME} help)" ;;
+esac

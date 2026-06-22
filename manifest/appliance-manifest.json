@@ -1,0 +1,123 @@
+{
+  "schema_version": "0.1.0",
+  "appliance": {
+    "name": "dawo-appliance",
+    "version": "0.1.0-dev",
+    "license": "EUPL-1.2",
+    "official": false,
+    "description": "Experimental, unofficial demo appliance for a digitally autonomous government workplace."
+  },
+  "architecture": "x86_64-linux",
+  "upstream": {
+    "dawo_nixos": {
+      "url": "https://code.overheid.nl/MinBZK/DAWO-NixOS",
+      "rev": "daed6f81a189403e41d49df3d76cfb02d1de8ea5",
+      "inspected": "2026-06-18",
+      "license": "GPL-3.0"
+    },
+    "mijn_bureau_infra": {
+      "url": "https://code.overheid.nl/MinBZK/mijn-bureau-infra",
+      "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
+      "inspected": "2026-06-16",
+      "license": "EUPL-1.2"
+    }
+  },
+  "nix": {
+    "nixpkgs": {
+      "ref": "nixos-25.11",
+      "rev": "d6df3513510aa548c83868fd22bfddd0a8c0a0d4",
+      "narHash": "sha256-uJZs9Di8I6ciTp6jiojj0HzlNpBkud8ax5aT/O5aJkw="
+    }
+  },
+  "host": {
+    "os": "NixOS",
+    "desktop": "DAWO (KDE Plasma 6 + SDDM, via profiles-dawo-generic)",
+    "min_vcpu": 16,
+    "min_ram_gib": 56
+  },
+  "vm": {
+    "name": "dawo-appliance-mb",
+    "os": "Ubuntu 24.04 LTS",
+    "min_vcpu": 12,
+    "min_ram_gib": 48,
+    "image": {
+      "status": "pending-pin",
+      "note": "Pin Ubuntu 24.04 cloud image to a concrete release + SHA-256 before Slice 4 (OQ-6)."
+    }
+  },
+  "kubernetes": {
+    "distribution": "k3s",
+    "mode": "single-node",
+    "version": {
+      "status": "pending-pin",
+      "note": "Pin exact k3s release + checksum before Slice 5 (OQ-6). Upstream reference: KIND/K8s node image v1.34.0."
+    }
+  },
+  "mijn_bureau": {
+    "deployment": "helmfile",
+    "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
+    "tooling": {
+      "helmfile": "1.1.7",
+      "cert_manager": "v1.16.2"
+    },
+    "tls": {
+      "strategy": "self-signed (local demo)",
+      "status": "pending-decision",
+      "note": "Upstream single-VPS path uses Let's Encrypt; local demo needs self-signed + local DNS (OQ-3)."
+    },
+    "base_domain": {
+      "status": "pending-decision",
+      "default_upstream": "kubernetes.local"
+    },
+    "dashboard": {
+      "app": "bureaublad",
+      "url_template": "https://bureaublad.<base_domain>",
+      "note": "This is the URL the appliance opens in the browser at the end."
+    },
+    "charts": {
+      "note": "Chart and image versions are pinned upstream at the rev above in helmfile/environments/default/container.yaml.gotmpl. A representative subset is recorded here; digest-pinning is tracked as OQ-5.",
+      "shared": {
+        "postgresql_bitnami": "16.7.18",
+        "redis_bitnami": "21.2.6",
+        "minio_bitnami": "17.0.11",
+        "nginx_bitnami": "22.0.0",
+        "keycloak": "24.6.7",
+        "openproject": "13.8.0"
+      },
+      "images_by_tag": {
+        "keycloak": "docker.io/bitnamilegacy/keycloak:26.3.3-debian-12-r0",
+        "nextcloud": "docker.io/library/nextcloud:34.0.0-apache",
+        "synapse": "docker.io/matrixdotorg/synapse:v1.154.0",
+        "element_web": "docker.io/vectorim/element-web:v1.12.21",
+        "collabora_code": "docker.io/collabora/code:26.04.1.4.1",
+        "openproject": "ghcr.io/minbzk/mijnbureau-openproject:v16.6.3",
+        "bureaublad_api": "ghcr.io/minbzk/bureaublad-api:v0.9.3",
+        "bureaublad_frontend": "ghcr.io/minbzk/bureaublad-frontend:v0.6.1"
+      }
+    }
+  },
+  "secrets": {
+    "policy": "Generated at install time. Never stored in Git.",
+    "master_password_env": "MIJNBUREAU_MASTER_PASSWORD"
+  },
+  "install_plan": [
+    "establish internet connection",
+    "download pinned release of this repository",
+    "verify downloaded artifacts",
+    "install NixOS (explicit target disk + confirmation)",
+    "configure DAWO-based desktop",
+    "configure KVM/libvirt",
+    "download or build the Ubuntu 24.04 VM",
+    "start the VM",
+    "install/start single-node K3s in the VM",
+    "deploy Mijn Bureau",
+    "wait until Mijn Bureau is healthy",
+    "open Mijn Bureau in the browser"
+  ],
+  "pending_pins": [
+    "vm.image (OQ-6)",
+    "kubernetes.version (OQ-6)",
+    "container image digests (OQ-5)",
+    "tls/base_domain decision (OQ-3)"
+  ]
+}

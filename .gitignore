@@ -1,0 +1,50 @@
+# Nix
+result
+result-*
+.direnv/
+.pre-commit-config.local
+
+# Build / installer artifacts (never commit large binaries or ISOs)
+*.iso
+*.img
+*.qcow2
+*.vmdk
+build/
+dist/
+artifacts/
+
+# Downloaded VM images / payloads
+vm/**/*.img
+vm/**/*.qcow2
+*.tar
+*.tar.gz
+*.tar.zst
+
+# Secrets — NEVER commit. Secrets are generated at install time.
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+*.secret
+*secrets.yaml
+!**/example.secrets.yaml
+age.txt
+*.agekey
+.sops-key*
+kubeconfig
+*.kubeconfig
+
+# Local manifest download scratch
+manifest/.cache/
+*.manifest.downloaded
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude Code — machine-local settings (shared settings.json may be committed)
+.claude/settings.local.json

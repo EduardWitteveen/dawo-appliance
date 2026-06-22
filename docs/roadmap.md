@@ -1,0 +1,74 @@
+# Roadmap
+
+Incremental, vertical slices. Each slice is runnable and adds one layer toward
+the full boot-to-demo flow (`docs/architecture.md`). Destructive steps are gated
+behind explicit confirmation and built late.
+
+## Slice 0 — scaffolding (done / in progress)
+
+- Repository structure, docs, ADRs.
+- Pinned manifest format + checksum.
+- Minimal Nix flake + dev shell.
+- Bootstrap `plan` command (download manifest, verify checksum, print plan,
+  **no disk writes**).
+- Local tests that need no Nix/root/network.
+
+## Slice 1 — non-destructive live ISO + bootstrap dry-run (current target)
+
+A bootable NixOS live ISO that:
+
+- boots successfully;
+- has working networking;
+- contains the `dawo-appliance-bootstrap` command;
+- downloads a pinned manifest from a release of this repository;
+- verifies its checksum;
+- shows what would be installed (the plan);
+- **does not write to disk**.
+
+Validatable now (without building the ISO): the bootstrap `plan` runs against
+the local manifest. Building/booting the ISO needs Nix (blocked by OQ-1).
+
+## Slice 2 — host install (destructive, gated)
+
+- Explicit-target-disk disko module (never a default device).
+- Install NixOS to a confirmed target disk (`--target-disk` + `--confirm-destroy`).
+- Reboot into the installed host.
+
+## Slice 3 — DAWO desktop + virtualisation
+
+- Consume DAWO-NixOS `profiles-dawo-generic` / `desktop-plasma` (pinned input).
+- Configure KVM/libvirt on the host.
+
+## Slice 4 — Ubuntu 24.04 VM
+
+- Pin the Ubuntu 24.04 cloud image (version + SHA-256) — resolves OQ-6.
+- libvirt domain + cloud-init; auto-start the VM.
+
+## Slice 5 — single-node K3s
+
+- Pin the K3s release (version + checksum) — resolves OQ-6.
+- Install/start single-node K3s in the VM.
+
+## Slice 6 — Mijn Bureau
+
+- Resolve local DNS + self-signed TLS (OQ-3).
+- Drive mijn-bureau-infra Helmfile (pinned rev `ef1d796…`), generate the master
+  password at install time (never stored in Git).
+- Digest-pin images (OQ-5).
+
+## Slice 7 — health + browser
+
+- Health check: wait until certificates Ready and the dashboard responds.
+- Open `https://bureaublad.<domain>` in the browser.
+
+## Hardening (cross-cutting, after MVP)
+
+- Signature verification of manifest + artifacts (OQ-7).
+- Reproducibility audit of all pins.
+- Offline install (explicitly out of v0.1 scope).
+
+## Decisions needed (see open-questions.md)
+
+- OQ-1 WSL `metadata` (blocks git/Nix here).
+- OQ-3 local DNS/TLS (blocks slices 6–7).
+- OQ-4 license (blocks publishing).
