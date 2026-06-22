@@ -72,6 +72,8 @@ that boots the live payload and asserts the bootstrap runs non-destructively.
 
 ## Decisions needed (see open-questions.md)
 
-- OQ-1 WSL `metadata` (blocks git/Nix here).
-- OQ-3 local DNS/TLS (blocks slices 6–7).
-- OQ-4 license (blocks publishing).
+- **OQ-3** local DNS/TLS (blocks slices 6–7). — still open.
+- OQ-2 large host for the full end-to-end run (slices 5–7). — still open.
+
+Resolved: OQ-1 (WSL `metadata` enabled, git/Nix work here), OQ-4 (license =
+EUPL-1.2).
