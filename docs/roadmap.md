@@ -33,9 +33,21 @@ that boots the live payload and asserts the bootstrap runs non-destructively.
 
 ## Slice 2 — host install (destructive, gated)
 
-- Explicit-target-disk disko module (never a default device).
-- Install NixOS to a confirmed target disk (`--target-disk` + `--confirm-destroy`).
-- Reboot into the installed host.
+### Slice 2a (DONE 2026-06-22)
+
+- Explicit-target-disk disko module, never a default device
+  (`hosts/profiles/disko/single-disk.nix`; sentinel `appliance.targetDisk`).
+- Installable host `nixosConfigurations.appliance` (minimal bootable, GRUB-EFI).
+- Verified: `appliance-disk-image` builds a bootable raw image (disko format +
+  nixos-install succeed); `test-appliance-boot` boots the host config and
+  asserts identity, the operator account, the bootstrap and NetworkManager.
+
+### Slice 2b (next)
+
+- Bootstrap `install` subcommand: drive disko + nixos-install on a confirmed
+  target disk (`--target-disk` + `--confirm-destroy`, block-device safety
+  checks), then reboot into the installed host.
+- LUKS encryption + swap subvolume (upstream parity; key generated at install).
 
 ## Slice 3 — DAWO desktop + virtualisation
 

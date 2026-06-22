@@ -27,6 +27,11 @@
       "ref": "nixos-25.11",
       "rev": "d6df3513510aa548c83868fd22bfddd0a8c0a0d4",
       "narHash": "sha256-uJZs9Di8I6ciTp6jiojj0HzlNpBkud8ax5aT/O5aJkw="
+    },
+    "disko": {
+      "ref": "master",
+      "rev": "ff8702b4de27f72b4c78573dfb89ec74e36abdf1",
+      "note": "Declarative partitioning (Slice 2). Exact rev pinned in flake.lock; nixpkgs follows the pin above."
     }
   },
   "host": {
