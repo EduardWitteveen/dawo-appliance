@@ -71,13 +71,54 @@ else
   ok "tampered manifest rejected (checksum mismatch)"
 fi
 
-# --- 4. destructive flags are refused --------------------------------------
+# --- 4. plan/verify refuse destructive flags -------------------------------
 if run_bootstrap plan --offline \
       --manifest-url "file://${MANIFEST}" \
       --target-disk /dev/null --confirm-destroy >/dev/null 2>&1; then
-  bad "destructive flags were accepted (should be refused in v0.1)"
+  bad "plan accepted destructive flags (should be refused)"
 else
-  ok "destructive flags refused (no write path in v0.1)"
+  ok "plan refuses --target-disk / --confirm-destroy"
+fi
+
+# --- 5. install requires an explicit target disk ---------------------------
+if run_bootstrap install >/dev/null 2>&1; then
+  bad "install ran without --target-disk (should refuse)"
+else
+  ok "install refuses without --target-disk"
+fi
+
+# --- 6. install refuses a non-block-device target --------------------------
+# A real install must hit the block-device check before any write. /dev/null is
+# a character device, never a valid install target.
+if run_bootstrap install --target-disk /dev/null --confirm-destroy >/dev/null 2>&1; then
+  bad "install accepted a non-block-device target (should refuse)"
+else
+  ok "install refuses a non-block-device target"
+fi
+
+# --- 7. install --dry-run previews and writes nothing ----------------------
+out=""
+if out="$(run_bootstrap install --target-disk /dev/dawo-nonexistent --dry-run 2>&1)"; then
+  if grep -q "INSTALL PLAN" <<<"${out}" \
+     && grep -q "NO DISK WRITES PERFORMED" <<<"${out}" \
+     && grep -q "disko-install --flake" <<<"${out}"; then
+    ok "install --dry-run previews the plan and writes nothing"
+  else
+    bad "install --dry-run output missing expected markers"
+    printf '%s\n' "${out}" | sed 's/^/      | /'
+  fi
+else
+  bad "install --dry-run exited non-zero"
+  printf '%s\n' "${out}" | sed 's/^/      | /'
+fi
+
+# --- 8. install without confirmation (and not dry-run) refuses -------------
+# Even if the device check were to pass, the missing --confirm-destroy must stop
+# it. We use a non-block device so nothing can be written regardless.
+if run_bootstrap install --target-disk /dev/dawo-nonexistent >/dev/null 2>&1; then
+  bad "install ran without --confirm-destroy (should refuse)"
+else
+  ok "install refuses without --confirm-destroy"
 fi
 
 echo "test-bootstrap-dryrun: ${pass} passed, ${fail} failed"

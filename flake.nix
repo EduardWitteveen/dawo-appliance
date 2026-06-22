@@ -138,7 +138,12 @@
 
       nixosConfigurations.installer-iso = nixpkgs.lib.nixosSystem {
         inherit system;
-        modules = [ ./installer/iso/iso.nix ];
+        modules = [
+          ./installer/iso/iso.nix
+          # Ship disko-install so `dawo-appliance-bootstrap install` can run on
+          # the booted ISO (Slice 2).
+          { environment.systemPackages = [ disko.packages.${system}.disko-install ]; }
+        ];
       };
 
       # The installed appliance host (Slice 2). Storage is declared with disko

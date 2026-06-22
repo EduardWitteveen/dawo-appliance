@@ -47,6 +47,12 @@ DEFAULT_EXPECTED_SHA_FILE="$(pick_expected_sha_file)"
 # Host used only for the connectivity probe (the repo host).
 CONNECTIVITY_PROBE_URL="https://code.overheid.nl"
 
+# The NixOS configuration to install (Slice 2). On a real install medium the
+# flake is shipped read-only; override with --flake. The attribute is the
+# appliance host defined in this repository's flake.
+DEFAULT_FLAKE_REF="/etc/dawo-appliance/config"
+INSTALL_ATTR="appliance"
+
 # --- options ---------------------------------------------------------------
 MANIFEST_URL="${DEFAULT_MANIFEST_URL}"
 EXPECTED_SHA=""
@@ -55,6 +61,8 @@ OFFLINE=0
 TARGET_DISK=""
 CONFIRM_DESTROY=0
 WORK_DIR=""
+FLAKE_REF="${DEFAULT_FLAKE_REF}"
+DRY_RUN=0
 
 log()  { printf '[%s] %s\n' "${PROGRAM_NAME}" "$*" >&2; }
 err()  { printf '[%s] ERROR: %s\n' "${PROGRAM_NAME}" "$*" >&2; }
@@ -71,6 +79,9 @@ Commands:
   plan       Download + verify the manifest and print the install plan.
              Writes nothing to disk. (default)
   verify     Download + verify the manifest checksum only.
+  install    Partition + format + install the appliance host onto an explicit
+             target disk. DESTRUCTIVE: requires --target-disk AND
+             --confirm-destroy. Use --dry-run to preview without writing.
   version    Print version.
   help       Show this help.
 
@@ -82,12 +93,19 @@ Options:
                               (default: <repo>/manifest/appliance-manifest.json.sha256).
   --offline                   Skip the internet connectivity check.
   --work-dir DIR              Scratch dir for the download (default: mktemp).
-  --target-disk DEV           (NOT IMPLEMENTED in v0.1) intended install target.
-  --confirm-destroy           (NOT IMPLEMENTED in v0.1) confirm destructive write.
+  --target-disk DEV           Explicit install target (a block device, e.g.
+                              /dev/sda). Required by 'install'. NEVER defaulted.
+  --confirm-destroy           Confirm that 'install' may ERASE the target disk.
+  --flake REF                 Flake to install (default: ${DEFAULT_FLAKE_REF}).
+                              The '#${INSTALL_ATTR}' attribute is used.
+  --dry-run                   For 'install': print the plan and the exact command
+                              that WOULD run, and write nothing.
   -h, --help                  Show this help.
 
-Safety: v0.1 is non-destructive. Providing --target-disk or --confirm-destroy
-makes the tool refuse and exit, because the write path is not implemented yet.
+Safety: 'plan'/'verify' are non-destructive and refuse --target-disk /
+--confirm-destroy. 'install' writes to disk ONLY when given BOTH an explicit
+--target-disk AND --confirm-destroy; otherwise it refuses. --dry-run never
+writes.
 EOF
 }
 
@@ -221,11 +239,85 @@ PY
 
 guard_destructive() {
   if [[ -n "${TARGET_DISK}" || "${CONFIRM_DESTROY}" -eq 1 ]]; then
-    err "destructive install is NOT implemented in v0.1."
-    err "  --target-disk / --confirm-destroy were given but no disk will be touched."
-    err "  The write path will require an explicit target disk AND confirmation"
-    err "  once implemented (Slice 2). Refusing."
+    err "this command is non-destructive; --target-disk / --confirm-destroy are"
+    err "  not valid here. To install, use the 'install' command. Refusing."
     exit 3
+  fi
+}
+
+# Validate that TARGET_DISK is a safe, explicit install target. Every check is
+# fatal for a real install. The caller is responsible for honouring --dry-run.
+validate_target_disk() {
+  local dev="$1"
+
+  [[ -n "${dev}" ]] || die "no --target-disk given (never defaulted; refusing)"
+  [[ -b "${dev}" ]] || die "target disk is not a block device: ${dev}"
+
+  # Refuse if the device, or any of its partitions, is currently mounted.
+  if have lsblk; then
+    local mounted
+    mounted="$(lsblk -nro MOUNTPOINT "${dev}" 2>/dev/null | grep -c .)"
+    [[ "${mounted}" -eq 0 ]] \
+      || die "refusing: ${dev} (or one of its partitions) is mounted"
+  fi
+
+  # Refuse if it is the disk currently backing the live/root filesystem.
+  if have findmnt && have lsblk; then
+    local root_src root_disk target_disk
+    root_src="$(findmnt -nro SOURCE / 2>/dev/null || true)"
+    if [[ -n "${root_src}" && -b "${root_src}" ]]; then
+      root_disk="$(lsblk -nro PKNAME "${root_src}" 2>/dev/null | head -1)"
+      target_disk="$(lsblk -nro KNAME "${dev}" 2>/dev/null | head -1)"
+      if [[ -n "${root_disk}" && "${root_disk}" == "${target_disk}" ]]; then
+        die "refusing: ${dev} backs the running system (/)"
+      fi
+    fi
+  fi
+}
+
+cmd_install() {
+  # Hard rule: an explicit target disk is always required.
+  validate_target_disk_for_mode
+
+  local flake_target="${FLAKE_REF}#${INSTALL_ATTR}"
+  # disko-install performs partition + format + mount + nixos-install in one
+  # step, overriding the disk device explicitly (so nothing is hard-coded).
+  local -a cmd=(disko-install --flake "${flake_target}" --disk main "${TARGET_DISK}")
+
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo
+    echo "=========================================================="
+    echo " dawo-appliance — INSTALL PLAN (dry-run, nothing written)"
+    echo "=========================================================="
+    echo "target disk:  ${TARGET_DISK}"
+    echo "flake:        ${flake_target}"
+    echo "would run:    ${cmd[*]}"
+    echo
+    echo "NO DISK WRITES PERFORMED. Re-run with --confirm-destroy (and without"
+    echo "--dry-run) to ERASE ${TARGET_DISK} and install."
+    echo "=========================================================="
+    return 0
+  fi
+
+  # Real install: require explicit confirmation and a working installer.
+  if [[ "${CONFIRM_DESTROY}" -ne 1 ]]; then
+    err "install will ERASE ALL DATA on ${TARGET_DISK}."
+    die "refusing without --confirm-destroy (preview with --dry-run)"
+  fi
+  have disko-install || die "disko-install not found on PATH (the install medium must ship it)"
+
+  log "ERASING ${TARGET_DISK} and installing ${flake_target} ..."
+  "${cmd[@]}"
+  log "install complete. Reboot to start the appliance host."
+}
+
+# Gate shared by dry-run and real install: a target disk is always required;
+# its block-device/mount/live-medium checks are fatal only for a real write.
+validate_target_disk_for_mode() {
+  [[ -n "${TARGET_DISK}" ]] \
+    || die "install requires --target-disk DEV (never defaulted; refusing)"
+  if [[ "${DRY_RUN}" -ne 1 ]]; then
+    validate_target_disk "${TARGET_DISK}"
   fi
 }
 
@@ -244,6 +336,8 @@ while [[ $# -gt 0 ]]; do
     --work-dir)              WORK_DIR="${2:?}"; shift 2 ;;
     --target-disk)           TARGET_DISK="${2:?}"; shift 2 ;;
     --confirm-destroy)       CONFIRM_DESTROY=1; shift ;;
+    --flake)                 FLAKE_REF="${2:?}"; shift 2 ;;
+    --dry-run)               DRY_RUN=1; shift ;;
     -h|--help)               usage; exit 0 ;;
     *) die "unknown option: $1 (try: ${PROGRAM_NAME} help)" ;;
   esac
@@ -280,6 +374,7 @@ cmd_verify_or_plan() {
 case "${COMMAND}" in
   plan)    cmd_verify_or_plan 1 ;;
   verify)  cmd_verify_or_plan 0 ;;
+  install) cmd_install ;;
   version) echo "${PROGRAM_NAME} ${PROGRAM_VERSION}" ;;
   help|-h|--help) usage ;;
   *) die "unknown command: ${COMMAND} (try: ${PROGRAM_NAME} help)" ;;
