@@ -18,9 +18,10 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 - Repo is initialised (branch `main`, first commit done). **No remote yet** —
   decide if/when to add one. Further commits still need maintainer approval.
-- Install Nix (separate task), then build/boot the live ISO
-  (`installer/iso/iso.nix`). Prefer the Nix store on the WSL ext4 filesystem,
-  not the `/mnt/c` 9p mount.
+- **Install Nix** — runbook ready at `docs/nix-setup.md` (multi-user/daemon
+  install; pre-flight verified green). The maintainer runs the install commands
+  (host change). Then `nix flake check` → `nix build .#installer-iso` finishes
+  Slice 1.
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
 
 ## Blocking decisions
@@ -40,6 +41,7 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Quick pointers
 
+- Nix install runbook (WSL): `docs/nix-setup.md`
 - Roadmap (all slices): `docs/roadmap.md`
 - Open questions / decisions: `docs/open-questions.md`
 - Architecture: `docs/architecture.md`

@@ -74,7 +74,10 @@ make manifest-sum     # writes manifest/appliance-manifest.json.sha256
 
 ## Nix-based checks (when Nix is available)
 
-These require Nix with flakes (blocked by OQ-1 on this machine):
+> Nix is not yet installed here. To install it, follow `docs/nix-setup.md`
+> (WSL2 runbook: multi-user install, enable flakes, verify against the flake).
+
+These require Nix with flakes:
 
 ```bash
 nix flake check          # evaluate flake outputs and run checks
