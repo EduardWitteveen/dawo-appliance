@@ -37,6 +37,15 @@ standard, recommended mode.
 
 ### 1. Install Nix (official installer, multi-user)
 
+> **Run this in a real interactive WSL terminal** (open the *Ubuntu* app, or a
+> *Windows Terminal* → Ubuntu tab), **not** via the `!` prompt inside Claude
+> Code. The installer calls `sudo` many times, and the `!` runner has no TTY, so
+> sudo cannot read your password — the install aborts on the first sudo call
+> with `sudo: a terminal is required to read the password`. (It rolls back
+> cleanly, leaving no `/nix`, no `nixbld` group/users, no service.) A
+> single-user `--no-daemon` install does not avoid this — it also needs sudo to
+> create `/nix`.
+
 ```bash
 sh <(curl -L https://nixos.org/nix/install) --daemon
 ```
