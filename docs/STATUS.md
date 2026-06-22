@@ -16,8 +16,8 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Next
 
-- **`git init` the repo** — now unblocked (OQ-1 resolved). Commits need
-  maintainer approval; no remote yet.
+- Repo is initialised (branch `main`, first commit done). **No remote yet** —
+  decide if/when to add one. Further commits still need maintainer approval.
 - Install Nix (separate task), then build/boot the live ISO
   (`installer/iso/iso.nix`). Prefer the Nix store on the WSL ext4 filesystem,
   not the `/mnt/c` 9p mount.
@@ -36,6 +36,7 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 - Offline dry-run test suite (4 checks, all passing).
 - This handoff doc + `scripts/status.sh` orientation helper.
 - OQ-1 resolved: WSL `metadata` enabled, `git init` verified working on `/mnt/c`.
+- Git repo initialised on branch `main`; initial commit `1d94cc2` (28 files).
 
 ## Quick pointers
 
