@@ -28,10 +28,10 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Next
 
-- **Slice 2b**: (1) the operator-facing `install` subcommand in the bootstrap
-  (drive disko + nixos-install, gated by `--target-disk` + `--confirm-destroy`,
-  with block-device safety checks); (2) LUKS encryption + swap subvolume
-  (upstream parity, key generated at install time).
+- **Slice 2b**: (1) ✅ DONE — the gated `install` subcommand (`disko-install`,
+  `--target-disk` + `--confirm-destroy`, safety checks, `--dry-run`); shipped on
+  the ISO; 8 dry-run checks. (2) ⬜ swap subvolume + LUKS encryption (upstream
+  parity) — LUKS unlock strategy is a pending security-sensitive decision.
 - **Slice 3** (DAWO desktop + KVM/libvirt): consume DAWO-NixOS modules.
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
 - Repo has **no remote yet** — decide if/when to add one. Commits still need
