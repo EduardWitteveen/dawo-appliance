@@ -7,20 +7,28 @@
 - Linux (this repo is developed on Windows + WSL2 / Ubuntu 24.04, x86-64).
 - For the no-Nix local checks: `bash`, `coreutils` (`sha256sum`), `curl` or a
   local file path. Optional: `shellcheck`, `jq`.
-- For Nix-based checks: a working Nix with flakes enabled. **Not available on
-  the current machine** (see OQ-1 in `docs/open-questions.md`).
+- For Nix-based checks: a working Nix with flakes enabled. **Nix is not yet
+  installed on the current machine** (separate task; `git`/`chmod` now work here
+  since OQ-1 was resolved — see `docs/open-questions.md`).
 
-## Known environment issue (OQ-1)
+## Environment note (OQ-1 resolved 2026-06-22)
 
-`/mnt/c` is mounted without `metadata`, so `chmod` fails there and both
-`git init` and Nix builds fail on that path. Options and the recommended fix are
-in `docs/open-questions.md`. The non-Nix checks below work regardless.
+`/mnt/c` now mounts with `metadata`, so `chmod`, `git init`, and commits work on
+this path. The repo is initialised on branch `main`. Nix is still not installed
+(installing it is a separate task); when it is, keep the Nix store on the WSL
+ext4 filesystem rather than the slow `/mnt/c` 9p mount. The non-Nix checks below
+work regardless. Full history is in `docs/open-questions.md` (OQ-1).
 
 ## Local validation (no Nix, no root, no network)
 
 These are runnable right now:
 
 ```bash
+# 0. Orient: print where we left off + live checks (run this at session start).
+make status
+#   equivalent:
+bash scripts/status.sh
+
 # 1. Run the full local test (checksum verify + tamper test + no-disk-write).
 make test
 #   equivalent:
@@ -41,13 +49,15 @@ make fmt-check
 
 ### What the test asserts
 
-`tests/test-bootstrap-dryrun.sh`:
+`tests/test-bootstrap-dryrun.sh` (4 checks):
 
-1. The bootstrap downloads the manifest from a `file://` URL and verifies it
-   against the expected SHA-256 — exit 0, plan printed.
-2. A **tampered** manifest is rejected (checksum mismatch → non-zero exit).
-3. The plan run writes nothing outside its temp dir and never touches a block
-   device (no `--target-disk` / `--confirm-destroy` path is exercised).
+1. The committed manifest matches its `.sha256`.
+2. The bootstrap downloads the manifest from a `file://` URL and verifies it
+   against the expected SHA-256 — exit 0, plan printed, "no disk writes"
+   reported.
+3. A **tampered** manifest is rejected (checksum mismatch → non-zero exit).
+4. Passing `--target-disk` / `--confirm-destroy` is refused (non-zero exit): the
+   destructive path is not reachable in v0.1.
 
 ### Updating the manifest checksum
 
@@ -90,6 +100,7 @@ pins). When Nix is available, `nix flake check` will validate it.
 
 | Target | Description |
 | --- | --- |
+| `make status` | Session orientation: where we left off + live checks. |
 | `make test` | Run the local bootstrap test suite (no Nix/root/network). |
 | `make plan` | Run the bootstrap dry-run against the local manifest. |
 | `make manifest-sum` | Regenerate the manifest checksum file. |
