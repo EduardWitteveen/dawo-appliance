@@ -38,9 +38,11 @@ that boots the live payload and asserts the bootstrap runs non-destructively.
 - Explicit-target-disk disko module, never a default device
   (`hosts/profiles/disko/single-disk.nix`; sentinel `appliance.targetDisk`).
 - Installable host `nixosConfigurations.appliance` (minimal bootable, GRUB-EFI).
-- Verified: `appliance-disk-image` builds a bootable raw image (disko format +
-  nixos-install succeed); `test-appliance-boot` boots the host config and
-  asserts identity, the operator account, the bootstrap and NetworkManager.
+- Verified: `nix flake check`; the appliance toplevel builds; `diskoScript`
+  builds (the layout, touching only the sentinel device); and
+  `test-appliance-boot` boots the host config and asserts identity, the operator
+  account, the bootstrap and NetworkManager. (`appliance-disk-image` builds a
+  full raw image but is KVM-flaky on WSL — see open-questions OQ-9.)
 
 ### Slice 2b (DONE 2026-06-22)
 

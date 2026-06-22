@@ -19,9 +19,12 @@ Bureau / BZK distribution (see `CLAUDE.md`).
   /nix + swap), minimal bootable GRUB-EFI host. Operator install via
   `dawo-appliance-bootstrap install --target-disk DEV --confirm-destroy`
   (drives `disko-install`; shipped on the ISO; `--dry-run` preview).
-  `appliance-disk-image` builds a bootable raw image; `test-appliance-boot`
-  boots the host config and asserts identity/operator/bootstrap/NetworkManager.
-  No disk encryption in v0.1 (demo decision).
+  Verified: `nix flake check`, appliance toplevel builds, `diskoScript` builds
+  (layout incl. swap; touches only the sentinel device), and
+  `test-appliance-boot` boots the host config and asserts
+  identity/operator/bootstrap/NetworkManager. No disk encryption in v0.1 (demo).
+  Caveat: the full `appliance-disk-image` (disko `make-disk-image`/vmTools) is
+  unreliable in this WSL sandbox — see the KVM note in `docs/open-questions.md`.
 - Nix is installed (2.34.7, daemon). `nix flake check` is green (portable, no
   kvm). VM tests need kvm: `nix build .#test-installer-boot -L`,
   `.#test-appliance-boot -L`, `.#appliance-disk-image`.

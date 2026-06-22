@@ -89,3 +89,20 @@ must not configure a remote yet. For now the bootstrap supports a
 `--manifest-url` override (incl. `file://`) for local testing, with a clearly
 marked placeholder default. The real release-hosting location (and whether it is
 a tarball + checksum, a git tag, or a release asset) is undecided.
+
+## OQ-9 (non-blocking, known issue): `appliance-disk-image` is KVM-flaky on WSL
+
+`nix build .#appliance-disk-image` uses disko's `make-disk-image` (nixpkgs
+`vmTools`), which runs a QEMU build VM. On this WSL host the build often fails
+with `Could not access KVM kernel module: Permission denied`: unlike NixOS VM
+tests (which declare `requiredSystemFeatures = ["kvm"]` and get proper /dev/kvm
+access), the `vmTools` VM does not, so the sandboxed build user cannot open
+`/dev/kvm` once the `kvm` system feature is enabled. It is environment-specific,
+not a defect in the appliance config.
+
+Impact: low. Slice 2 storage is verified without it — `diskoScript` builds (the
+layout, incl. swap, applied only to the sentinel device), the appliance toplevel
+builds, and `test-appliance-boot` (a NixOS VM test, which *does* get KVM) boots
+the host. Options if a full image build is needed later: give `/dev/kvm` group
+access inside builds, run the image build outside the Nix sandbox, or boot the
+host via a NixOS VM test instead of `make-disk-image`.
