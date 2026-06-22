@@ -9,19 +9,22 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Now
 
-- **Slice 1** (finishing): non-destructive live ISO + bootstrap dry-run.
-- Nix is installed (2.34.7, multi-user daemon). `nix flake check` passes
-  (bootstrap-dryrun + shellcheck green in the sandbox).
-- ISO build (`nix build .#installer-iso`) has been run — confirm the artifact
-  under `result/iso/*.iso` and that it boots.
+- **Slice 1 DONE + verified.** The live ISO (`dawo-appliance-installer.iso`,
+  1.4 GiB) builds, and the headless boot test passes: the VM boots to
+  multi-user.target, `dawo-appliance-bootstrap` runs `plan` non-destructively
+  (checksum verified, no disk writes), and the destructive flags are refused.
+- Nix is installed (2.34.7, daemon). `nix flake check` is green (portable, no
+  kvm). Boot test: `nix build .#test-installer-boot -L` (needs kvm, ~72 s).
+- KVM is enabled for VM tests (user + nixbld* in `kvm` group; `kvm` system
+  feature on). See `docs/nix-setup.md`.
 - Slices 2–7 are scaffolding (README placeholders) only.
 
 ## Next
 
-- Boot-test the built ISO (in QEMU/KVM) and confirm `dawo-appliance-bootstrap`
-  is present and runs `plan`/`verify` non-destructively. That closes Slice 1.
-- Then Slice 2 (host install, destructive, gated) — design the disko module
-  with explicit `--target-disk` + `--confirm-destroy`.
+- **Slice 2** (host install, destructive, gated): design the disko module with
+  an explicit `--target-disk` + `--confirm-destroy`, and a boot test that
+  installs to a **throwaway qcow2** virtual disk (never a real device) and then
+  boots the installed system. Fully verifiable on this machine.
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
 - Repo has **no remote yet** — decide if/when to add one. Commits still need
   maintainer approval.
@@ -45,6 +48,9 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 - Fixed `iso.nix`: ISO filename derives from `image.baseName` (renamed from
   `isoImage.isoBaseName` in 25.11), so the artifact is now correctly named
   `dawo-appliance-installer.iso` instead of `nixos-minimal-…iso`.
+- Factored the shared live payload (`installer/live-payload.nix`) + single
+  bootstrap derivation (`installer/bootstrap/package.nix`).
+- Added `test-installer-boot` (NixOS VM test); enabled KVM; boot test passes.
 
 ## Quick pointers
 

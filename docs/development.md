@@ -80,11 +80,11 @@ make manifest-sum     # writes manifest/appliance-manifest.json.sha256
 These require Nix with flakes:
 
 ```bash
-nix flake check          # evaluate flake outputs and run checks
+nix flake check          # evaluate flake outputs + portable checks (no kvm)
 nix develop              # enter the dev shell (git, jq, shellcheck, qemu, …)
 nix fmt                  # format Nix files
-# ISO build (Slice 1, large; do not run casually):
-# nix build .#installer-iso   # (added in Slice 1)
+nix build .#installer-iso          # build the live ISO (large, ~1.4 GiB)
+nix build .#test-installer-boot -L # headless boot test (needs KVM; see nix-setup.md)
 ```
 
 `flake.lock` is hand-pinned to nixpkgs `nixos-25.11` rev

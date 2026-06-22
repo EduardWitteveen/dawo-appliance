@@ -13,20 +13,23 @@ behind explicit confirmation and built late.
   **no disk writes**).
 - Local tests that need no Nix/root/network.
 
-## Slice 1 — non-destructive live ISO + bootstrap dry-run (current target)
+## Slice 1 — non-destructive live ISO + bootstrap dry-run (DONE 2026-06-22)
 
 A bootable NixOS live ISO that:
 
-- boots successfully;
-- has working networking;
-- contains the `dawo-appliance-bootstrap` command;
-- downloads a pinned manifest from a release of this repository;
-- verifies its checksum;
-- shows what would be installed (the plan);
-- **does not write to disk**.
+- boots successfully ✅ (verified headless in QEMU/KVM);
+- has working networking ✅ (NetworkManager);
+- contains the `dawo-appliance-bootstrap` command ✅;
+- downloads a pinned manifest from a release of this repository ✅
+  (`--manifest-url`, incl. `file://`; real release host is OQ-8);
+- verifies its checksum ✅;
+- shows what would be installed (the plan) ✅;
+- **does not write to disk** ✅ (destructive flags refused).
 
-Validatable now (without building the ISO): the bootstrap `plan` runs against
-the local manifest. Building/booting the ISO needs Nix (blocked by OQ-1).
+Build: `nix build .#installer-iso` → `dawo-appliance-installer.iso` (1.4 GiB).
+Verified two ways: the offline dry-run suite (`nix flake check`, no privileges)
+and a full headless boot test (`nix build .#test-installer-boot`, needs KVM)
+that boots the live payload and asserts the bootstrap runs non-destructively.
 
 ## Slice 2 — host install (destructive, gated)
 
