@@ -25,9 +25,28 @@ NixOS host
 
 ## Status
 
-Early scaffolding. The first vertical slice in progress is a **non-destructive**
-live ISO + bootstrap that downloads and verifies a pinned manifest and prints an
-install plan **without writing to any disk**. See `docs/roadmap.md`.
+Built in vertical slices (`docs/roadmap.md`); each is independently runnable.
+Live session handoff: `docs/STATUS.md` (or run `bash scripts/status.sh`).
+
+| Slice | What | State |
+| --- | --- | --- |
+| 0 | Scaffolding: pinned manifest + checksum, Nix flake/dev shell, bootstrap `plan`/`verify` | ✅ Done |
+| 1 | Non-destructive live ISO + bootstrap dry-run | ✅ **Done & verified** |
+| 2 | Host install to disk (destructive, gated by `--target-disk` + `--confirm-destroy`) | ⬜ Next |
+| 3 | DAWO desktop (KDE Plasma 6) + KVM/libvirt | ⬜ Scaffolding |
+| 4 | Ubuntu 24.04 VM (libvirt + cloud-init) | ⬜ Scaffolding |
+| 5 | Single-node K3s in the VM | ⬜ Scaffolding |
+| 6 | Mijn Bureau (Helmfile) | ⬜ Scaffolding · needs OQ-3 |
+| 7 | Health check + auto-open browser | ⬜ Scaffolding · needs OQ-3 |
+
+**Slice 1** produces `dawo-appliance-installer.iso`: it boots, brings up
+networking, ships `dawo-appliance-bootstrap`, downloads + checksum-verifies a
+pinned manifest, prints the install plan, and **writes nothing to disk**. It is
+verified two ways — the offline dry-run suite (`nix flake check`, no privileges)
+and a full headless boot test (`nix build .#test-installer-boot`, needs KVM).
+
+Slices 5–7 (full Mijn Bureau) need a large host to actually run end-to-end (see
+hardware requirement below); their build/config can still be validated locally.
 
 ## Scope for v0.1
 
@@ -75,12 +94,22 @@ Exact inspected revisions and pins: `docs/upstream/revisions.md` and
 
 ## Getting started (development)
 
-See `docs/development.md`. Quick local validation that needs **no Nix and no
-root**:
+See `docs/development.md` (and `docs/nix-setup.md` to install Nix). Start a
+session with `bash scripts/status.sh` to see where things stand.
+
+Quick local validation that needs **no Nix and no root**:
 
 ```bash
 make test          # or: tests/test-bootstrap-dryrun.sh
 make plan          # run the bootstrap dry-run against the local manifest
+```
+
+With Nix available:
+
+```bash
+nix flake check                    # portable checks (dry-run + shellcheck)
+nix build .#installer-iso          # build the live ISO (~1.4 GiB)
+nix build .#test-installer-boot -L # headless boot test (needs KVM)
 ```
 
 ## License
