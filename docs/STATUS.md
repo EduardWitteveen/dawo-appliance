@@ -9,20 +9,22 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 
 ## Now
 
-- **Slice 1** (current target): non-destructive live ISO + bootstrap dry-run.
-- The bootstrap `plan` / `verify` commands work and are covered by the offline
-  dry-run test suite (`tests/test-bootstrap-dryrun.sh`).
+- **Slice 1** (finishing): non-destructive live ISO + bootstrap dry-run.
+- Nix is installed (2.34.7, multi-user daemon). `nix flake check` passes
+  (bootstrap-dryrun + shellcheck green in the sandbox).
+- ISO build (`nix build .#installer-iso`) has been run — confirm the artifact
+  under `result/iso/*.iso` and that it boots.
 - Slices 2–7 are scaffolding (README placeholders) only.
 
 ## Next
 
-- Repo is initialised (branch `main`, first commit done). **No remote yet** —
-  decide if/when to add one. Further commits still need maintainer approval.
-- **Install Nix** — runbook ready at `docs/nix-setup.md` (multi-user/daemon
-  install; pre-flight verified green). The maintainer runs the install commands
-  (host change). Then `nix flake check` → `nix build .#installer-iso` finishes
-  Slice 1.
+- Boot-test the built ISO (in QEMU/KVM) and confirm `dawo-appliance-bootstrap`
+  is present and runs `plan`/`verify` non-destructively. That closes Slice 1.
+- Then Slice 2 (host install, destructive, gated) — design the disko module
+  with explicit `--target-disk` + `--confirm-destroy`.
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
+- Repo has **no remote yet** — decide if/when to add one. Commits still need
+  maintainer approval.
 
 ## Blocking decisions
 
@@ -38,6 +40,11 @@ Bureau / BZK distribution (see `CLAUDE.md`).
 - This handoff doc + `scripts/status.sh` orientation helper.
 - OQ-1 resolved: WSL `metadata` enabled, `git init` verified working on `/mnt/c`.
 - Git repo initialised on branch `main`; initial commit `1d94cc2` (28 files).
+- Nix installed (2.34.7, daemon) per `docs/nix-setup.md`; flakes enabled.
+- `nix flake check` green; ISO built (`nix build .#installer-iso`, 1.4 GiB).
+- Fixed `iso.nix`: ISO filename derives from `image.baseName` (renamed from
+  `isoImage.isoBaseName` in 25.11), so the artifact is now correctly named
+  `dawo-appliance-installer.iso` instead of `nixos-minimal-…iso`.
 
 ## Quick pointers
 

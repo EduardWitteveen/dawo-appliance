@@ -5,7 +5,7 @@
 # NOT install anything automatically and writes nothing to disk. The operator
 # runs `dawo-appliance-bootstrap plan` to see what would be installed.
 #
-# Build (requires Nix; blocked on this machine, see docs/open-questions.md OQ-1):
+# Build (requires Nix; see docs/nix-setup.md):
 #   nix build .#installer-iso
 #
 # Experimental and unofficial.
@@ -31,8 +31,12 @@ in
     "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix"
   ];
 
-  # Identify the image.
-  isoImage.isoName = lib.mkForce "dawo-appliance-installer.iso";
+  # Identify the image. In nixpkgs 25.11 the ISO filename derives from
+  # `image.baseName` (see iso-image.nix: `isoName = "${image.baseName}.iso"`).
+  # The old `isoImage.isoName`/`isoBaseName` were renamed to `image.fileName`/
+  # `image.baseName`; setting `isoName`/`fileName` alone does NOT rename the
+  # built file, so we set `image.baseName` here.
+  image.baseName = lib.mkForce "dawo-appliance-installer";
   isoImage.volumeID = lib.mkForce "DAWO_APPLIANCE";
 
   # Networking: bring up an internet connection (step 1 of the flow).
