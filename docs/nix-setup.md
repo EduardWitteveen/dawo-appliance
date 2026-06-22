@@ -96,6 +96,42 @@ nix build .#bootstrap && ./result/bin/dawo-appliance-bootstrap version
 A first `nix flake check` / `nix build` will download from the binary cache and
 populate `/nix` (hundreds of MB to a few GB). That is expected and one-time.
 
+## Enable KVM for the headless boot test
+
+The boot test (`nix build .#test-installer-boot`) runs a VM and requires the
+`kvm` system feature. On this WSL machine the Nix daemon does not advertise it
+by default, and the sandbox build users (`nixbld*`) cannot open `/dev/kvm`
+(it is `root:kvm`, mode 0660). Enable it once — **run these in a real WSL
+terminal** (sudo needs a TTY):
+
+```bash
+# 1. Let your own user run QEMU directly.
+sudo usermod -aG kvm "$USER"
+
+# 2. Let the Nix sandbox build users open /dev/kvm (the VM test runs as nixbld*).
+sudo bash -c 'for i in $(seq 1 32); do usermod -aG kvm "nixbld$i"; done'
+
+# 3. Tell Nix the kvm feature is available.
+echo 'extra-system-features = kvm' | sudo tee -a /etc/nix/nix.conf
+
+# 4. Apply (2) and (3) by restarting the daemon.
+sudo systemctl restart nix-daemon
+```
+
+Verify (no sudo needed):
+
+```bash
+nix config show | grep system-features   # should now include 'kvm'
+```
+
+You do **not** need to log out: the boot test builds via the daemon, so your
+own shell's group membership is irrelevant to it (step 1 only matters if you run
+QEMU directly). Then run the test:
+
+```bash
+nix build .#test-installer-boot -L
+```
+
 ## Build the Slice 1 ISO (large — only when ready)
 
 ```bash
