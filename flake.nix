@@ -1,11 +1,16 @@
 {
   description = "dawo-appliance — experimental, unofficial demo appliance for a digitally autonomous government workplace";
 
-  # Single pinned input. flake.lock pins nixpkgs to the same nixos-25.11 stable
-  # revision DAWO-NixOS pins. No floating tags.
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  # Pinned inputs. flake.lock pins exact revisions (no floating tags): nixpkgs to
+  # the same nixos-25.11 stable revision DAWO-NixOS pins, and disko (declarative
+  # partitioning) following our nixpkgs.
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, disko }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -61,6 +66,37 @@
                 f"--manifest-url {manifest} --target-disk /dev/vda --confirm-destroy")
           '';
         };
+
+        # The installed appliance host as a bootable disk image (Slice 2). disko
+        # partitions + formats + installs the host into a raw image (`main.raw`).
+        # Building this proves the storage layout applies and the host installs.
+        #   nix build .#appliance-disk-image     (needs KVM; builds via a VM)
+        appliance-disk-image =
+          self.nixosConfigurations.appliance.config.system.build.diskoImages;
+
+        # Boot test for the appliance host CONFIG (Slice 2), kept OUT of `checks`
+        # (needs `kvm`). Boots the host configuration in a VM and asserts it comes
+        # up with the expected identity, operator account and bootstrap. Storage
+        # is verified separately by `appliance-disk-image` (disko); here the test
+        # framework supplies the root fs so we exercise the host config itself.
+        #   nix build .#test-appliance-boot -L   (needs KVM; see docs/nix-setup.md)
+        test-appliance-boot = pkgs.testers.runNixOSTest {
+          name = "appliance-boot";
+          nodes.machine = { lib, ... }: {
+            imports = [ ./hosts/appliance/configuration.nix ];
+            # The test boots directly (no bootloader install), so neutralise the
+            # host's GRUB choice for the VM only.
+            boot.loader.grub.enable = lib.mkForce false;
+          };
+          testScript = ''
+            start_all()
+            machine.wait_for_unit("multi-user.target")
+            machine.succeed("test \"$(hostname)\" = dawo-appliance")
+            machine.succeed("dawo-appliance-bootstrap version")
+            machine.succeed("id dawo")               # operator account exists
+            machine.wait_for_unit("NetworkManager.service")
+          '';
+        };
       };
 
       devShells.${system}.default = pkgs.mkShell {
@@ -103,6 +139,18 @@
       nixosConfigurations.installer-iso = nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [ ./installer/iso/iso.nix ];
+      };
+
+      # The installed appliance host (Slice 2). Storage is declared with disko
+      # and gated by an explicit `appliance.targetDisk` (sentinel default — see
+      # hosts/appliance/disko.nix). The real install overrides the device.
+      nixosConfigurations.appliance = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          disko.nixosModules.disko
+          ./hosts/appliance/configuration.nix
+          ./hosts/appliance/disko.nix
+        ];
       };
 
       formatter.${system} = pkgs.nixpkgs-fmt;
