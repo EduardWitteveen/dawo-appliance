@@ -72,6 +72,25 @@ questions, live checks (manifest checksum + dry-run tests), and recently changed
 files — no Nix, network, or git required. Update `docs/STATUS.md` at the end of a
 session so the next one starts oriented.
 
+## Working method
+
+Carry the task through from start to finish autonomously. Do not ask for
+confirmation on normal implementation choices, file edits, tests, bug fixes, or
+easily reversible decisions. For minor ambiguities, make a reasonable choice,
+record it briefly, and continue.
+
+Ask a question only when:
+
+- information is missing that makes the task impossible to carry out;
+- multiple options lead to materially different end results;
+- an action is irreversible, destructive, or security-sensitive;
+- the requested change falls outside the agreed scope.
+
+Do not stop after analysis or a plan. Make the change, test it, and then report
+briefly what was done and what could not yet be established. (The hard rules
+above — non-destructive by default, no secrets, no host/WSL changes without
+asking, commits only when asked — always take precedence.)
+
 ## Local validation
 
 - `tests/test-bootstrap-dryrun.sh` — runs the bootstrap in dry-run against the
