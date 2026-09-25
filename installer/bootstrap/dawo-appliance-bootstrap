@@ -52,7 +52,10 @@ CONNECTIVITY_PROBE_URL="https://code.overheid.nl"
 # flake is shipped read-only; override with --flake. The attribute is the
 # appliance host defined in this repository's flake.
 DEFAULT_FLAKE_REF="/etc/dawo-appliance/config"
-INSTALL_ATTR="appliance"
+# The nixosConfiguration to install. DAWO_APPLIANCE_INSTALL_ATTR exists only so
+# the end-to-end test can install the test-instrumented variant (appliance-e2e);
+# operators never need it.
+INSTALL_ATTR="${DAWO_APPLIANCE_INSTALL_ATTR:-appliance}"
 
 # --- options ---------------------------------------------------------------
 MANIFEST_URL="${DEFAULT_MANIFEST_URL}"
