@@ -50,3 +50,10 @@ date,rev,check,status,seconds
 2026-09-25T12:39Z,8cdeb7a,kvm-in-sandbox,PASS,3
 2026-09-25T12:39Z,8cdeb7a,test-installer-boot,PASS,56
 2026-09-25T12:39Z,8cdeb7a,test-appliance-boot,PASS,13
+2026-09-25T19:07Z,6c8cd9a,local-dryrun-suite,PASS,1
+2026-09-25T19:07Z,6c8cd9a,nix-flake-check,PASS,116
+2026-09-25T19:07Z,6c8cd9a,iso-build,PASS,192
+2026-09-25T19:07Z,6c8cd9a,appliance-vm-build,PASS,64
+2026-09-25T19:07Z,6c8cd9a,kvm-in-sandbox,PASS,5
+2026-09-25T19:07Z,6c8cd9a,test-installer-boot,PASS,52
+2026-09-25T19:07Z,6c8cd9a,test-appliance-boot,PASS,232
