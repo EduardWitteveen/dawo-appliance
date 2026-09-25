@@ -32,6 +32,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`adr/0001-project-scope.md`](adr/0001-project-scope.md) | Scope and boundaries of v0.1; consume-not-fork; pin everything; non-destructive by default. |
 | [`adr/0002-own-installer-iso.md`](adr/0002-own-installer-iso.md) | Why we keep our own installer next to upstream's headless fleet installer. |
 | [`adr/0003-workplace-parity.md`](adr/0003-workplace-parity.md) | The host is the DAWO pilot workplace, unchanged, plus additions; the list of deviations. |
+| [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Proposed:** local DNS + TLS for the demo (`mb.appliance.internal`, per-install appliance CA, cert-manager CA issuer, browser trust). Resolves OQ-3 once accepted. |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream
@@ -40,6 +41,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | --- | --- |
 | [`upstream/revisions.md`](upstream/revisions.md) | The exact DAWO-Core and mijn-bureau-infra revisions inspected and pinned, and the facts that shape our design. |
 | [`upstream/ecosystem.md`](upstream/ecosystem.md) | Which DAWO / Mijn Bureau repositories exist and which ones we consume. |
+| [`upstream/pins-vm-k3s.md`](upstream/pins-vm-k3s.md) | Researched pins with checksums for the Ubuntu 24.04 cloud image and K3s (OQ-6), ready for the manifest once approved. |
 
 ## Elsewhere in the repository
 

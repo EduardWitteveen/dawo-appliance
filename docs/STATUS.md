@@ -39,7 +39,9 @@ Bureau / BZK distribution (`CLAUDE.md`).
 only source of truth is `verification-latest.md` (written by
 `REPORT=1 bash scripts/verify.sh`), with per-check durations and the boot
 timing of the installed host. Screenshots in `screenshots/` come from the same
-tests (`scripts/screenshots.sh`). Local dry-run suite: 9/9.
+tests (`scripts/screenshots.sh`). Local dry-run suite: 10 checks (the stage
+tree check needs the whois `mkpasswd`; it is skipped in Git Bash and runs in
+`nix flake check`).
 
 Bugs found and turned into checks today (`testing.md`):
 - **All VM tests had run under TCG emulation** (Nix sandbox drops supplementary
@@ -52,6 +54,15 @@ Bugs found and turned into checks today (`testing.md`):
 - `--rebuild` refuses never-built derivations → `fresh_build` helper.
 - One unexplained guest freeze at 55 s in a TCG run (TSC unstable); not seen
   again under KVM. Watch for it.
+- Review agent (2026-09-25) found four real install-path bugs, all fixed with
+  checks: `cp -ar STAGE/. /` would have made `/` 0700 (now `STAGE/var` ->
+  `/var`, suite check 9); `grep -c` + pipefail aborted on unmounted disks
+  (installer test on a spare `/dev/vdb`); `/etc/dawo-appliance/config` is a
+  symlink Nix refuses as a flake (resolved with `readlink -f`, asserted);
+  UEFI + live-store space are checked before erasing, `--write-efi-boot-entries`
+  added, stage cleaned by trap.
+- One `mksquashfs` segfault during an ISO build while a 6 GiB VM was running;
+  the retry passed. Watch for it under memory pressure.
 
 ## Next
 

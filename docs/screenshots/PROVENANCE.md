@@ -4,8 +4,8 @@ Written by `bash scripts/screenshots.sh`; do not edit or replace the images
 by hand. Every image below was captured by a NixOS VM test of the pinned
 configuration — see `docs/testing.md`.
 
-- Date: 2026-09-25T12:17Z
-- Repository: `e9714b3` (working tree had uncommitted changes)
+- Date: 2026-09-25T12:31Z
+- Repository: `8cdeb7a` (working tree had uncommitted changes)
 - Pins: nixpkgs `fcb8fcd6bf2d`, DAWO-Core `0.1.3` (all: `manifest/appliance-manifest.json`)
 
 | Image | Source test | What it shows |

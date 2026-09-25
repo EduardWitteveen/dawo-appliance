@@ -43,6 +43,12 @@ for end-to-end testing.
 
 ## OQ-3 (BLOCKING for steps 10–12): local DNS + TLS strategy
 
+**Proposal 2026-09-25:** `docs/adr/0004-local-dns-and-tls.md` (Status:
+Proposed) — base domain `mb.appliance.internal`, libvirt NAT network with a
+dnsmasq wildcard, a per-install appliance CA as cert-manager `ClusterIssuer`,
+CA trusted in the VM, the cluster workloads, the host and both browsers.
+Awaiting the maintainer's decision.
+
 Upstream's single-VPS path uses Let's Encrypt + public DNS + email. A local
 demo needs a self-contained alternative:
 
@@ -70,6 +76,12 @@ ask for digests. Resolving every tag to a `sha256:` digest is a follow-up task;
 v0.1 records tags and the upstream revision they come from, and flags this.
 
 ## OQ-6 (non-blocking): exact K3s and Ubuntu image pins
+
+**Researched 2026-09-25:** `docs/upstream/pins-vm-k3s.md` — Ubuntu 24.04
+`release-20260911` cloud image and K3s `v1.36.4+k3s1`, with SHA-256 sums from
+the official sources and a manifest snippet. Not yet applied to the manifest
+(maintainer's confirmation). Risk noted: upstream's cert-manager v1.16.2 is
+end-of-life and officially supports Kubernetes up to 1.32.
 
 Slices 1–2 stop before the VM/K3s steps, so the manifest currently marks the
 K3s release and the Ubuntu 24.04 cloud image as **unverified/pending pin**.
