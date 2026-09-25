@@ -112,7 +112,16 @@ Add manifest/artifact signature verification (upstream ships `cosign.pub`;
 minisign is an option for our own manifest) on top of checksums. Planned
 hardening, not in v0.1.
 
-## OQ-8 (partially resolved 2026-09-25): how to obtain the "pinned release of this repository"
+## OQ-8 (RESOLVED 2026-09-25): how to obtain the "pinned release of this repository"
+
+**Resolution:** GitHub releases on `EduardWitteveen/dawo-appliance`: tag
+`vX.Y.Z` with the ISO, the manifest and their SHA-256 as assets. The
+bootstrap's default `--manifest-url` is the asset of exactly the ISO's own
+version (development builds use the shipped copy). Procedure and script:
+`docs/releasing.md`, `scripts/release.sh`.
+
+Historical notes below.
+
 
 **Resolved:** the repository now has a remote,
 [`github.com/EduardWitteveen/dawo-appliance`](https://github.com/EduardWitteveen/dawo-appliance)
