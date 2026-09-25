@@ -22,7 +22,12 @@
       "inspected": "2026-09-25",
       "license": "GPL-3.0",
       "flake_input": "dawo-core = git+https://codeberg.org/DAWO/DAWO-Core?ref=refs/tags/0.1.3 (rev locked in flake.lock; nixpkgs and disko follow ours)",
-      "modules_imported": [ "boot-loader", "boot-plymouth-bzk", "profiles-dawo-generic", "maid-dawo-generic" ],
+      "modules_imported": [
+        "boot-loader",
+        "boot-plymouth-bzk",
+        "profiles-dawo-generic",
+        "maid-dawo-generic"
+      ],
       "parity_reference_host": "hosts/dawo-t495s",
       "previous": {
         "url": "https://code.overheid.nl/MinBZK/DAWO-NixOS",
@@ -72,16 +77,45 @@
     "min_vcpu": 12,
     "min_ram_gib": 48,
     "image": {
-      "status": "pending-pin",
-      "note": "Pin Ubuntu 24.04 cloud image to a concrete release + SHA-256 before Slice 4 (OQ-6)."
+      "status": "pinned",
+      "distribution": "Ubuntu 24.04 LTS (noble) server cloud image",
+      "serial": "20260911",
+      "base_url": "https://cloud-images.ubuntu.com/releases/noble/release-20260911/",
+      "file": "ubuntu-24.04-server-cloudimg-amd64.img",
+      "size_bytes": 625256960,
+      "sha256": "612b2c0cc1bc413a6cb8c38fd611794caf0f2b436c50013d8b3794db12ad7354",
+      "sha256sums_sha256": "89be81c6f31ffcd63e9df433e868fc2a651475a45aeb993c0dbd2707747b0185",
+      "gpg_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+      "inspected": "2026-09-25",
+      "note": "See docs/upstream/pins-vm-k3s.md. Verify sha256 before use; the SHA256SUMS file is GPG-signed by the Ubuntu cloud image key."
     }
   },
   "kubernetes": {
     "distribution": "k3s",
     "mode": "single-node",
     "version": {
-      "status": "pending-pin",
-      "note": "Pin exact k3s release + checksum before Slice 5 (OQ-6). Upstream installs k3s unpinned from get.k3s.io; we do not."
+      "status": "pinned",
+      "tag": "v1.36.4+k3s1",
+      "kubernetes": "v1.36.4",
+      "released": "2026-08-27",
+      "download_base": "https://github.com/k3s-io/k3s/releases/download/v1.36.4+k3s1/",
+      "binary": {
+        "name": "k3s",
+        "size_bytes": 78991522,
+        "sha256": "835873f37245fc615f547a2fe2af9402a347875f13fa64a1f136de644955ea3f"
+      },
+      "checksums_file": "sha256sum-amd64.txt",
+      "airgap_images_zst_sha256": "9024613e2d468c51ba0e5ba21898604c41339354449fb3338cc6a7931189eb6a",
+      "install_script": {
+        "url": "https://raw.githubusercontent.com/k3s-io/k3s/v1.36.4%2Bk3s1/install.sh",
+        "sha256": "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad",
+        "env": {
+          "INSTALL_K3S_SKIP_DOWNLOAD": "true",
+          "INSTALL_K3S_EXEC": "--write-kubeconfig-mode 644"
+        }
+      },
+      "inspected": "2026-09-25",
+      "note": "Upstream installs K3s unpinned from get.k3s.io; we pre-download and verify the binary, then run the pinned install script with INSTALL_K3S_SKIP_DOWNLOAD. Risk: upstream's cert-manager v1.16.2 is EOL and officially supports Kubernetes <= 1.32 (docs/upstream/pins-vm-k3s.md)."
     }
   },
   "mijn_bureau": {
@@ -93,18 +127,20 @@
       "cert_manager": "v1.16.2"
     },
     "tls": {
-      "strategy": "self-signed (local demo)",
-      "status": "pending-decision",
-      "note": "Upstream single-VPS path uses Let's Encrypt; local demo needs self-signed + local DNS (OQ-3)."
+      "strategy": "per-install appliance CA (cert-manager ClusterIssuer dawo-appliance-ca); global.tls.selfSigned stays false",
+      "status": "decided (ADR 0004)",
+      "note": "CA generated at install time, never in Git or on the ISO; trusted in the VM, the cluster workloads, the host trust store, Firefox (policy) and Chromium (NSS)."
     },
     "base_domain": {
-      "status": "pending-decision",
-      "default_upstream": "kubernetes.local"
+      "value": "dawo.internal",
+      "status": "decided (ADR 0004)",
+      "default_upstream": "kubernetes.local",
+      "note": ".internal is reserved for private use; resolved by the appliance's libvirt network (dnsmasq wildcard) and a systemd-resolved routing domain on the host."
     },
     "dashboard": {
       "app": "bureaublad",
-      "url_template": "https://bureaublad.<base_domain>",
-      "note": "This is the URL the appliance opens in the browser at the end."
+      "url_template": "https://bureaublad.dawo.internal",
+      "note": "This is the URL the appliance opens in the browser at the end (base domain dawo.internal, ADR 0004)."
     },
     "charts": {
       "note": "Chart and image versions are pinned upstream at the rev above (helmfile/apps/*/helmfile-child.yaml.gotmpl and helmfile/environments/default/container.yaml.gotmpl). A representative subset is recorded here; digest-pinning is tracked as OQ-5.",
@@ -157,9 +193,6 @@
     "open Mijn Bureau in the browser"
   ],
   "pending_pins": [
-    "vm.image (OQ-6)",
-    "kubernetes.version (OQ-6)",
-    "container image digests (OQ-5)",
-    "tls/base_domain decision (OQ-3)"
+    "container image digests (OQ-5)"
   ]
 }

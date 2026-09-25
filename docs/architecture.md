@@ -114,9 +114,8 @@ planned hardening step (see roadmap), not in v0.1.
 Upstream's documented single-node path uses Let's Encrypt + a public domain +
 email. A self-contained local appliance demo cannot rely on that. The intended
 v0.1 approach is `tls.selfSigned: true` with local name resolution for a chosen
-base domain (e.g. a `*.appliance.local` wildcard resolved on the host/VM) and
-the generated CA trusted by the host and its browsers. The exact DNS mechanism
-is an open question (OQ-3).
+base domain (e.g. a `*.dawo.internal` wildcard resolved on the host/VM) and
+the generated CA trusted by the host and its browsers. Decided in ADR 0004 (OQ-3 resolved).
 
 ## Extensibility (structure only, not built)
 

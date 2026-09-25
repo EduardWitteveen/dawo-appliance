@@ -1,6 +1,6 @@
 # ADR 0004: Local DNS and TLS for the Mijn Bureau demo (OQ-3)
 
-- Status: Proposed
+- Status: Accepted (2026-09-25, maintainer: base domain `dawo.internal`; the rest as proposed)
 - Date: 2026-09-25
 - Deciders: maintainer (eywitteveen)
 
@@ -65,23 +65,23 @@ self-contained replacement. Facts that constrain the choice:
 
 ## Decision
 
-1. **Base domain `mb.appliance.internal`.** `.internal` is reserved for
+1. **Base domain `dawo.internal`** (maintainer's choice: short, matches the host name `dawo-appliance`; `mb.appliance.internal` was the draft). `.internal` is reserved for
    private use (ICANN, 2024) and never resolves publicly; `.local` is mDNS
    (Avahi/systemd-resolved) and is avoided; `.home.arpa` is for home networks
    and reads oddly in a demo. The `mb.` label leaves room for other profiles
    (`apps/profiles/`). Recorded in `manifest/appliance-manifest.json`
    (`mijn_bureau.base_domain`); the dashboard URL becomes
-   `https://bureaublad.mb.appliance.internal`.
+   `https://bureaublad.dawo.internal`.
 2. **Name resolution: libvirt's dnsmasq is the single authority.** The
    appliance defines its own libvirt network `dawo-appliance` (NAT, fixed
    subnet, e.g. `192.168.150.0/24`), a fixed DHCP lease for the VM
-   (`192.168.150.10`) and the wildcard `address=/mb.appliance.internal/
+   (`192.168.150.10`) and the wildcard `address=/dawo.internal/
    192.168.150.10` via libvirt's `<dnsmasq:options>` namespace.
    - **Guest:** gets the same dnsmasq via DHCP, so the K3s node resolves the
      names. **Pods:** keep upstream's CoreDNS rewrite of `*.DOMAIN` to the
      Traefik service (`02-networking.sh`), which avoids NAT hairpin; the
      8443 egress policies and LiveKit `node_ip` fix apply unchanged.
-   - **Host:** a systemd-resolved routing domain `~mb.appliance.internal` with
+   - **Host:** a systemd-resolved routing domain `~dawo.internal` with
      DNS `192.168.150.1` on the bridge interface (set from a libvirt network
      hook or a networkd `.network` unit matched on the bridge; Slice 4 picks
      the one that survives NetworkManager). Nothing else on the host resolver
@@ -123,9 +123,9 @@ self-contained replacement. Facts that constrain the choice:
 4. **Health check (Slice 7) gates the browser.** In the VM: `ClusterIssuer
    dawo-appliance-ca` Ready; `kubectl get certificate -A` all Ready with a
    stable count over two polls (upstream's `wait_for_certs`), each issued by
-   `dawo-appliance-ca`. On the host: `resolvectl query bureaublad.mb.appliance.
-   internal` returns the VM address; `curl --cacert ca.crt` gets HTTP 200 from
-   `https://bureaublad.mb.appliance.internal/` and from Keycloak's
+   `dawo-appliance-ca`. On the host: `resolvectl query bureaublad.dawo.internal
+   ` returns the VM address; `curl --cacert ca.crt` gets HTTP 200 from
+   `https://bureaublad.dawo.internal/` and from Keycloak's
    `/realms/mijnbureau/.well-known/openid-configuration` whose `issuer` equals
    the configured one; the Firefox policy file and the Chromium NSS entry are
    present. Only then the welcome hook opens the dashboard. The NixOS boot

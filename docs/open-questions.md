@@ -41,13 +41,14 @@ it must be that big, so the physical host needs roughly **>= 16 vCPU /
 but **cannot run the full stack** (steps 7–12). Need a suitable target machine
 for end-to-end testing.
 
-## OQ-3 (BLOCKING for steps 10–12): local DNS + TLS strategy
+## OQ-3 (RESOLVED 2026-09-25): local DNS + TLS strategy
 
-**Proposal 2026-09-25:** `docs/adr/0004-local-dns-and-tls.md` (Status:
-Proposed) — base domain `mb.appliance.internal`, libvirt NAT network with a
-dnsmasq wildcard, a per-install appliance CA as cert-manager `ClusterIssuer`,
-CA trusted in the VM, the cluster workloads, the host and both browsers.
-Awaiting the maintainer's decision.
+**Decision:** `docs/adr/0004-local-dns-and-tls.md` (Accepted). Base domain
+**`dawo.internal`** (dashboard `https://bureaublad.dawo.internal`), a libvirt
+NAT network with a dnsmasq wildcard for the VM, a per-install appliance CA as
+cert-manager `ClusterIssuer`, and that CA trusted in the VM, the cluster
+workloads, the host trust store, Firefox (policy) and Chromium (NSS).
+Implementation lands in Slices 4 (network, CA generation) and 6 (cluster).
 
 Upstream's single-VPS path uses Let's Encrypt + public DNS + email. A local
 demo needs a self-contained alternative:
@@ -75,9 +76,10 @@ Upstream pins container images by **tag** (e.g. `nextcloud:34.0.0-apache`) in
 ask for digests. Resolving every tag to a `sha256:` digest is a follow-up task;
 v0.1 records tags and the upstream revision they come from, and flags this.
 
-## OQ-6 (non-blocking): exact K3s and Ubuntu image pins
+## OQ-6 (RESOLVED 2026-09-25): exact K3s and Ubuntu image pins
 
-**Researched 2026-09-25:** `docs/upstream/pins-vm-k3s.md` — Ubuntu 24.04
+**Pinned in the manifest 2026-09-25** (Ubuntu 24.04 `release-20260911`, K3s
+`v1.36.4+k3s1`, SHA-256 from the official sources). Research: `docs/upstream/pins-vm-k3s.md` — Ubuntu 24.04
 `release-20260911` cloud image and K3s `v1.36.4+k3s1`, with SHA-256 sums from
 the official sources and a manifest snippet. Not yet applied to the manifest
 (maintainer's confirmation). Risk noted: upstream's cert-manager v1.16.2 is

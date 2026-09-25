@@ -32,7 +32,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`adr/0001-project-scope.md`](adr/0001-project-scope.md) | Scope and boundaries of v0.1; consume-not-fork; pin everything; non-destructive by default. |
 | [`adr/0002-own-installer-iso.md`](adr/0002-own-installer-iso.md) | Why we keep our own installer next to upstream's headless fleet installer. |
 | [`adr/0003-workplace-parity.md`](adr/0003-workplace-parity.md) | The host is the DAWO pilot workplace, unchanged, plus additions; the list of deviations. |
-| [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Proposed:** local DNS + TLS for the demo (`mb.appliance.internal`, per-install appliance CA, cert-manager CA issuer, browser trust). Resolves OQ-3 once accepted. |
+| [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Accepted:** local DNS + TLS for the demo: base domain `dawo.internal`, per-install appliance CA, cert-manager CA issuer, browser trust (resolves OQ-3). |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream
