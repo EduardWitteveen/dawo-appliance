@@ -250,6 +250,7 @@ phase_tools() {
   # declares no `secrets:`, so helm-secrets is not needed.
   local plugins_dir
   if [[ "${DRY_RUN}" -eq 1 ]]; then
+    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
     plugins_dir='$(helm env HELM_PLUGINS)'
   else
     plugins_dir="$("${MB_BIN_DIR}/helm" env HELM_PLUGINS)"
@@ -535,6 +536,7 @@ phase_post_fixes() {
 phase_wait_certs() {
   log "[10/14] Waiting for all cert-manager Certificates (timeout ${MB_CERT_TIMEOUT}s)"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
+    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
     printf 'DRY-RUN: poll `kubectl get certificate -A` until all Ready and the count is stable over two polls; then check issuerRef == %s\n' "${CLUSTER_ISSUER}"
     return 0
   fi
@@ -673,6 +675,7 @@ phase_trust() {
 phase_sessions() {
   log "[14/14] Keycloak session lifetimes on realm mijnbureau (upstream step 7)"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
+    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
     printf 'DRY-RUN: KC_PASS=$(kubectl -n mb-keycloak get secret keycloak-keycloak -o jsonpath={.data.admin-password} | base64 -d)\n'
     printf 'DRY-RUN: curl --cacert %s --resolve id.%s:443:<node InternalIP> https://id.%s/realms/master/protocol/openid-connect/token (admin-cli) -> token\n' "${CA_CRT}" "${MB_DOMAIN}" "${MB_DOMAIN}"
     printf 'DRY-RUN: curl -X PUT https://id.%s/admin/realms/mijnbureau {"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}\n' "${MB_DOMAIN}"

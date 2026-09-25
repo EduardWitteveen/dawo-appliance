@@ -74,10 +74,17 @@ fresh_build() {
 
 # --- fast, no privileges ----------------------------------------------------
 run local-dryrun-suite bash tests/test-bootstrap-dryrun.sh
+# Every other offline suite (no network, no root): K3s installer, health check,
+# image digests, and whatever tests/test-*.sh is added later.
+for suite in tests/test-*.sh; do
+  name="$(basename "${suite}" .sh)"
+  [[ "${name}" == "test-bootstrap-dryrun" ]] && continue
+  run "offline-${name#test-}" bash "${suite}"
+done
 if have shellcheck; then
-  run shellcheck-local shellcheck installer/bootstrap/dawo-appliance-bootstrap \
-    tests/test-bootstrap-dryrun.sh scripts/status.sh scripts/verify.sh \
-    scripts/screenshots.sh scripts/speed-check.sh
+  # All shell scripts in the repository, so a new script cannot slip past.
+  mapfile -t shell_scripts < <(git ls-files '*.sh'; echo installer/bootstrap/dawo-appliance-bootstrap)
+  run shellcheck-local shellcheck "${shell_scripts[@]}"
 else
   skip shellcheck-local "shellcheck not on PATH; covered by nix flake check"
 fi
