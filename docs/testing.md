@@ -88,10 +88,9 @@ GPU acceleration is much faster.
   `nix run .#appliance-vm`. The boot test's `desktop.png` screenshot is best
   effort in a software-rendered VM.
 - Slices 4–7 (VM, K3s, Mijn Bureau, health, browser): not built yet; their
-  tests come with them. The CA assertions (R20–R22) are written but wait for
-  the maintainer to paste them into `test-appliance-boot` (`nix/tests/
-  appliance-ca-assertions.py`); guest and cluster trust in the CA are Slice
-  4a/6 tests. The end-to-end run also needs a large host (OQ-2).
+  tests come with them. The CA assertions (R20–R22) run in
+  `test-appliance-boot`; guest and cluster trust in the CA are Slice 4a/6
+  tests. The end-to-end run also needs a large host (OQ-2).
 
 ## Reading a failure
 
