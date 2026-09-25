@@ -25,10 +25,6 @@ PROGRAM_VERSION="0.1.0-dev"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# Placeholder. There is no published release yet (see OQ-8). Override with
-# --manifest-url. For local testing use a file:// URL.
-DEFAULT_MANIFEST_URL="https://example.invalid/dawo-appliance/RELEASE/appliance-manifest.json"
-
 # Trusted expected checksum: shipped in the repo / ISO, NOT downloaded with the
 # manifest. This is the root of trust for v0.1. We search known locations: the
 # repo checkout (development) and /etc (on the live ISO).
@@ -45,8 +41,27 @@ pick_expected_sha_file() {
 }
 DEFAULT_EXPECTED_SHA_FILE="$(pick_expected_sha_file)"
 
+# Where releases live (docs/releasing.md). The default manifest URL is derived
+# from the version of the manifest shipped next to the trusted checksum: a
+# release (e.g. 0.1.0) downloads the asset of exactly that tag, never "latest";
+# a development build (version ending in -dev) has no release and uses the
+# shipped copy itself. Either way the download is verified against the baked-in
+# SHA-256. Override with --manifest-url (file:// works for local testing).
+RELEASE_REPO_URL="https://github.com/EduardWitteveen/dawo-appliance"
+default_manifest_url() {
+  local shipped version
+  shipped="${DEFAULT_EXPECTED_SHA_FILE%.sha256}"
+  version="$(sed -n 's/^    "version": "\([^"]*\)",$/\1/p' "${shipped}" 2>/dev/null | head -1)"
+  if [[ -z "${version}" || "${version}" == *-dev ]]; then
+    printf 'file://%s' "${shipped}"
+  else
+    printf '%s/releases/download/v%s/appliance-manifest.json' "${RELEASE_REPO_URL}" "${version}"
+  fi
+}
+DEFAULT_MANIFEST_URL="$(default_manifest_url)"
+
 # Host used only for the connectivity probe (the repo host).
-CONNECTIVITY_PROBE_URL="https://code.overheid.nl"
+CONNECTIVITY_PROBE_URL="https://github.com"
 
 # The NixOS configuration to install (Slice 2). On a real install medium the
 # flake is shipped read-only; override with --flake. The attribute is the

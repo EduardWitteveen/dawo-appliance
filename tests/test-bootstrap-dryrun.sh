@@ -164,5 +164,23 @@ else
   echo "  SKIP password stage tree (mkpasswd not installed here; covered by nix flake check)"
 fi
 
+# --- 10. default manifest URL follows the shipped version (docs/releasing.md) --
+dev_default="$(run_bootstrap help 2>&1 | sed -n 's/.*Default: //p' | head -1)"
+if [[ "${dev_default}" == "file://${REPO_ROOT}/manifest/appliance-manifest.json" ]]; then
+  ok "dev build defaults to the shipped manifest (file://)"
+else
+  bad "dev default manifest URL is '${dev_default}'"
+fi
+rel="${tmp}/rel"; mkdir -p "${rel}/installer/bootstrap" "${rel}/manifest"
+cp "${BOOTSTRAP}" "${rel}/installer/bootstrap/"
+sed 's/"version": "[^"]*-dev"/"version": "9.8.7"/' "${MANIFEST}" > "${rel}/manifest/appliance-manifest.json"
+( cd "${rel}/manifest" && sha256sum appliance-manifest.json > appliance-manifest.json.sha256 )
+rel_default="$(bash "${rel}/installer/bootstrap/dawo-appliance-bootstrap" help 2>&1 | sed -n 's/.*Default: //p' | head -1)"
+if [[ "${rel_default}" == "https://github.com/EduardWitteveen/dawo-appliance/releases/download/v9.8.7/appliance-manifest.json" ]]; then
+  ok "release build defaults to the asset of exactly its own tag"
+else
+  bad "release default manifest URL is '${rel_default}'"
+fi
+
 echo "test-bootstrap-dryrun: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
