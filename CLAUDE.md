@@ -29,7 +29,9 @@ is.
   secrets in Git. Secrets are generated at install time.
 - **License: EUPL-1.2** (`LICENSE`). Keep the SPDX identifier `EUPL-1.2` and do
   not relicense without the maintainer's approval.
-- **No remote yet.** Do not configure or push to a remote Git repository.
+- **Remote:** `github.com/EduardWitteveen/dawo-appliance` (public, since
+  2026-09-25). Pushing there needs the maintainer's go-ahead each time, same as
+  commits; do not force-push or push to any other remote without asking.
 - **Non-destructive by default.** Any code that can write to a disk MUST require
   an explicit target disk AND an explicit confirmation flag. Never make
   destructive disk changes while developing or testing.
@@ -52,8 +54,9 @@ is.
   store on the WSL ext4 filesystem (it is), not on the slow `/mnt/c` 9p mount.
   Runbook: `docs/nix-setup.md`.
 - `/mnt/c` mounts with `metadata` (since 2026-06-22), so `chmod` and git work
-  from WSL too (OQ-1 resolved). The repo is a git repo on `main`; commits need
-  maintainer approval and there is **no remote yet**.
+  from WSL too (OQ-1 resolved). The repo is a git repo on `main` with a remote
+  (`github.com/EduardWitteveen/dawo-appliance`, OQ-8); commits and pushes need
+  maintainer approval.
 - Line endings: the repo is LF-only (`.gitattributes`). Windows git has
   `core.autocrlf=true`; do not convert files to CRLF.
 - qemu/libvirt are not installed on the Windows side; VM tests run inside WSL

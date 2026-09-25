@@ -73,7 +73,9 @@ The installed host as a local QEMU VM (needs Linux with Nix, KVM, a display and
 about 6 GiB RAM for the guest):
 
 ```bash
-nix run .#appliance-vm     # from a checkout; there is no remote yet
+git clone https://github.com/EduardWitteveen/dawo-appliance
+cd dawo-appliance
+nix run .#appliance-vm
 ```
 
 A QEMU window opens; the VM boots with the BZK splash, logs in automatically as

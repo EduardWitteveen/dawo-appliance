@@ -79,9 +79,8 @@ Bugs found and turned into checks today (`testing.md`):
   OQ-6), libvirt domain + cloud-init, autostart. Nested KVM works inside
   `appliance-vm` (guest kernel reports "kvm_amd: Nested Virtualization enabled").
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
-- No remote yet (OQ-8). Commits need maintainer approval: **all of today's work
-  (Slice 2c, Slice 3, docs tidy) is uncommitted; it is staged with `git add`
-  so the flake sees it.**
+- Remote is now `github.com/EduardWitteveen/dawo-appliance` (public, pushed
+  2026-09-25; OQ-8 partially resolved — release-hosting mechanism still open).
 
 ## Blocking decisions
 
@@ -90,6 +89,17 @@ Bugs found and turned into checks today (`testing.md`):
 
 ## Recently done
 
+- 2026-09-25 (different machine, 6 CPU/16 GB, no Nix/make/shellcheck/gh
+  installed locally): committed the session's outstanding work as six
+  logical commits (image-digests/OQ-5, Slice 4a guest VM, Slice 7 health
+  check, Slice 6 deploy driver, check-upstream, Makefile wiring). Fixed two
+  bugs the new machine exposed: `python3` doesn't exist in this Git Bash
+  (only `python`) — three scripts now fall back to it; `test-health-check.sh`
+  "flip" scenario had a machine-speed-dependent timeout, now a generous
+  bound instead of the assertion. Installed `gh` (checksum-verified release
+  zip, no winget here), logged in, created the public GitHub repo, pushed
+  `main`. OQ-8 updated accordingly. Nix/`nix flake check` not re-verified on
+  this machine — still only verified on the WSL `Ubuntu-24.04` box.
 - 2026-09-25 Slice 3 + Slice 2c (see Now); `install --generate-password`,
   welcome dialog, `appliance-vm`, parity check, `verify.sh` + report,
   `speed-check.sh`, `screenshots.sh`, docs tidy (index, front-door README).

@@ -13,8 +13,8 @@ related work can proceed; **non-blocking** items are improvements that can wait.
 - `git init` + `git add` + `git commit` succeed on this path.
 
 So the working tree on `/mnt/c/git/dawo-appliance` is a real git repo (branch
-`main`). Commits need maintainer approval per project rules; **no remote yet**
-(OQ-8).
+`main`). Commits need maintainer approval per project rules; the remote is
+`github.com/EduardWitteveen/dawo-appliance` (public) since 2026-09-25 (OQ-8).
 
 **Nix** was installed afterwards (2.34.7, daemon) in the WSL distro
 `Ubuntu-24.04`, store on ext4 (`docs/nix-setup.md`). Since 2026-09-25 the
@@ -112,17 +112,22 @@ Add manifest/artifact signature verification (upstream ships `cosign.pub`;
 minisign is an option for our own manifest) on top of checksums. Planned
 hardening, not in v0.1.
 
-## OQ-8 (non-blocking): how to obtain the "pinned release of this repository"
+## OQ-8 (partially resolved 2026-09-25): how to obtain the "pinned release of this repository"
 
-The bootstrap is meant to "download a pinned release of this repository", but we
-must not configure a remote yet. For now the bootstrap supports a
-`--manifest-url` override (incl. `file://`) for local testing, with a clearly
-marked placeholder default. The real release-hosting location (and whether it is
-a tarball + checksum, a git tag, or a release asset) is undecided. Note
-(2026-09-25): upstream DAWO moved its primary repository to Codeberg for
-community collaboration and keeps code.overheid.nl/GitHub as mirrors; a
-similar Codeberg-first choice would fit this project, but that is the
-maintainer's call.
+**Resolved:** the repository now has a remote,
+[`github.com/EduardWitteveen/dawo-appliance`](https://github.com/EduardWitteveen/dawo-appliance)
+(public, EUPL-1.2), pushed 2026-09-25. Secret scanning and push protection are
+enabled; branch protection is not yet configured.
+
+**Still open:** the bootstrap is meant to "download a pinned release of this
+repository", and for now supports a `--manifest-url` override (incl. `file://`)
+for local testing, with a clearly marked placeholder default. The real
+release-hosting mechanism (tarball + checksum, a git tag, or a GitHub release
+asset) is undecided. Note: upstream DAWO moved its primary repository to
+Codeberg for community collaboration and keeps code.overheid.nl/GitHub as
+mirrors; a similar Codeberg-first choice would fit this project, but that is
+the maintainer's call — GitHub was chosen here as the immediate, pragmatic
+option.
 
 ## OQ-9 (non-blocking, known issue): `appliance-disk-image` is KVM-flaky on WSL
 
