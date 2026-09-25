@@ -187,6 +187,14 @@
         # separately by `appliance-disk-image`; the test framework supplies the
         # root fs here so we exercise the host config itself.
         #   nix build .#test-appliance-boot -L   (needs KVM; see docs/nix-setup.md)
+        # End-to-end install (issue #14): live installer -> bootstrap install on
+        # an empty disk -> boot the installed disk -> desktop. Heavy (installs
+        # the whole closure); needs KVM.
+        #   nix build .#test-install-e2e -L
+        test-install-e2e = import ./nix/tests/install-e2e.nix {
+          inherit pkgs lib self disko liveInstallerExtras;
+        };
+
         test-appliance-boot = pkgs.testers.runNixOSTest {
           name = "appliance-boot";
           node.specialArgs = dawoSpecialArgs;
@@ -420,6 +428,16 @@
 
       # Same host, run as a local QEMU VM with a display (hosts/appliance/vm.nix).
       nixosConfigurations.appliance-vm = mkAppliance [ ./hosts/appliance/vm.nix ];
+
+      # The appliance plus nixpkgs' test instrumentation, installed by
+      # test-install-e2e so the test driver can talk to the installed system.
+      # Not for real installs.
+      nixosConfigurations.appliance-e2e = mkAppliance [
+        ({ lib, modulesPath, ... }: {
+          imports = [ "${modulesPath}/testing/test-instrumentation.nix" ];
+          boot.consoleLogLevel = lib.mkForce 7;
+        })
+      ];
 
       formatter.${system} = pkgs.nixpkgs-fmt;
     };
