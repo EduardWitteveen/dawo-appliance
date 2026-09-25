@@ -328,15 +328,12 @@
 
         # Lint the shell scripts.
         shellcheck = pkgs.runCommand "shellcheck"
-          { nativeBuildInputs = [ pkgs.shellcheck ]; }
+          { nativeBuildInputs = [ pkgs.shellcheck pkgs.findutils ]; }
           ''
-            shellcheck \
-              ${./installer/bootstrap/dawo-appliance-bootstrap} \
-              ${./tests/test-bootstrap-dryrun.sh} \
-              ${./scripts/status.sh} \
-              ${./scripts/verify.sh} \
-              ${./scripts/screenshots.sh} \
-              ${./scripts/speed-check.sh}
+            # Every tracked shell script (the flake source contains only
+            # tracked files), so a new script cannot slip past the linter.
+            find ${self} -name '*.sh' -print0 \
+              | xargs -0 shellcheck ${./installer/bootstrap/dawo-appliance-bootstrap}
             touch $out
           '';
 
