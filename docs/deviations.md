@@ -18,7 +18,7 @@ Status: **active** (in the code), **planned** (decided, not yet built),
 | --- | --- | --- | --- | --- | --- |
 | D1 | Headless fleet installer (`hosts/dawo-installer`, SSH key and wifi baked in, `nixos-anywhere` from an operator machine) | Own interactive live ISO with `dawo-appliance-bootstrap` | One machine, no operator host, no secrets in the image, manifest verification | active | ADR 0002 |
 | D2 | `disko-single-nvme-luks`: fixed `/dev/nvme0n1`, LUKS | Own disko layout, explicit `--target-disk` + `--confirm-destroy`, no LUKS in v0.1 | Never a default device (hard rule); demo simplicity | active | ADR 0003, roadmap Slice 2b, #23 |
-| D3 | A hardware module per laptop model | Generic: `hardware-dawo-base` plus microcode for both CPU vendors | The appliance is not one laptop model | active | ADR 0003 |
+| D3 | A hardware module per laptop model | Generic: `hardware-dawo-base` plus microcode for both CPU vendors and NixOS' `qemu-guest` profile (virtio drivers) | The appliance is not one laptop model, and must also install into a VM | active | ADR 0003 |
 | D4 | Auto-update with comin from Codeberg `main` | `dawo.autoUpdate.enable = false` | The appliance is a pinned, reproducible artifact; comin would drop our additions | active | ADR 0003, `nix/parity.nix` |
 | D5 | SDDM login screen | Auto-login as `dawo` plus a welcome dialog | Demo: nothing to type | active | ADR 0003, `nix/parity.nix` |
 | D6 | Documented default password, never shown | Password shown in the welcome dialog; with `--generate-password` also stored readable on disk | Demo ergonomics; **not for production** | active | ADR 0003 |

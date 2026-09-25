@@ -10,10 +10,10 @@
 # `dawoCore` is the pinned DAWO-Core flake (specialArg from flake.nix). Its
 # modules expect upstream's own `inputs` and `hostConfig` as specialArgs, which
 # flake.nix also supplies.
-{ dawoCore, lib, ... }:
+{ dawoCore, lib, modulesPath, ... }:
 
 {
-  imports = with dawoCore.modules.nixos; [
+  imports = (with dawoCore.modules.nixos; [
     # Boot: systemd-boot (Secure Boot/lanzaboote stays opt-in and off) and the
     # BZK boot splash.
     boot-loader
@@ -24,6 +24,11 @@
     profiles-dawo-generic
     # Plasma workspace as handed to a user (panel layout, wallpaper, defaults).
     maid-dawo-generic
+  ]) ++ [
+    # Generic hardware (D3): also installable as a virtual machine (virtio
+    # disk/net/console drivers in the initrd; NixOS' standard profile, harmless
+    # on bare metal). Found by the end-to-end install test (issue #14).
+    "${modulesPath}/profiles/qemu-guest.nix"
   ];
 
   # --- Same choices as the pilot client host ------------------------------

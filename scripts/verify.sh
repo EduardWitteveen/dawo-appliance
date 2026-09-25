@@ -10,6 +10,8 @@
 #
 # Options (environment variables):
 #   QUICK=1    only the fast checks (local dry-run suite + `nix flake check`)
+#   E2E=1      also run the end-to-end install test (test-install-e2e, ~30 min:
+#              installs the whole closure onto a virtual disk and boots it)
 #   FORCE=1    re-run boot tests even when Nix has a cached passing result
 #              (`nix build --rebuild`); by default a cached pass counts
 #   VERIFY_LOG_DIR=DIR  where per-check logs go (default: $TMPDIR/dawo-appliance-verify)
@@ -119,6 +121,15 @@ else
       else
         run test-installer-boot nix build .#test-installer-boot -L --no-link --no-warn-dirty
         run test-appliance-boot nix build .#test-appliance-boot -L --no-link --no-warn-dirty
+      fi
+      if [[ "${E2E:-0}" -eq 1 ]]; then
+        if [[ "${FORCE:-0}" -eq 1 ]]; then
+          run test-install-e2e fresh_build test-install-e2e
+        else
+          run test-install-e2e nix build .#test-install-e2e -L --no-link --no-warn-dirty
+        fi
+      else
+        skip test-install-e2e "opt-in: E2E=1 (~30 min)"
       fi
     else
       skip test-installer-boot "/dev/kvm not writable (KVM needed)"

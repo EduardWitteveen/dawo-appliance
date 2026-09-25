@@ -69,14 +69,15 @@ let
         [ i.outPath ] ++ allInputs (depth - 1) (i.inputs or { }))
       (lib.filter (n: n != "self") (lib.attrNames inputs));
 
+  # Outputs only. disko's own test also lists the .drv files, which for its
+  # tiny machine is cheap; for the full workplace the .drv closure drags in
+  # every source tarball of the system and the Nix daemon ran out of memory
+  # (20 GB) computing it. With the outputs registered as valid, disko-install
+  # evaluates and finds everything already built.
   dependencies = [
     installToplevel
-    installToplevel.drvPath
     (installSystem.pkgs.closureInfo { rootPaths = [ installToplevel ]; })
     diskoSystem.config.system.build.diskoScript
-    diskoSystem.config.system.build.diskoScript.drvPath
-    original.pkgs.stdenv.drvPath
-    (original.pkgs.closureInfo { rootPaths = [ ]; }).drvPath
     original.pkgs.perlPackages.ConfigIniFiles
     original.pkgs.perlPackages.FileSlurp
     self.outPath
@@ -140,7 +141,10 @@ pkgs.testers.runNixOSTest {
         "dawo-appliance-bootstrap install --target-disk ${targetDisk} "
         "--confirm-destroy --generate-password --allow-small-store 2>&1 | tee /dev/stderr")
     assert "INSTALLED on ${targetDisk}" in out, "install did not report success"
-    pw = [l for l in out.splitlines() if "password:" in l][0].split("password:")[1].strip()
+    # The bootstrap's own summary line; other lines (Nix evaluation warnings)
+    # also contain "password:".
+    pw = [l for l in out.splitlines() if "First login:" in l][0].split("password:")[1].strip()
+    assert len(pw) == 19, f"unexpected generated password format: {pw!r}"
     t_install = time.time() - t0
     installer.shutdown()
 
