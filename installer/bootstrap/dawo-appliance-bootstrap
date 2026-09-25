@@ -2,15 +2,16 @@
 #
 # dawo-appliance-bootstrap — runs on the booted live ISO.
 #
-# v0.1 implements the NON-DESTRUCTIVE path only:
+# Default path is NON-DESTRUCTIVE (`plan`, `verify`):
 #   1. (optional) check internet connectivity
 #   2. download a pinned release manifest of this repository
 #   3. verify the manifest against a trusted, version-controlled SHA-256
 #   4. show what WOULD be installed (the plan)
 #   5. write NOTHING to disk
 #
-# Any disk-writing action requires BOTH --target-disk and --confirm-destroy and
-# is intentionally NOT implemented in v0.1: it refuses and exits.
+# The only disk-writing action is the `install` subcommand (Slice 2b). It
+# requires BOTH --target-disk and --confirm-destroy, runs safety checks, and
+# offers --dry-run. `plan`/`verify` refuse those flags.
 #
 # Experimental and unofficial. Not an official DAWO / Mijn Bureau / BZK tool.
 
@@ -55,6 +56,7 @@ INSTALL_ATTR="appliance"
 
 # --- options ---------------------------------------------------------------
 MANIFEST_URL="${DEFAULT_MANIFEST_URL}"
+GENERATE_PASSWORD=0
 EXPECTED_SHA=""
 EXPECTED_SHA_FILE="${DEFAULT_EXPECTED_SHA_FILE}"
 OFFLINE=0
@@ -97,6 +99,9 @@ Options:
                               /dev/sda). Required by 'install'. NEVER defaulted.
   --confirm-destroy           Confirm that 'install' may ERASE the target disk.
   --flake REF                 Flake to install (default: ${DEFAULT_FLAKE_REF}).
+  --generate-password         install only: give user 'dawo' a random first-login
+                              password (shown once) instead of upstream's
+                              documented default. Default: off (demo = easy).
                               The '#${INSTALL_ATTR}' attribute is used.
   --dry-run                   For 'install': print the plan and the exact command
                               that WOULD run, and write nothing.
@@ -191,7 +196,7 @@ _render_plan_jq() {
   jq -r '
     "appliance:        \(.appliance.name) \(.appliance.version) (official: \(.appliance.official))",
     "architecture:     \(.architecture)",
-    "DAWO-NixOS rev:   \(.upstream.dawo_nixos.rev)",
+    "DAWO-Core rev:    \(.upstream.dawo_core.rev) (tag \(.upstream.dawo_core.tag))",
     "Mijn Bureau rev:  \(.upstream.mijn_bureau_infra.rev)",
     "nixpkgs rev:      \(.nix.nixpkgs.rev) (\(.nix.nixpkgs.ref))",
     "host requirement: >= \(.host.min_vcpu) vCPU, >= \(.host.min_ram_gib) GiB RAM, desktop: \(.host.desktop)",
@@ -215,7 +220,7 @@ m = json.load(open(sys.argv[1]))
 a = m["appliance"]
 print(f"appliance:        {a['name']} {a['version']} (official: {a['official']})")
 print(f"architecture:     {m['architecture']}")
-print(f"DAWO-NixOS rev:   {m['upstream']['dawo_nixos']['rev']}")
+print(f"DAWO-Core rev:    {m['upstream']['dawo_core']['rev']} (tag {m['upstream']['dawo_core']['tag']})")
 print(f"Mijn Bureau rev:  {m['upstream']['mijn_bureau_infra']['rev']}")
 nx = m["nix"]["nixpkgs"]
 print(f"nixpkgs rev:      {nx['rev']} ({nx['ref']})")
@@ -275,6 +280,21 @@ validate_target_disk() {
   fi
 }
 
+# Where the installed system expects the first-login password hash; applied
+# once at first boot by dawo-appliance-set-password.service
+# (hosts/appliance/appliance-services.nix) and then removed.
+PASSWORD_HASH_PATH="/var/lib/dawo-appliance/dawo.password-hash"
+
+# A random first-login password: 16 unambiguous lower-case letters/digits in
+# groups of four. Read from a fixed amount of urandom so no pipe is cut short
+# (pipefail would turn a SIGPIPE'd tr into a failure).
+generate_password() {
+  local raw
+  raw="$(LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyz23456789' < <(head -c 512 /dev/urandom) | cut -c1-16)"
+  [[ ${#raw} -eq 16 ]] || die "could not generate a password"
+  printf '%s-%s-%s-%s' "${raw:0:4}" "${raw:4:4}" "${raw:8:4}" "${raw:12:4}"
+}
+
 cmd_install() {
   # Hard rule: an explicit target disk is always required.
   validate_target_disk_for_mode
@@ -291,7 +311,15 @@ cmd_install() {
     echo "=========================================================="
     echo "target disk:  ${TARGET_DISK}"
     echo "flake:        ${flake_target}"
-    echo "would run:    ${cmd[*]}"
+    if [[ "${GENERATE_PASSWORD}" -eq 1 ]]; then
+      echo "would run:    ${cmd[*]} --extra-files <staged password hash>/. /"
+      echo "would set:    a generated first-login password for user 'dawo'"
+      echo "              (shipped as a hash to ${PASSWORD_HASH_PATH}, shown once)"
+    else
+      echo "would run:    ${cmd[*]}"
+      echo "login:        user 'dawo' with upstream's documented default password"
+      echo "              (add --generate-password for a random one)"
+    fi
     echo
     echo "NO DISK WRITES PERFORMED. Re-run with --confirm-destroy (and without"
     echo "--dry-run) to ERASE ${TARGET_DISK} and install."
@@ -306,8 +334,52 @@ cmd_install() {
   fi
   have disko-install || die "disko-install not found on PATH (the install medium must ship it)"
 
+  # First-login password for the `dawo` account (ADR 0003). Default: upstream's
+  # documented bootstrap default stays (the appliance auto-logs in and a welcome
+  # dialog tells the user). With --generate-password a random password is
+  # generated here, never stored anywhere but the operator's screen; only its
+  # yescrypt hash is copied into the fresh root, where
+  # dawo-appliance-set-password.service applies it at first boot. The stage is
+  # a directory tree so disko-install's `cp -ar STAGE/. ROOT/` creates
+  # var/lib/dawo-appliance.
+  local stage="" password=""
+  if [[ "${GENERATE_PASSWORD}" -eq 1 ]]; then
+    have mkpasswd || die "mkpasswd not found on PATH (the install medium must ship it)"
+    stage="$(mktemp -d)"
+    chmod 700 "${stage}"
+    mkdir -p "${stage}${PASSWORD_HASH_PATH%/*}"
+    chmod 700 "${stage}${PASSWORD_HASH_PATH%/*}"
+    password="$(generate_password)"
+    (
+      umask 077
+      printf '%s\n' "${password}" | mkpasswd -m yescrypt --stdin > "${stage}${PASSWORD_HASH_PATH}"
+    )
+    # Demo appliance, NOT for production: the plain password is also shipped,
+    # world-readable, so the welcome dialog can show it after auto-login.
+    printf '%s\n' "${password}" > "${stage}${PASSWORD_HASH_PATH%/*}/dawo.password.txt"
+    chmod 644 "${stage}${PASSWORD_HASH_PATH%/*}/dawo.password.txt"
+    cmd+=(--extra-files "${stage}/." /)
+  fi
+
   log "ERASING ${TARGET_DISK} and installing ${flake_target} ..."
   "${cmd[@]}"
+  [[ -n "${stage}" ]] && rm -rf "${stage}"
+
+  echo
+  echo "=========================================================="
+  echo " dawo-appliance — INSTALLED on ${TARGET_DISK}"
+  echo "=========================================================="
+  if [[ -n "${password}" ]]; then
+    echo " First login:  user 'dawo'   password: ${password}"
+    echo " It is applied at first boot; the welcome dialog on the desktop shows"
+    echo " it again (demo appliance, not for production). Change it with passwd."
+  else
+    echo " The appliance logs in automatically as user 'dawo'. The screen lock"
+    echo " and admin tasks use upstream's documented default password; a"
+    echo " welcome dialog on the desktop repeats this."
+  fi
+  echo " Reboot to start the appliance."
+  echo "=========================================================="
   log "install complete. Reboot to start the appliance host."
 }
 
@@ -337,6 +409,7 @@ while [[ $# -gt 0 ]]; do
     --target-disk)           TARGET_DISK="${2:?}"; shift 2 ;;
     --confirm-destroy)       CONFIRM_DESTROY=1; shift ;;
     --flake)                 FLAKE_REF="${2:?}"; shift 2 ;;
+    --generate-password)     GENERATE_PASSWORD=1; shift ;;
     --dry-run)               DRY_RUN=1; shift ;;
     -h|--help)               usage; exit 0 ;;
     *) die "unknown option: $1 (try: ${PROGRAM_NAME} help)" ;;

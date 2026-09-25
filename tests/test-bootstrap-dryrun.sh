@@ -112,6 +112,19 @@ else
   printf '%s\n' "${out}" | sed 's/^/      | /'
 fi
 
+# --- 7b. install --dry-run --generate-password previews the password step ---
+out=""
+if out="$(run_bootstrap install --target-disk /dev/dawo-nonexistent --dry-run --generate-password 2>&1)"; then
+  if grep -q "extra-files" <<<"${out}" && grep -q "NO DISK WRITES PERFORMED" <<<"${out}"; then
+    ok "install --dry-run --generate-password previews the password hash step"
+  else
+    bad "install --dry-run --generate-password output missing expected markers"
+    printf '%s\n' "${out}" | sed 's/^/      | /'
+  fi
+else
+  bad "install --dry-run --generate-password exited non-zero"
+fi
+
 # --- 8. install without confirmation (and not dry-run) refuses -------------
 # Even if the device check were to pass, the missing --confirm-destroy must stop
 # it. We use a non-block device so nothing can be written regardless.
