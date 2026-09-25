@@ -8,7 +8,7 @@ SHELL := bash
 BOOTSTRAP := installer/bootstrap/dawo-appliance-bootstrap
 MANIFEST  := manifest/appliance-manifest.json
 SHA_FILE  := manifest/appliance-manifest.json.sha256
-SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh tests/test-k3s-install.sh k8s/bootstrap/install-k3s.sh scripts/status.sh scripts/verify.sh scripts/screenshots.sh scripts/speed-check.sh
+SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh tests/test-k3s-install.sh tests/test-image-digests.sh tests/test-health-check.sh k8s/bootstrap/install-k3s.sh scripts/status.sh scripts/verify.sh scripts/screenshots.sh scripts/speed-check.sh scripts/check-upstream.sh scripts/resolve-image-digests.sh health/dawo-appliance-health.sh health/dawo-appliance-open-dashboard.sh apps/mijn-bureau/deploy.sh
 
 .DEFAULT_GOAL := check
 
@@ -51,6 +51,8 @@ check: lint test
 test:
 	bash tests/test-bootstrap-dryrun.sh
 	bash tests/test-k3s-install.sh
+	bash tests/test-image-digests.sh
+	bash tests/test-health-check.sh
 
 .PHONY: plan
 plan:
