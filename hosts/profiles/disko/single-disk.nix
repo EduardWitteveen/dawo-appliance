@@ -13,11 +13,15 @@
 #   - the appliance host config (hosts/appliance/disko.nix), device from the
 #     `appliance.targetDisk` option, and
 #   - the disk-image build (flake `appliance-disk-image`).
-{ device, swapSize ? "2G" }:
+{ device, swapSize ? "2G", imageSize ? "32G" }:
 {
   disko.devices.disk.main = {
     type = "disk";
     inherit device;
+    # Size of the raw image built by `nix build .#appliance-disk-image` only
+    # (disko's default is 2G, far too small for the DAWO workplace closure);
+    # a real install always uses the whole target disk.
+    inherit imageSize;
     content = {
       type = "gpt";
       partitions = {

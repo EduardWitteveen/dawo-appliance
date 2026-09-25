@@ -129,7 +129,19 @@ mirrors; a similar Codeberg-first choice would fit this project, but that is
 the maintainer's call — GitHub was chosen here as the immediate, pragmatic
 option.
 
-## OQ-9 (non-blocking, known issue): `appliance-disk-image` is KVM-flaky on WSL
+## OQ-9 (RESOLVED 2026-09-25): `appliance-disk-image` on WSL
+
+**Resolution:** two separate causes. (1) KVM: the Nix sandbox drops
+supplementary groups, so `/dev/kvm` must be mode 0666 (udev rule; see
+`docs/nix-setup.md`, `scripts/speed-check.sh`). (2) Size: disko's default
+`imageSize` is 2G, far too small for the DAWO workplace closure; the build VM
+died with "Virtual machine didn't produce an exit code". `single-disk.nix` now
+sets `imageSize = "32G"` (image builds only; a real install uses the whole
+disk). Verified: `nix build .#appliance-disk-image` in 1235 s; raw image 32 GiB
+virtual, 8.9 GiB used; GPT with a 511 MB ESP and a 31.5 GB Btrfs root.
+
+Historical notes below.
+
 
 `nix build .#appliance-disk-image` uses disko's `make-disk-image` (nixpkgs
 `vmTools`), which runs a QEMU build VM. On this WSL host the build often fails
