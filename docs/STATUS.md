@@ -30,7 +30,13 @@ Bureau / BZK distribution (`CLAUDE.md`).
   `Ubuntu-24.04` (`wsl -d Ubuntu-24.04 -e bash -lc '… nix …'`); WSL has 24 GB /
   12 CPUs via `.wslconfig`. Repo is LF-only, `core.filemode=false`. Practical
   notes (result links, detached VMs): `development.md`.
-- Slices 4–7 are scaffolding (README placeholders) only.
+- **Slice 4b built (2026-09-25, uncommitted, staged):** per-install appliance CA
+  (`hosts/appliance/appliance-ca.nix`, ADR 0004): `dawo-appliance-ca.service`,
+  Firefox policy `Certificates.Install`, Chromium NSS import per login,
+  `/etc/dawo-appliance/ca.env`; boot-test assertions in
+  `nix/tests/appliance-ca-assertions.py` (to paste into `test-appliance-boot`).
+  Key on disk = demo, not for production. Guest/cluster trust: Slices 4a/6.
+- Slices 4a, 5–7 are scaffolding (README placeholders) only.
 
 ## Verification (2026-09-25, nixos-26.05, DAWO-Core 0.1.3)
 

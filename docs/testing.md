@@ -75,6 +75,9 @@ GPU acceleration is much faster.
 | R15 | The host runs as a local VM for a human look | `nix build .#appliance-vm` (in `verify.sh`) | builds `run-dawo-appliance-vm`; the look itself is manual |
 | R16 | No secrets in Git | review + `.gitignore` patterns | manual; the only password in the tree is upstream's documented default |
 | R17 | Pins are exact and recorded | `manifest/appliance-manifest.json`, `flake.lock`, `docs/upstream/revisions.md` | manual review on every bump; `nix flake check` fails if the lock and flake disagree |
+| R20 | **Per-install appliance CA** (ADR 0004): generated once at first boot, before the display manager; `ca.crt` 0644 with `CA:TRUE` + keyCertSign/cRLSign, `ca.key` 0600 root and unreadable for `dawo`, `ca.crt.sha256` valid; a restart does not regenerate; `/etc/dawo-appliance/ca.env` names the files. The key on disk is a demo choice, not for production | `test-appliance-boot` (assertions in `nix/tests/appliance-ca-assertions.py`, block A) | unit active (RemainAfterExit); `stat`, `openssl x509 -text`, `sha256sum -c`, fingerprint equal before/after restart |
+| R21 | Firefox trusts the CA through the enterprise policy `Certificates.Install`, merged with upstream's policies (no override) | `test-appliance-boot` (block A); `nix flake check` evaluates the merged attrset | `/etc/firefox/policies/policies.json` contains the CA path and upstream's `DisableTelemetry`/Plasma integration entries |
+| R22 | Chromium trusts the CA: the per-login user service imports it into `~/.pki/nssdb` of the logged-in `dawo` user, idempotently | `test-appliance-boot` (block B, after the Plasma session) | `dawo-appliance-ca-nss.service` active in the user manager; `certutil -L` lists exactly one `DAWO appliance local CA` with trust `C,,`, DER equal to `ca.crt`; a restart keeps one entry |
 
 ## Not (yet) automated
 
@@ -85,7 +88,10 @@ GPU acceleration is much faster.
   `nix run .#appliance-vm`. The boot test's `desktop.png` screenshot is best
   effort in a software-rendered VM.
 - Slices 4–7 (VM, K3s, Mijn Bureau, health, browser): not built yet; their
-  tests come with them. The end-to-end run also needs a large host (OQ-2).
+  tests come with them. The CA assertions (R20–R22) are written but wait for
+  the maintainer to paste them into `test-appliance-boot` (`nix/tests/
+  appliance-ca-assertions.py`); guest and cluster trust in the CA are Slice
+  4a/6 tests. The end-to-end run also needs a large host (OQ-2).
 
 ## Reading a failure
 
