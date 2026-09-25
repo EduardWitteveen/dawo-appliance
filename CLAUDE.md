@@ -106,6 +106,17 @@ briefly what was done and what could not yet be established. (The hard rules
 above — non-destructive by default, no secrets, no host/WSL changes without
 asking, changes only via the GitHub workflow — always take precedence.)
 
+## Standards first (since 2026-09-25)
+
+Follow the standard way of doing things — upstream DAWO-Core and
+mijn-bureau-infra, NixOS conventions, GitHub flow, Conventional Commits — unless
+it stands in the way of the goal: **a live installer that installs and runs the
+appliance on one machine**. Every deviation is recorded, with its motivation, in
+`docs/deviations.md` (one line each, linking the ADR or doc that motivates it),
+in the same pull request that introduces it. A deviation that is not in the
+register is a bug. Prefer the documented upstream mechanism even when a local
+shortcut looks simpler.
+
 ## GitHub workflow (since 2026-09-25)
 
 More than one Claude session works on this repository (on different
@@ -128,8 +139,10 @@ machines). To stay out of each other's way, every change goes through GitHub:
    branch (`--force-with-lease` is fine on your own feature branch only).
    After a merge, `git switch main && git pull --ff-only`.
 6. **Merge** once the checks are green: the session that opened the PR may
-   merge it itself (squash merge), then **delete the branch** (remote and
-   local) and pull `main`.
+   merge it itself with a **rebase merge** (`gh pr merge --rebase
+   --delete-branch`), then delete the local branch and pull `main`. Not
+   squash: a squash merge lets GitHub author the commit with the account's
+   e-mail instead of the noreply address (deviation D19).
 7. Never push to `main` directly, never force-push, never rewrite published
    history without the maintainer's explicit go-ahead.
 
