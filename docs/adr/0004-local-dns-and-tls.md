@@ -123,8 +123,8 @@ self-contained replacement. Facts that constrain the choice:
 4. **Health check (Slice 7) gates the browser.** In the VM: `ClusterIssuer
    dawo-appliance-ca` Ready; `kubectl get certificate -A` all Ready with a
    stable count over two polls (upstream's `wait_for_certs`), each issued by
-   `dawo-appliance-ca`. On the host: `resolvectl query bureaublad.dawo.internal
-   ` returns the VM address; `curl --cacert ca.crt` gets HTTP 200 from
+   `dawo-appliance-ca`. On the host: `resolvectl query bureaublad.dawo.internal`
+   returns the VM address; `curl --cacert ca.crt` gets HTTP 200 from
    `https://bureaublad.dawo.internal/` and from Keycloak's
    `/realms/mijnbureau/.well-known/openid-configuration` whose `issuer` equals
    the configured one; the Firefox policy file and the Chromium NSS entry are
