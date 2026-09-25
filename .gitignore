@@ -5,6 +5,7 @@ result-*
 .pre-commit-config.local
 
 # Build / installer artifacts (never commit large binaries or ISOs)
+# (incl. the appliance-vm disk: nix run .#appliance-vm)
 *.iso
 *.img
 *.qcow2

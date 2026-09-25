@@ -1,13 +1,14 @@
-# dawo-appliance — local development targets.
-# These targets need no Nix and no root. Scripts are invoked via `bash` because
-# the working tree may live on a filesystem where the executable bit cannot be
-# set (e.g. /mnt/c under WSL without metadata; see docs/open-questions.md OQ-1).
+# dawo-appliance — local development targets (docs/development.md).
+# The default gate (`make check`) needs no Nix and no root; `verify`,
+# `speed-check` and `screenshots` need Linux + Nix (+ KVM). Scripts are invoked
+# via `bash` so the executable bit does not matter (Windows checkouts,
+# core.filemode=false).
 
 SHELL := bash
 BOOTSTRAP := installer/bootstrap/dawo-appliance-bootstrap
 MANIFEST  := manifest/appliance-manifest.json
 SHA_FILE  := manifest/appliance-manifest.json.sha256
-SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh scripts/status.sh
+SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh scripts/status.sh scripts/verify.sh scripts/screenshots.sh scripts/speed-check.sh
 
 .DEFAULT_GOAL := check
 
@@ -15,10 +16,13 @@ SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh scripts/status.sh
 help:
 	@echo "dawo-appliance make targets:"
 	@echo "  make status        session orientation: where were we + live checks"
+	@echo "  make verify        full verification suite (Linux + Nix + KVM; see docs/testing.md)"
+	@echo "  make screenshots   refresh docs/screenshots from the boot tests (Linux + Nix + KVM)"
+	@echo "  make speed-check   is this machine set up for fast builds/VM tests? (APPLY=1 to fix)"
 	@echo "  make check         lint + test (default local gate)"
 	@echo "  make test          run the bootstrap dry-run test suite"
 	@echo "  make plan          run the bootstrap dry-run against the local manifest"
-	@echo "  make verify        verify the local manifest checksum only"
+	@echo "  make verify-manifest  bootstrap 'verify' only: local manifest checksum"
 	@echo "  make manifest-sum  regenerate $(SHA_FILE)"
 	@echo "  make lint          shellcheck the shell scripts"
 	@echo "  make fmt           format shell scripts with shfmt (if installed)"
@@ -27,6 +31,18 @@ help:
 .PHONY: status
 status:
 	bash scripts/status.sh
+
+.PHONY: verify
+verify:
+	bash scripts/verify.sh
+
+.PHONY: speed-check
+speed-check:
+	bash scripts/speed-check.sh
+
+.PHONY: screenshots
+screenshots:
+	bash scripts/screenshots.sh
 
 .PHONY: check
 check: lint test
@@ -39,8 +55,8 @@ test:
 plan:
 	bash $(BOOTSTRAP) plan --offline --manifest-url "file://$(CURDIR)/$(MANIFEST)"
 
-.PHONY: verify
-verify:
+.PHONY: verify-manifest
+verify-manifest:
 	bash $(BOOTSTRAP) verify --offline --manifest-url "file://$(CURDIR)/$(MANIFEST)"
 
 .PHONY: manifest-sum

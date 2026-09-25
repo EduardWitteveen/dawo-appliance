@@ -17,7 +17,7 @@ is.
 
 - **Language:** All repository content — docs, code, comments, commit messages —
   is in **English**. (Conversation with the maintainer may be in Dutch.)
-- **Keep upstream separate.** Consume DAWO-NixOS (flake input) and
+- **Keep upstream separate.** Consume DAWO-Core (formerly DAWO-NixOS; flake input) and
   mijn-bureau-infra (documented install path) by pinned revision. Do **not**
   copy upstream source unless strictly necessary and license-permitted. Do not
   create a fork or submodule without first explaining why it is needed.
@@ -43,13 +43,21 @@ is.
 
 ## Environment notes (this machine)
 
-- Windows + WSL2, Ubuntu 24.04, x86-64, KVM available (`/dev/kvm` present).
-- Nix is **not installed** here. qemu/libvirt are not installed here.
-- **`/mnt/c` mounts with `metadata` (since 2026-06-22), so `chmod` and
-  `git init` work here** (OQ-1 resolved). The repo is not yet initialised;
-  commits need maintainer approval and there is **no remote yet**. Nix is still
-  not installed; if installed, keep its store on the WSL ext4 filesystem, not
-  the `/mnt/c` 9p mount (slow). See `docs/open-questions.md` (OQ-1).
+- Windows 11 + WSL2, x86-64, KVM available inside WSL (`/dev/kvm`).
+- **Claude Code runs on the Windows side** (Git Bash / PowerShell, cwd
+  `C:\git\dawo-appliance`). **Nix (2.34.7, daemon, flakes) is installed only in
+  the WSL distro `Ubuntu-24.04`** (user `ewitteveen`). Run Nix through it:
+  `wsl -d Ubuntu-24.04 -e bash -lc 'cd /mnt/c/git/dawo-appliance && nix flake check'`.
+  The default WSL distro "Ubuntu" has neither the user nor Nix. Keep the Nix
+  store on the WSL ext4 filesystem (it is), not on the slow `/mnt/c` 9p mount.
+  Runbook: `docs/nix-setup.md`.
+- `/mnt/c` mounts with `metadata` (since 2026-06-22), so `chmod` and git work
+  from WSL too (OQ-1 resolved). The repo is a git repo on `main`; commits need
+  maintainer approval and there is **no remote yet**.
+- Line endings: the repo is LF-only (`.gitattributes`). Windows git has
+  `core.autocrlf=true`; do not convert files to CRLF.
+- qemu/libvirt are not installed on the Windows side; VM tests run inside WSL
+  via Nix (`nix build .#test-installer-boot -L`, needs KVM).
 
 ## Scope (v0.1)
 
@@ -60,9 +68,12 @@ Out: openDesk, Nextcloud AIO, multi-node, HA, branding, AD, offline install.
 
 ## Layout
 
-See `README.md` for the directory table. Pins: `manifest/`. Upstream facts:
+`README.md` is the front door (directory table included); `docs/README.md`
+indexes every document. Pins: `manifest/`. Upstream facts:
 `docs/upstream/revisions.md`. Decisions: `docs/adr/`. Unknowns:
-`docs/open-questions.md`.
+`docs/open-questions.md`. Generated, never hand-edited:
+`docs/verification-latest.md`, `docs/verification-history.csv`,
+`docs/screenshots/PROVENANCE.md` and the PNGs next to it.
 
 ## Starting a session
 
@@ -91,17 +102,30 @@ briefly what was done and what could not yet be established. (The hard rules
 above — non-destructive by default, no secrets, no host/WSL changes without
 asking, commits only when asked — always take precedence.)
 
+## Test-driven, in the small
+
+- **A bug becomes a check first.** When something fails (boot, eval, a wrong
+  upstream assumption, a flaky assertion), add or extend a check that
+  reproduces it, then fix, and keep the check in the suite and in the matrix
+  in `docs/testing.md`.
+- **Green means a real run.** `docs/verification-latest.md` is written only by
+  `REPORT=1 bash scripts/verify.sh`. Never claim a check passed without that
+  run; the README points at that file.
+- Before reporting a slice done, run `bash scripts/verify.sh` (inside WSL
+  `Ubuntu-24.04` on this machine) and record the result.
+
 ## Local validation
 
 - `tests/test-bootstrap-dryrun.sh` — runs the bootstrap in dry-run against the
   local manifest (no network, no Nix, no root). Verifies checksum behaviour and
   that no disk writes occur.
-- `make test`, `make plan`, `make fmt`, `make check` — see `Makefile`.
-- Nix checks (`nix flake check`, `nix develop`) require Nix; documented in
-  `docs/development.md` but not runnable on this machine until Nix is available.
+- `make check` (lint + test), `make plan`, `make fmt` — see `Makefile`.
+- Nix checks (`nix flake check`, `nix develop`, VM boot tests) run inside the
+  WSL distro `Ubuntu-24.04` (see Environment notes); `bash scripts/verify.sh`
+  chains all of them. Documented in `docs/development.md`.
 
 ## Conventions
 
-- Commit messages: Conventional Commits (matches DAWO-NixOS upstream), English.
+- Commit messages: Conventional Commits (matches DAWO-Core upstream), English.
 - Shell scripts: `bash`, `set -euo pipefail`, pass `shellcheck`.
 - Do not create commits unless the maintainer asks.

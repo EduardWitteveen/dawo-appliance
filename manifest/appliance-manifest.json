@@ -9,34 +9,60 @@
   },
   "architecture": "x86_64-linux",
   "upstream": {
-    "dawo_nixos": {
-      "url": "https://code.overheid.nl/MinBZK/DAWO-NixOS",
-      "rev": "daed6f81a189403e41d49df3d76cfb02d1de8ea5",
-      "inspected": "2026-06-18",
-      "license": "GPL-3.0"
+    "dawo_core": {
+      "name": "DAWO-Core (formerly DAWO-NixOS)",
+      "url": "https://codeberg.org/DAWO/DAWO-Core",
+      "mirrors": [
+        "https://code.overheid.nl/MinBZK/DAWO-NixOS",
+        "https://github.com/DAWO-community/DAWO-Core"
+      ],
+      "tag": "0.1.3",
+      "rev": "695f17c05ca9fead89774036ddb1d136e77197e4",
+      "commit_date": "2026-09-07",
+      "inspected": "2026-09-25",
+      "license": "GPL-3.0",
+      "flake_input": "dawo-core = git+https://codeberg.org/DAWO/DAWO-Core?ref=refs/tags/0.1.3 (rev locked in flake.lock; nixpkgs and disko follow ours)",
+      "modules_imported": [ "boot-loader", "boot-plymouth-bzk", "profiles-dawo-generic", "maid-dawo-generic" ],
+      "parity_reference_host": "hosts/dawo-t495s",
+      "previous": {
+        "url": "https://code.overheid.nl/MinBZK/DAWO-NixOS",
+        "rev": "daed6f81a189403e41d49df3d76cfb02d1de8ea5",
+        "inspected": "2026-06-18"
+      }
     },
     "mijn_bureau_infra": {
       "url": "https://code.overheid.nl/MinBZK/mijn-bureau-infra",
-      "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
-      "inspected": "2026-06-16",
-      "license": "EUPL-1.2"
+      "mirrors": [
+        "https://github.com/MinBZK/mijn-bureau-infra"
+      ],
+      "rev": "b2ae545013c153b9a3fb0aebcb51d22f348e1573",
+      "commit_date": "2026-07-27",
+      "inspected": "2026-09-25",
+      "license": "EUPL-1.2",
+      "previous": {
+        "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
+        "inspected": "2026-06-16"
+      }
     }
   },
   "nix": {
     "nixpkgs": {
-      "ref": "nixos-25.11",
-      "rev": "d6df3513510aa548c83868fd22bfddd0a8c0a0d4",
-      "narHash": "sha256-uJZs9Di8I6ciTp6jiojj0HzlNpBkud8ax5aT/O5aJkw="
+      "ref": "nixos-26.05",
+      "rev": "fcb8fcd6bf2d0adecae5bd491afaaaf8311b758d",
+      "narHash": "sha256-9BG7OgUWdu0ONDO5X2q6+K4bsuBITkX/3W4nNJu1Ito=",
+      "note": "Same rev DAWO-Core 0.1.3 pins. nixos-25.11 (previous) is end-of-life since 2026-06-30."
     },
     "disko": {
-      "ref": "master",
-      "rev": "ff8702b4de27f72b4c78573dfb89ec74e36abdf1",
-      "note": "Declarative partitioning (Slice 2). Exact rev pinned in flake.lock; nixpkgs follows the pin above."
+      "ref": "latest",
+      "rev": "de5708739256238fb912c62f03988815db89ec9a",
+      "narHash": "sha256-CNzzBsRhq7gg4BMBuTDObiWDH/rFYHEuDRVOwCcwXw4=",
+      "note": "Declarative partitioning (Slice 2). Same rev DAWO-Core 0.1.3 pins; nixpkgs follows the pin above."
     }
   },
   "host": {
     "os": "NixOS",
-    "desktop": "DAWO (KDE Plasma 6 + SDDM, via profiles-dawo-generic)",
+    "state_version": "26.05",
+    "desktop": "DAWO workplace: DAWO-Core profiles-dawo-generic, KDE Plasma 6 + SDDM, pilot app sets (ADR 0003)",
     "min_vcpu": 16,
     "min_ram_gib": 56
   },
@@ -55,12 +81,13 @@
     "mode": "single-node",
     "version": {
       "status": "pending-pin",
-      "note": "Pin exact k3s release + checksum before Slice 5 (OQ-6). Upstream reference: KIND/K8s node image v1.34.0."
+      "note": "Pin exact k3s release + checksum before Slice 5 (OQ-6). Upstream installs k3s unpinned from get.k3s.io; we do not."
     }
   },
   "mijn_bureau": {
     "deployment": "helmfile",
-    "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
+    "rev": "b2ae545013c153b9a3fb0aebcb51d22f348e1573",
+    "install_scripts": "scripts/single-vps-deploy/ at the rev above (run from the pinned checkout, never from a live raw URL)",
     "tooling": {
       "helmfile": "1.1.7",
       "cert_manager": "v1.16.2"
@@ -80,37 +107,47 @@
       "note": "This is the URL the appliance opens in the browser at the end."
     },
     "charts": {
-      "note": "Chart and image versions are pinned upstream at the rev above in helmfile/environments/default/container.yaml.gotmpl. A representative subset is recorded here; digest-pinning is tracked as OQ-5.",
+      "note": "Chart and image versions are pinned upstream at the rev above (helmfile/apps/*/helmfile-child.yaml.gotmpl and helmfile/environments/default/container.yaml.gotmpl). A representative subset is recorded here; digest-pinning is tracked as OQ-5.",
       "shared": {
         "postgresql_bitnami": "16.7.18",
         "redis_bitnami": "21.2.6",
         "minio_bitnami": "17.0.11",
         "nginx_bitnami": "22.0.0",
         "keycloak": "24.6.7",
-        "openproject": "13.8.0"
+        "openproject": "13.8.1"
       },
       "images_by_tag": {
         "keycloak": "docker.io/bitnamilegacy/keycloak:26.3.3-debian-12-r0",
-        "nextcloud": "docker.io/library/nextcloud:34.0.0-apache",
-        "synapse": "docker.io/matrixdotorg/synapse:v1.154.0",
-        "element_web": "docker.io/vectorim/element-web:v1.12.21",
-        "collabora_code": "docker.io/collabora/code:26.04.1.4.1",
+        "nextcloud": "docker.io/library/nextcloud:34.0.1-apache",
+        "collabora_code": "docker.io/collabora/code:26.04.2.2.1",
+        "synapse": "docker.io/matrixdotorg/synapse:v1.156.0",
+        "element_web": "docker.io/vectorim/element-web:v1.12.23",
+        "livekit_server": "docker.io/livekit/livekit-server:v1.13.4",
+        "meet_backend": "docker.io/lasuite/meet-backend:v1.23.0",
+        "docs_impress_backend": "docker.io/lasuite/impress-backend:v5.4.1",
+        "drive_backend": "docker.io/lasuite/drive-backend:v0.20.0",
+        "grist": "docker.io/gristlabs/grist:1.7.16",
         "openproject": "ghcr.io/minbzk/mijnbureau-openproject:v16.6.3",
         "bureaublad_api": "ghcr.io/minbzk/bureaublad-api:v0.9.3",
-        "bureaublad_frontend": "ghcr.io/minbzk/bureaublad-frontend:v0.6.1"
+        "bureaublad_frontend": "ghcr.io/minbzk/bureaublad-frontend:v0.6.1",
+        "postgresql": "docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4",
+        "cloudnative_pg": "ghcr.io/cloudnative-pg/postgresql:17.9-standard-bookworm",
+        "redis": "docker.io/bitnamilegacy/redis:8.2.1-debian-12-r0",
+        "minio": "docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5"
       }
     }
   },
   "secrets": {
     "policy": "Generated at install time. Never stored in Git.",
-    "master_password_env": "MIJNBUREAU_MASTER_PASSWORD"
+    "master_password_env": "MIJNBUREAU_MASTER_PASSWORD",
+    "host_user_password": "Generated at install time and written to dawo.bootstrapUser.initialHashedPassword (ADR 0003)."
   },
   "install_plan": [
     "establish internet connection",
     "download pinned release of this repository",
     "verify downloaded artifacts",
     "install NixOS (explicit target disk + confirmation)",
-    "configure DAWO-based desktop",
+    "configure the DAWO workplace (DAWO-Core profiles-dawo-generic, Plasma)",
     "configure KVM/libvirt",
     "download or build the Ubuntu 24.04 VM",
     "start the VM",

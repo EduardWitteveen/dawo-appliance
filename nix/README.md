@@ -1,9 +1,11 @@
-# Nix modules
+# Shared Nix code
 
-Shared NixOS modules for the appliance host (KVM/libvirt, appliance services,
-VM autostart, browser-open). The top-level `flake.nix` wires these together.
+Nix code that is not a host module and not the flake itself.
 
-v0.1 keeps the flake minimal (bootstrap package, dev shell, checks, and the
-Slice 1 installer ISO via `installer/iso/iso.nix`). Host modules land in
-Slices 2–3. `flake.lock` pins nixpkgs to `nixos-25.11` rev `d6df3513…` (the same
-stable revision DAWO-NixOS pins).
+| File | Role |
+| --- | --- |
+| `parity.nix` | `checks.workplace-parity`: evaluation-time comparison of the user-facing option values of `nixosConfigurations.appliance` with upstream's pilot host at the pinned DAWO-Core tag. Fails with a report on drift; recorded deviations are listed here and in `docs/adr/0003-workplace-parity.md`. |
+
+Host modules live in `hosts/appliance/` (see its README); the installer in
+`installer/`. `flake.nix` wires everything together and pins nixpkgs and disko
+to the revisions DAWO-Core pins (`docs/upstream/revisions.md`).

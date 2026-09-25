@@ -1,6 +1,8 @@
 # ADR 0001: Project scope and boundaries for v0.1
 
-- Status: Accepted
+- Status: Accepted (context facts updated by ADR 0002 and ADR 0003 on
+  2026-09-25: upstream is now DAWO-Core on Codeberg, release 0.1.3, and ships
+  a headless fleet installer; the decisions below stand)
 - Date: 2026-06-22
 - Deciders: maintainer (eywitteveen)
 

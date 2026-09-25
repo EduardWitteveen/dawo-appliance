@@ -1,84 +1,80 @@
 # STATUS — session handoff
 
-Single source of truth for "where were we". Keep this short and current.
-Update the **Now / Next / Recently done** sections at the end of a work session;
-`scripts/status.sh` prints this file plus a few live checks at the start of one.
+Single source of truth for "where were we". Keep it short and current: update
+**Now / Next / Recently done** at the end of a work session; `scripts/status.sh`
+prints this file plus a few live checks at the start of one. Detail per slice
+lives in `roadmap.md`; the verified result of the last real run in
+`verification-latest.md`; all documents in `README.md` (this directory).
 
-This is an **experimental, unofficial** appliance — not an official DAWO / Mijn
-Bureau / BZK distribution (see `CLAUDE.md`).
+This is an **experimental, unofficial** appliance, not an official DAWO / Mijn
+Bureau / BZK distribution (`CLAUDE.md`).
 
 ## Now
 
-- **Slice 1 DONE + verified.** The live ISO (`dawo-appliance-installer.iso`,
-  1.4 GiB) builds, and the headless boot test passes: the VM boots to
-  multi-user.target, `dawo-appliance-bootstrap` runs `plan` non-destructively
-  (checksum verified, no disk writes), and the destructive flags are refused.
-- **Slice 2 DONE + verified.** Installable appliance host
-  (`nixosConfigurations.appliance`): disko single-disk layout (parameterised,
-  never a hard-coded device — sentinel `appliance.targetDisk`; Btrfs /, /home,
-  /nix + swap), minimal bootable GRUB-EFI host. Operator install via
-  `dawo-appliance-bootstrap install --target-disk DEV --confirm-destroy`
-  (drives `disko-install`; shipped on the ISO; `--dry-run` preview).
-  Verified: `nix flake check`, appliance toplevel builds, `diskoScript` builds
-  (layout incl. swap; touches only the sentinel device), and
-  `test-appliance-boot` boots the host config and asserts
-  identity/operator/bootstrap/NetworkManager. No disk encryption in v0.1 (demo).
-  Caveat: the full `appliance-disk-image` (disko `make-disk-image`/vmTools) is
-  unreliable in this WSL sandbox — see the KVM note in `docs/open-questions.md`.
-- Nix is installed (2.34.7, daemon). `nix flake check` is green (portable, no
-  kvm). VM tests need kvm: `nix build .#test-installer-boot -L`,
-  `.#test-appliance-boot -L`, `.#appliance-disk-image`.
-- KVM is enabled for VM tests (user + nixbld* in `kvm` group; `kvm` system
-  feature on). See `docs/nix-setup.md`.
-- Slices 3–7 are scaffolding (README placeholders) only.
+- **Slices 0–2 done and verified** (2026-06-22): live ISO, non-destructive
+  bootstrap (`plan`/`verify`), gated `install` (disko, explicit `--target-disk`
+  + `--confirm-destroy`, `--dry-run`), Btrfs + swap, no LUKS.
+- **Slice 2c done** (2026-09-25): upstream refresh to DAWO-Core 0.1.3
+  (Codeberg), nixpkgs 26.05, mijn-bureau-infra `b2ae545…`; ADR 0002/0003,
+  `purpose.md`, `upstream/ecosystem.md`.
+- **Slice 3 built and boot-tested** (2026-09-25): the host is the DAWO
+  workplace (`hosts/appliance/dawo-workplace.nix`, same modules and choices as
+  a pilot client) plus KVM/libvirt, a first-boot password service and a welcome
+  dialog. Recorded deviations (ADR 0003): auto-update off, auto-login on.
+  Parity check `checks.workplace-parity` in `nix flake check`;
+  `nix run .#appliance-vm` for a human look. Visual review still pending.
+- **Docs tidied** (2026-09-25): one index (`docs/README.md`), README as front
+  door with the two screenshots, overlap removed between `development.md`,
+  `nix-setup.md` and `testing.md`; stale statements fixed.
+- **Environment:** the session runs on the Windows side; Nix lives in WSL
+  `Ubuntu-24.04` (`wsl -d Ubuntu-24.04 -e bash -lc '… nix …'`); WSL has 24 GB /
+  12 CPUs via `.wslconfig`. Repo is LF-only, `core.filemode=false`. Practical
+  notes (result links, detached VMs): `development.md`.
+- Slices 4–7 are scaffolding (README placeholders) only.
+
+## Verification (2026-09-25, nixos-26.05, DAWO-Core 0.1.3)
+
+`bash scripts/verify.sh`: **all executed checks passed** (7 PASS, 1 SKIP:
+`shellcheck-local`, no shellcheck in WSL, covered by `nix flake check`). The
+only source of truth is `verification-latest.md` (written by
+`REPORT=1 bash scripts/verify.sh`), with per-check durations and the boot
+timing of the installed host. Screenshots in `screenshots/` come from the same
+tests (`scripts/screenshots.sh`). Local dry-run suite: 9/9.
+
+Bugs found and turned into checks today (`testing.md`):
+- **All VM tests had run under TCG emulation** (Nix sandbox drops supplementary
+  groups, so `/dev/kvm` 0660 is unusable). Fixed via udev rule 0666 +
+  `.wslconfig`; new `scripts/speed-check.sh` and the `kvm-in-sandbox` check.
+- The installer test did not see the flake copy / `disko-install` (ISO-only)
+  → shared `liveInstallerExtras` module for ISO and test.
+- `pgrep -x plasmashell` never matches NixOS's wrapped binary → `pgrep -f`.
+- `clear` without TERM, SDDM config not in `/etc` → behaviour-based asserts.
+- `--rebuild` refuses never-built derivations → `fresh_build` helper.
+- One unexplained guest freeze at 55 s in a TCG run (TSC unstable); not seen
+  again under KVM. Watch for it.
 
 ## Next
 
-- **Slice 2 DONE.** 2a = installable host + disko storage; 2b = gated `install`
-  subcommand (shipped on the ISO; 8 dry-run checks) + swap subvolume. LUKS
-  encryption is **out of v0.1 by decision** (experimental demo; basic is enough,
-  simpler to debug) — a documented post-MVP hardening option.
-- **Slice 3** (next): DAWO desktop + KVM/libvirt — consume DAWO-NixOS modules.
-- **Slice 3** (DAWO desktop + KVM/libvirt): consume DAWO-NixOS modules.
+- **Finish Slice 3:** look at the desktop in `nix run .#appliance-vm` and fix
+  anything visibly off (welcome dialog wording, panel layout from nix-maid);
+  then mark Slice 3 done in `README.md` and `roadmap.md`.
+- **Slice 4 — Ubuntu 24.04 VM:** pin the cloud image (version + SHA-256,
+  OQ-6), libvirt domain + cloud-init, autostart. Nested KVM works inside
+  `appliance-vm` (guest kernel reports "kvm_amd: Nested Virtualization enabled").
 - Resolve OQ-3 (local DNS + self-signed TLS) before slices 6–7 can start.
-- Repo has **no remote yet** — decide if/when to add one. Commits still need
-  maintainer approval.
-
-Known limitation: disko's own `makeDiskoTest` is incompatible with nixpkgs
-25.11's test driver (`machines_qemu`); we cover install via `appliance-disk-image`
-+ the install phase, and boot via the native `test-appliance-boot`.
+- No remote yet (OQ-8). Commits need maintainer approval: **all of today's work
+  (Slice 2c, Slice 3, docs tidy) is uncommitted; it is staged with `git add`
+  so the flake sees it.**
 
 ## Blocking decisions
 
-- **OQ-1** — RESOLVED 2026-06-22. `/mnt/c` now mounts with `metadata`;
-  `chmod` / `git init` work here. See `docs/open-questions.md`.
 - **OQ-3** — local DNS/TLS strategy; blocks Mijn Bureau + browser slices.
-- **OQ-2** — this machine has 15 GiB RAM; cannot run the full stack end-to-end.
+- **OQ-2** — this machine (24 GB for WSL) cannot run the full stack end-to-end.
 
 ## Recently done
 
-- Pinned manifest + checksum, minimal flake/dev shell, bootstrap `plan`/`verify`.
-- Offline dry-run test suite (4 checks, all passing).
-- This handoff doc + `scripts/status.sh` orientation helper.
-- OQ-1 resolved: WSL `metadata` enabled, `git init` verified working on `/mnt/c`.
-- Git repo initialised on branch `main`; initial commit `1d94cc2` (28 files).
-- Nix installed (2.34.7, daemon) per `docs/nix-setup.md`; flakes enabled.
-- `nix flake check` green; ISO built (`nix build .#installer-iso`, 1.4 GiB).
-- Fixed `iso.nix`: ISO filename derives from `image.baseName` (renamed from
-  `isoImage.isoBaseName` in 25.11), so the artifact is now correctly named
-  `dawo-appliance-installer.iso` instead of `nixos-minimal-…iso`.
-- Factored the shared live payload (`installer/live-payload.nix`) + single
-  bootstrap derivation (`installer/bootstrap/package.nix`).
-- Added `test-installer-boot` (NixOS VM test); enabled KVM; boot test passes.
-- Slice 2a: pinned disko; `nixosConfigurations.appliance` + single-disk Btrfs
-  layout; `appliance-disk-image` and `test-appliance-boot` both pass.
-- Slice 2b: gated `install` subcommand (disko-install, safety checks, dry-run,
-  8 tests) shipped on the ISO; swap subvolume added; LUKS deferred (demo).
-
-## Quick pointers
-
-- Nix install runbook (WSL): `docs/nix-setup.md`
-- Roadmap (all slices): `docs/roadmap.md`
-- Open questions / decisions: `docs/open-questions.md`
-- Architecture: `docs/architecture.md`
-- Local dev commands: `docs/development.md`, `Makefile`
+- 2026-09-25 Slice 3 + Slice 2c (see Now); `install --generate-password`,
+  welcome dialog, `appliance-vm`, parity check, `verify.sh` + report,
+  `speed-check.sh`, `screenshots.sh`, docs tidy (index, front-door README).
+- 2026-06-22 Slices 0–2: manifest + checksum, flake/dev shell, bootstrap, ISO,
+  boot tests, disko layout, gated `install`, swap; LUKS deferred.

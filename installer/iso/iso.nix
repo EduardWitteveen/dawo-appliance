@@ -23,7 +23,7 @@
     ../live-payload.nix
   ];
 
-  # Identify the image. In nixpkgs 25.11 the ISO filename derives from
+  # Identify the image. Since nixpkgs 25.11 the ISO filename derives from
   # `image.baseName` (see iso-image.nix: `isoName = "${image.baseName}.iso"`).
   # The old `isoImage.isoName`/`isoBaseName` were renamed to `image.fileName`/
   # `image.baseName`; setting `isoName`/`fileName` alone does NOT rename the
@@ -36,5 +36,5 @@
   networking.wireless.enable = lib.mkForce false; # avoid clash with NetworkManager
 
   # Pin the state version to the pinned nixpkgs release.
-  system.stateVersion = "25.11";
+  system.stateVersion = "26.05";
 }

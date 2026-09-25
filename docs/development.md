@@ -1,113 +1,136 @@
 # Development
 
-> Experimental and unofficial. See `README.md`.
+> Experimental and unofficial. See `README.md`. Rules and working method:
+> `CLAUDE.md`. What each check covers: `testing.md`.
 
 ## Prerequisites
 
-- Linux (this repo is developed on Windows + WSL2 / Ubuntu 24.04, x86-64).
-- For the no-Nix local checks: `bash`, `coreutils` (`sha256sum`), `curl` or a
-  local file path. Optional: `shellcheck`, `jq`.
-- For Nix-based checks: a working Nix with flakes enabled. **Nix is not yet
-  installed on the current machine** (separate task; `git`/`chmod` now work here
-  since OQ-1 was resolved — see `docs/open-questions.md`).
+- Linux with `bash` and `coreutils` for the local checks; optional `shellcheck`,
+  `shfmt`, `jq`.
+- Nix with flakes for everything else. On the Windows + WSL2 development
+  machine Nix lives only in the WSL distro `Ubuntu-24.04`; run it from Windows
+  as `wsl -d Ubuntu-24.04 -e bash -lc 'cd /mnt/c/git/dawo-appliance && nix flake check'`.
+  Installing Nix and making KVM usable: `nix-setup.md`.
+- The repository is LF-only (`.gitattributes`); Windows git uses
+  `core.autocrlf=true` and `core.filemode=false` locally. Scripts are invoked
+  via `bash …` so the executable bit does not matter.
 
-## Environment note (OQ-1 resolved 2026-06-22)
-
-`/mnt/c` now mounts with `metadata`, so `chmod`, `git init`, and commits work on
-this path. The repo is initialised on branch `main`. Nix is still not installed
-(installing it is a separate task); when it is, keep the Nix store on the WSL
-ext4 filesystem rather than the slow `/mnt/c` 9p mount. The non-Nix checks below
-work regardless. Full history is in `docs/open-questions.md` (OQ-1).
-
-## Local validation (no Nix, no root, no network)
-
-These are runnable right now:
+## Session start
 
 ```bash
-# 0. Orient: print where we left off + live checks (run this at session start).
-make status
-#   equivalent:
-bash scripts/status.sh
-
-# 1. Run the full local test (checksum verify + tamper test + no-disk-write).
-make test
-#   equivalent:
-tests/test-bootstrap-dryrun.sh
-
-# 2. Run the bootstrap dry-run ("plan") against the local manifest.
-make plan
-#   equivalent (offline, reads the manifest from the repo via file://):
-#   (invoked via `bash` because /mnt/c cannot set the executable bit — OQ-1)
-bash installer/bootstrap/dawo-appliance-bootstrap plan \
-    --offline \
-    --manifest-url "file://$(pwd)/manifest/appliance-manifest.json"
-
-# 3. Lint shell scripts (needs shellcheck) and check formatting.
-make lint
-make fmt-check
+make status          # or: bash scripts/status.sh
 ```
 
-### What the test asserts
+Prints where we left off (`STATUS.md`), the blocking open questions, live checks
+(manifest checksum, dry-run suite) and recently changed files. No Nix, network
+or git needed.
 
-`tests/test-bootstrap-dryrun.sh` (4 checks):
-
-1. The committed manifest matches its `.sha256`.
-2. The bootstrap downloads the manifest from a `file://` URL and verifies it
-   against the expected SHA-256 — exit 0, plan printed, "no disk writes"
-   reported.
-3. A **tampered** manifest is rejected (checksum mismatch → non-zero exit).
-4. Passing `--target-disk` / `--confirm-destroy` is refused (non-zero exit): the
-   destructive path is not reachable in v0.1.
-
-### Updating the manifest checksum
-
-The expected checksum is stored in `manifest/appliance-manifest.json.sha256` and
-read by the bootstrap. After editing the manifest, regenerate it:
+## Local checks (no Nix, no root, no network)
 
 ```bash
-make manifest-sum     # writes manifest/appliance-manifest.json.sha256
-#   equivalent:
-( cd manifest && sha256sum appliance-manifest.json > appliance-manifest.json.sha256 )
+make check           # lint (shellcheck, if installed) + test; the default local gate
+make test            # tests/test-bootstrap-dryrun.sh
+make plan            # bootstrap dry-run against the local manifest (file:// URL)
+make verify-manifest # bootstrap `verify` only: manifest checksum
+make fmt-check       # shfmt diff (if installed); `make fmt` writes
 ```
 
-`make test` fails if the manifest and its `.sha256` are out of sync.
+`tests/test-bootstrap-dryrun.sh` runs nine checks: the committed manifest
+matches its `.sha256`; `plan` verifies a `file://` manifest and reports no disk
+writes; a tampered manifest is rejected; `plan`/`verify` refuse
+`--target-disk` and `--confirm-destroy`; `install` refuses a missing target, a
+non-block device and a missing `--confirm-destroy`; `install --dry-run` (with
+and without `--generate-password`) previews and writes nothing. The same suite
+runs sandboxed in `nix flake check` (`checks.bootstrap-dryrun`).
 
-## Nix-based checks (when Nix is available)
-
-> Nix is not yet installed here. To install it, follow `docs/nix-setup.md`
-> (WSL2 runbook: multi-user install, enable flakes, verify against the flake).
-
-These require Nix with flakes:
+### After editing the manifest
 
 ```bash
-nix flake check          # evaluate flake outputs + portable checks (no kvm)
-nix develop              # enter the dev shell (git, jq, shellcheck, qemu, …)
-nix fmt                  # format Nix files
-nix build .#installer-iso          # build the live ISO (large, ~1.4 GiB)
-nix build .#test-installer-boot -L # headless boot test (needs KVM; see nix-setup.md)
+make manifest-sum    # rewrites manifest/appliance-manifest.json.sha256
 ```
 
-`flake.lock` is hand-pinned to nixpkgs `nixos-25.11` rev
-`d6df3513510aa548c83868fd22bfddd0a8c0a0d4` (the same stable rev DAWO-NixOS
-pins). When Nix is available, `nix flake check` will validate it.
+`make test` fails while the manifest and its `.sha256` disagree. Every pin
+bump also updates `upstream/revisions.md` and, for DAWO-Core, needs a parity
+review (`adr/0003-workplace-parity.md`).
 
-## Conventions
+## Nix checks and builds
 
-- Commit messages: Conventional Commits, English (e.g. `feat(bootstrap): …`).
-- Shell: `#!/usr/bin/env bash`, `set -euo pipefail`, must pass `shellcheck`.
-- Do not commit unless asked. Do not configure a git remote yet.
-- Never commit secrets; never write to a disk without explicit target +
-  confirmation.
+```bash
+nix flake check                    # eval + bootstrap-dryrun + shellcheck + workplace-parity (no KVM)
+nix develop                        # dev shell: git, jq, shellcheck, shfmt, gnumake, qemu, nixpkgs-fmt
+nix fmt                            # format Nix files
+nix build .#installer-iso          # the live ISO (~1.4 GiB) at result/iso/
+nix build .#test-installer-boot -L # boots the ISO payload headless, asserts the bootstrap is non-destructive (KVM)
+nix build .#test-appliance-boot -L # boots the installed host: DAWO workplace, libvirt, hardening, welcome dialog (KVM)
+nix build .#appliance-vm           # the run script for the VM below
+nix run   .#appliance-vm           # the installed host in a QEMU window (KVM + display)
+nix build .#appliance-disk-image   # raw disk image via disko; KVM-flaky on WSL (OQ-9)
+```
+
+`checks.workplace-parity` (`nix/parity.nix`) compares the user-facing option
+values of our host with upstream's pilot host `hosts/dawo-t495s` at the pinned
+DAWO-Core tag and fails with a report when they drift (ADR 0003).
+
+### The full suite in one command
+
+```bash
+bash scripts/verify.sh            # everything above, one summary table
+QUICK=1 bash scripts/verify.sh    # dry-run suite + nix flake check only
+FORCE=1 bash scripts/verify.sh    # re-run boot tests even when Nix cached a pass
+REPORT=1 bash scripts/verify.sh   # also write verification-latest.md (+ history.csv)
+```
+
+Run `bash scripts/speed-check.sh` first (`APPLY=1` to fix with sudo): it
+checks that `/dev/kvm` is usable inside the Nix sandbox, the WSL2 resources and
+the Nix store location. Without it the VM tests run under software emulation
+and take minutes per boot (`testing.md`).
+
+### Looking at the workplace: `nix run .#appliance-vm`
+
+Boots `nixosConfigurations.appliance-vm` (the appliance host plus
+`hosts/appliance/vm.nix`) in QEMU with a window. Needs KVM and about 6 GiB RAM
+for the guest; inside WSL, WSLg shows the window on the Windows desktop. The VM
+auto-logs in as `dawo`; the screen lock accepts upstream's documented bootstrap
+default password (a VM run has no install-time password; see
+`hosts/appliance/appliance-services.nix`). The first start downloads the Plasma
+closure; later starts are fast. The VM disk `dawo-appliance.qcow2` is written to
+the current directory (git-ignored), so start it from a directory on ext4, not
+on `/mnt/c`. WSL cleans `/tmp` between sessions: put `nix build -o` result
+links in the home directory. A detached VM survives only when started from a
+Windows process (`Start-Process wsl …`), not via `nohup`/`setsid` inside a
+`wsl -e` call.
+
+### Bumping nixpkgs or disko
+
+`flake.lock` pins the same nixpkgs and disko revisions DAWO-Core pins
+(`upstream/revisions.md`, `manifest/appliance-manifest.json`). Bump explicitly
+so the lock never drifts from the manifest:
+
+```bash
+nix flake lock --override-input nixpkgs github:NixOS/nixpkgs/<rev>
+```
+
+## Refreshing the screenshots
+
+```bash
+make screenshots     # bash scripts/screenshots.sh (Linux + Nix + KVM)
+```
+
+Copies the PNGs from the boot tests into `screenshots/` and rewrites
+`screenshots/PROVENANCE.md`. Do this after `verify.sh` is green and before
+updating the README (`screenshots/README.md`).
 
 ## Make targets
 
 | Target | Description |
 | --- | --- |
 | `make status` | Session orientation: where we left off + live checks. |
-| `make test` | Run the local bootstrap test suite (no Nix/root/network). |
-| `make plan` | Run the bootstrap dry-run against the local manifest. |
+| `make check` | `lint` + `test` (default). |
+| `make test` | Local dry-run test suite. |
+| `make plan` | Bootstrap `plan` against the local manifest. |
+| `make verify-manifest` | Bootstrap `verify` against the local manifest. |
 | `make manifest-sum` | Regenerate the manifest checksum file. |
-| `make lint` | `shellcheck` the shell scripts. |
-| `make fmt` | Format shell scripts with `shfmt` (if installed). |
-| `make fmt-check` | Check shell formatting without writing. |
-| `make check` | `lint` + `test` (the default local gate). |
+| `make lint` / `make fmt` / `make fmt-check` | `shellcheck` / `shfmt -w` / `shfmt -d` on the shell scripts. |
+| `make verify` | Full verification suite (`scripts/verify.sh`; Linux + Nix + KVM). |
+| `make speed-check` | Is this machine set up for fast builds and VM tests? |
+| `make screenshots` | Refresh `docs/screenshots/` from the boot tests. |

@@ -1,164 +1,106 @@
-# Nix setup (WSL2)
+# Nix setup (WSL2 runbook)
 
-How to install Nix on this machine so the flake builds work (`nix flake check`,
-`nix develop`, and the Slice 1 ISO build `nix build .#installer-iso`).
+How to install Nix on the Windows + WSL2 development machine and make KVM
+usable inside the Nix sandbox, so `nix flake check`, the ISO build and the VM
+boot tests work (`development.md`).
 
-> **This installs system software (a host change).** Per the project rules, the
-> maintainer runs the install commands — Claude prepares and verifies them but
-> does not execute them. In this session, run a command yourself by typing it
-> with a leading `!` so its output lands in the conversation.
+> **This installs system software (a host change).** Per `CLAUDE.md`, the
+> maintainer runs these commands; an assistant prepares and verifies them but
+> does not execute them.
 
-## Why Nix here, and where the store goes
+## Where the store goes
 
-- OQ-1 is resolved: `/mnt/c` mounts with `metadata`, so `git`/`chmod` work and
-  the working tree can stay at `/mnt/c/git/dawo-appliance`.
-- The **Nix store lives at `/nix`**, which is on the WSL **ext4** root
-  filesystem — fast, and exactly where we want it. Do **not** relocate the store
-  onto the `/mnt/c` 9p mount (slow). The default install already does the right
-  thing; no extra configuration is needed for store placement.
+The Nix store lives at `/nix` on the WSL **ext4** root filesystem. Do not
+relocate it onto the `/mnt/c` 9p mount (slow). The default install does the
+right thing. The working tree may stay on `/mnt/c` (it mounts with `metadata`,
+so `git` and `chmod` work there; OQ-1).
 
-## Pre-flight (verified 2026-06-22 on this machine)
+Pre-flight: `systemctl is-system-running` reports `running` (so use the
+multi-user daemon install), `uname -m` is `x86_64`, `/dev/kvm` exists, `curl`
+and `xz` are present.
 
-All green here — re-check with `! <cmd>` if the environment changed:
+## Install Nix (multi-user)
 
-| Check | Command | Expected | Status |
-| --- | --- | --- | --- |
-| systemd up | `systemctl is-system-running` | `running` (or `degraded`) | ✅ running |
-| ext4 free space | `df -h /` | several GB free (have ~954 GB) | ✅ |
-| KVM (for later VM) | `test -e /dev/kvm` | present | ✅ |
-| arch | `uname -m` | `x86_64` | ✅ |
-| installer deps | `command -v curl xz` | both found | ✅ |
-| clean slate | `test -e /nix` | absent | ✅ absent |
-
-Because systemd is running, use the **multi-user (daemon)** install — the
-standard, recommended mode.
-
-## Install (run these yourself with `!`)
-
-### 1. Install Nix (official installer, multi-user)
-
-> **Run this in a real interactive WSL terminal** (open the *Ubuntu* app, or a
-> *Windows Terminal* → Ubuntu tab), **not** via the `!` prompt inside Claude
-> Code. The installer calls `sudo` many times, and the `!` runner has no TTY, so
-> sudo cannot read your password — the install aborts on the first sudo call
-> with `sudo: a terminal is required to read the password`. (It rolls back
-> cleanly, leaving no `/nix`, no `nixbld` group/users, no service.) A
-> single-user `--no-daemon` install does not avoid this — it also needs sudo to
-> create `/nix`.
+Run in a real interactive WSL terminal (the installer calls `sudo` and needs a
+TTY; without one it aborts on the first `sudo` and rolls back cleanly).
 
 ```bash
 sh <(curl -L https://nixos.org/nix/install) --daemon
 ```
 
-- Accept the prompts. It creates `/nix`, a `nix-daemon` systemd service, and
-  build users (`nixbld*`).
-- When it finishes, **open a new shell** (or `exec bash -l`) so the Nix profile
-  is on `PATH`. In a fresh shell, `command -v nix` should resolve.
-
-> Alternative — the **Determinate Systems** installer
-> (`curl -fsSL https://install.determinate.systems/nix | sh -s -- install`)
-> works well on WSL, enables flakes automatically, and has a clean
-> `nix-installer uninstall`. The official installer above keeps provenance
-> simplest (nixos.org only); pick either. If you use the DS one, skip step 2.
-
-### 2. Enable flakes (official installer only)
-
-The flake commands need the `nix-command` and `flakes` experimental features.
-Enable them per-user (no sudo needed):
+Then open a new shell (`exec bash -l`) and enable flakes per user:
 
 ```bash
 mkdir -p ~/.config/nix
 printf 'experimental-features = nix-command flakes\n' >> ~/.config/nix/nix.conf
+nix --version && nix flake --help >/dev/null && echo "flakes OK"
 ```
 
-### 3. Verify Nix itself
+Alternative: the Determinate Systems installer
+(`curl -fsSL https://install.determinate.systems/nix | sh -s -- install`)
+enables flakes itself and has a clean `nix-installer uninstall`. Either works;
+the official one keeps provenance simplest.
+
+First check against this repo, from `/mnt/c/git/dawo-appliance`:
 
 ```bash
-nix --version
-nix flake --help >/dev/null && echo "flakes OK"
-```
-
-## Verify against this repo
-
-From the repo root (`/mnt/c/git/dawo-appliance`):
-
-```bash
-# Evaluate flake outputs + run the in-sandbox checks (bootstrap dry-run, shellcheck).
 nix flake check
-
-# Enter the dev shell (git, jq, shellcheck, shfmt, gnumake, qemu_kvm, nixpkgs-fmt).
-nix develop      # then e.g. `make check`, and `exit` to leave
-
-# Build the wrapped bootstrap (small, quick first build to confirm things work).
 nix build .#bootstrap && ./result/bin/dawo-appliance-bootstrap version
 ```
 
-A first `nix flake check` / `nix build` will download from the binary cache and
-populate `/nix` (hundreds of MB to a few GB). That is expected and one-time.
+The first run populates `/nix` from the binary cache (hundreds of MB to a few
+GB); later runs reuse it.
 
-## Enable KVM for the headless boot test
+## Make KVM usable inside the Nix sandbox
 
-The boot test (`nix build .#test-installer-boot`) runs a VM and requires the
-`kvm` system feature. On this WSL machine the Nix daemon does not advertise it
-by default, and the sandbox build users (`nixbld*`) cannot open `/dev/kvm`
-(it is `root:kvm`, mode 0660). Enable it once — **run these in a real WSL
-terminal** (sudo needs a TTY):
+The VM tests (`test-installer-boot`, `test-appliance-boot`, `appliance-vm`)
+start QEMU with `accel=kvm:tcg`: if KVM is not usable they **silently fall back
+to TCG software emulation** and take minutes instead of seconds per boot. That
+happened on this machine for months before it was noticed (2026-09-25). Two
+things are needed, and there is one trap:
 
-```bash
-# 1. Let your own user run QEMU directly.
-sudo usermod -aG kvm "$USER"
+1. Nix must advertise the `kvm` system feature
+   (`extra-system-features = kvm` in `/etc/nix/nix.conf`; restart `nix-daemon`).
+2. The sandbox build user must be able to open `/dev/kvm`. **Trap:** adding
+   `nixbld*` to group `kvm` is not enough, because the Nix sandbox drops
+   supplementary groups. `/dev/kvm` must be mode `0666` (udev rule
+   `/etc/udev/rules.d/99-kvm-nix-sandbox.rules`:
+   `KERNEL=="kvm", GROUP="kvm", MODE="0666"`).
 
-# 2. Let the Nix sandbox build users open /dev/kvm (the VM test runs as nixbld*).
-sudo bash -c 'for i in $(seq 1 32); do usermod -aG kvm "nixbld$i"; done'
-
-# 3. Tell Nix the kvm feature is available.
-echo 'extra-system-features = kvm' | sudo tee -a /etc/nix/nix.conf
-
-# 4. Apply (2) and (3) by restarting the daemon.
-sudo systemctl restart nix-daemon
-```
-
-Verify (no sudo needed):
+Do not do this by hand; the re-entrant checker reports and, with `APPLY=1`,
+fixes it:
 
 ```bash
-nix config show | grep system-features   # should now include 'kvm'
+bash scripts/speed-check.sh            # report: OK / FIX per item
+APPLY=1 bash scripts/speed-check.sh    # apply fixes (asks for your sudo password)
+nix build .#check-kvm --rebuild        # proves /dev/kvm is writable INSIDE the sandbox
 ```
 
-You do **not** need to log out: the boot test builds via the daemon, so your
-own shell's group membership is irrelevant to it (step 1 only matters if you run
-QEMU directly). Then run the test:
+`scripts/verify.sh` runs the same probe (`kvm-in-sandbox`) before the boot
+tests, so a regression shows up in `verification-latest.md`. No logout is
+needed: builds run via the daemon, so your own shell's groups are irrelevant.
 
-```bash
-nix build .#test-installer-boot -L
+## WSL2 resources (`.wslconfig`)
+
+By default WSL2 gets half the RAM. `%USERPROFILE%\.wslconfig` on the Windows
+side sets more; the reference laptop (32 GB) uses:
+
+```ini
+[wsl2]
+memory=24GB
+processors=12
+swap=8GB
+nestedVirtualization=true
 ```
 
-## Build the Slice 1 ISO (large — only when ready)
-
-```bash
-nix build .#installer-iso
-# Output symlink: ./result ; the ISO is under ./result/iso/*.iso
-ls -lh result/iso/
-```
-
-This is a **large** build (downloads/builds a NixOS live system). It needs
-real time, RAM, and disk. With ~954 GB free on ext4 and 15 GiB RAM, this machine
-can build it (it cannot *run* the full appliance end-to-end — see OQ-2 — but
-building and booting the non-destructive live ISO is in scope for Slice 1).
-
-The booted ISO is non-destructive: it carries `dawo-appliance-bootstrap`, which
-only runs `plan`/`verify` and refuses any disk-writing flags in v0.1.
+Apply with `wsl --shutdown` (this stops every running WSL process, including a
+running appliance VM). `nestedVirtualization` is needed for KVM inside the
+appliance VM (Slice 4). `scripts/speed-check.sh` reports whether the file
+exists and what WSL currently sees.
 
 ## Uninstall / rollback
 
-- Official installer: follow the uninstall steps in the Nix manual
-  (stop/disable `nix-daemon`, remove `/nix`, the `nixbld` users, and the
-  shell-profile snippets).
+- Official installer: follow the uninstall steps in the Nix manual (stop and
+  disable `nix-daemon`, remove `/nix`, the `nixbld` users and the shell-profile
+  snippets).
 - Determinate Systems installer: `/nix/nix-installer uninstall`.
-
-## Notes / follow-ups
-
-- The flake's `checks.shellcheck` lints the bootstrap and the test but not
-  `scripts/status.sh`; add it there for parity when convenient (it is already
-  covered by `make lint`). Minor, non-blocking.
-- `flake.lock` is hand-pinned to nixpkgs `nixos-25.11` rev
-  `d6df3513510aa548c83868fd22bfddd0a8c0a0d4`; `nix flake check` validates it.

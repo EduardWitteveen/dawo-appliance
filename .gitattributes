@@ -1,0 +1,9 @@
+# Repository content is LF-only (shell scripts, Nix, JSON, Markdown). Windows
+# clones with core.autocrlf=true otherwise show every file as modified.
+* text=auto eol=lf
+*.sh text eol=lf
+*.nix text eol=lf
+Makefile text eol=lf
+*.iso binary
+*.png binary
+*.jpg binary
