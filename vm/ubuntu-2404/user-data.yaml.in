@@ -1,0 +1,68 @@
+#cloud-config
+# cloud-init user-data for the appliance guest (Slice 4a). Template; rendered on
+# the appliance host by dawo-appliance-guest.service (hosts/appliance/guest-vm.nix)
+# into the NoCloud seed ISO. Placeholders (@...@) are filled at render time:
+#   @SSH_PUBKEY@          public half of the key generated ON THE HOST at first
+#                         boot (/var/lib/dawo-appliance/ssh/id_ed25519, root-only)
+#   @HOSTNAME@ / @FQDN@   mb / mb.dawo.internal (manifest + ADR 0004)
+#   @APPLIANCE_VERSION@   from manifest/appliance-manifest.json
+# The line "#@CA_CERTS@" is replaced by a `ca_certs:` block with the appliance
+# CA (/var/lib/dawo-appliance/ca/ca.crt) when that file exists, or removed.
+# No secrets live in this file: the key pair and the CA are generated per
+# installation and never enter Git.
+hostname: @HOSTNAME@
+fqdn: @FQDN@
+prefer_fqdn_over_hostname: true
+manage_etc_hosts: true
+locale: en_US.UTF-8
+timezone: Europe/Amsterdam
+
+users:
+  - name: ops
+    gecos: DAWO appliance operator
+    groups: [adm, sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "@SSH_PUBKEY@"
+
+# Key-only access; no password ever exists for any account in the guest.
+ssh_pwauth: false
+disable_root: true
+
+# Pinned world: the image serial is pinned in the manifest and is not upgraded
+# at boot. The one exception is qemu-guest-agent, which the Ubuntu cloud image
+# does not ship and the host uses for state/IP reporting; it comes from the
+# Ubuntu archive at first boot (recorded as an unpinned element in
+# vm/ubuntu-2404/README.md).
+package_update: false
+package_upgrade: false
+package_reboot_if_required: false
+packages:
+  - qemu-guest-agent
+
+#@CA_CERTS@
+
+write_files:
+  - path: /etc/dawo-appliance/release
+    permissions: "0644"
+    content: |
+      DAWO_APPLIANCE_VERSION=@APPLIANCE_VERSION@
+      DAWO_APPLIANCE_ROLE=guest
+      DAWO_APPLIANCE_OFFICIAL=false
+  # Slice 5 placeholder: the K3s stage. NOT IMPLEMENTED YET. Slice 5 replaces
+  # this script with the pinned K3s install (binary + install.sh verified
+  # against manifest kubernetes.version; INSTALL_K3S_SKIP_DOWNLOAD=true).
+  - path: /usr/local/lib/dawo-appliance/k3s-stage.sh
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      # dawo-appliance: K3s stage placeholder (Slice 5). Does nothing yet.
+      echo "dawo-appliance: K3s stage not implemented yet (roadmap Slice 5); skipping" | tee /var/lib/dawo-appliance-k3s-stage.skipped
+
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent.service]
+  - [/usr/local/lib/dawo-appliance/k3s-stage.sh]
+
+final_message: "dawo-appliance guest @FQDN@ ready after $UPTIME s (cloud-init $VERSION)"

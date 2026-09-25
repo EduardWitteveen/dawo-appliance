@@ -1,0 +1,77 @@
+<!--
+  libvirt domain for the Ubuntu 24.04 guest (Slice 4a). Rendered at build time
+  from hosts/appliance/guest-vm.nix (sizing from appliance.guest.*), defined
+  idempotently at boot by dawo-appliance-guest.service.
+
+  q35 + UEFI (OVMF via libvirt firmware auto-selection from the descriptors
+  NixOS' libvirtd module publishes; Secure Boot off), virtio disk and NIC on
+  the appliance network with a fixed MAC (-> fixed DHCP lease), a cloud-init
+  NoCloud seed ISO, a serial console, the QEMU guest agent channel and a
+  localhost-only VNC console for virt-manager.
+-->
+<domain type='kvm'>
+  <name>@NAME@</name>
+  <title>DAWO appliance: Ubuntu 24.04 guest for K3s + Mijn Bureau</title>
+  <description>Experimental, unofficial demo appliance. Managed by dawo-appliance-guest.service; do not edit by hand.</description>
+  <memory unit='GiB'>@MEMORY_GIB@</memory>
+  <vcpu placement='static'>@VCPUS@</vcpu>
+  <os firmware='efi'>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <firmware>
+      <feature enabled='no' name='secure-boot'/>
+      <feature enabled='no' name='enrolled-keys'/>
+    </firmware>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <cpu mode='host-passthrough' check='none' migratable='off'/>
+  <clock offset='utc'>
+    <timer name='rtc' tickpolicy='catchup'/>
+    <timer name='pit' tickpolicy='delay'/>
+    <timer name='hpet' present='no'/>
+  </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/run/libvirt/nix-emulators/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' discard='unmap'/>
+      <source file='@OVERLAY_DISK@'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='@SEED_ISO@'/>
+      <target dev='sda' bus='sata'/>
+      <readonly/>
+    </disk>
+    <interface type='network'>
+      <source network='@NETWORK_NAME@'/>
+      <mac address='@GUEST_MAC@'/>
+      <model type='virtio'/>
+    </interface>
+    <serial type='pty'>
+      <target type='isa-serial' port='0'>
+        <model name='isa-serial'/>
+      </target>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+    <channel type='unix'>
+      <target type='virtio' name='org.qemu.guest_agent.0'/>
+    </channel>
+    <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'/>
+    <video>
+      <model type='virtio'/>
+    </video>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
+    <memballoon model='virtio'/>
+  </devices>
+</domain>

@@ -1,0 +1,31 @@
+<!--
+  libvirt network for the appliance guest (ADR 0004). Rendered at build time
+  from hosts/appliance/guest-vm.nix; defined idempotently at boot by
+  dawo-appliance-guest-network.service.
+
+  One dnsmasq (libvirt's) is the single authority for @DOMAIN@: the guest gets
+  it via DHCP, the host reaches it through a systemd-resolved DNS delegate on
+  @HOST_ADDRESS@. The wildcard `address=` makes every *.@DOMAIN@ name resolve
+  to the guest; the explicit <host> entries are the documented Mijn Bureau
+  hostnames (useful for `virsh net-dumpxml` readers and dnsmasq's hosts file).
+-->
+<network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
+  <name>@NETWORK_NAME@</name>
+  <forward mode='nat'/>
+  <bridge name='@BRIDGE@' stp='on' delay='0'/>
+  <domain name='@DOMAIN@' localOnly='yes'/>
+  <dns>
+    <host ip='@GUEST_ADDRESS@'>
+@DNS_HOSTNAMES@
+    </host>
+  </dns>
+  <ip address='@HOST_ADDRESS@' netmask='@NETMASK@'>
+    <dhcp>
+      <range start='@DHCP_RANGE_START@' end='@DHCP_RANGE_END@'/>
+      <host mac='@GUEST_MAC@' name='@GUEST_HOSTNAME@' ip='@GUEST_ADDRESS@'/>
+    </dhcp>
+  </ip>
+  <dnsmasq:options>
+    <dnsmasq:option value='address=/@DOMAIN@/@GUEST_ADDRESS@'/>
+  </dnsmasq:options>
+</network>
