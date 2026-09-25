@@ -75,15 +75,15 @@ GPU acceleration is much faster.
 | R15 | The host runs as a local VM for a human look | `nix build .#appliance-vm` (in `verify.sh`) | builds `run-dawo-appliance-vm`; the look itself is manual |
 | R16 | No secrets in Git | review + `.gitignore` patterns | manual; the only password in the tree is upstream's documented default |
 | R17 | Pins are exact and recorded | `manifest/appliance-manifest.json`, `flake.lock`, `docs/upstream/revisions.md` | manual review on every bump; `nix flake check` fails if the lock and flake disagree |
+| R23 | **A real install works end to end**: the live installer (UEFI) runs `dawo-appliance-bootstrap install --target-disk ... --confirm-destroy --generate-password` on an empty disk; the disk then boots by itself (systemd-boot) into the DAWO workplace | `test-install-e2e` (opt-in in `verify.sh`: `E2E=1`) | install reports success; target: UEFI, `bootctl is-installed`, hostname, Btrfs root, `/` mode 755, password hash applied and plain text kept, `dawo` Plasma session, CA service; prints install/boot/desktop timings (2026-09-25: 1657 s / +24 s / +27 s) |
 | R20 | **Per-install appliance CA** (ADR 0004): generated once at first boot, before the display manager; `ca.crt` 0644 with `CA:TRUE` + keyCertSign/cRLSign, `ca.key` 0600 root and unreadable for `dawo`, `ca.crt.sha256` valid; a restart does not regenerate; `/etc/dawo-appliance/ca.env` names the files. The key on disk is a demo choice, not for production | `test-appliance-boot` (assertions in `nix/tests/appliance-ca-assertions.py`, block A) | unit active (RemainAfterExit); `stat`, `openssl x509 -text`, `sha256sum -c`, fingerprint equal before/after restart |
 | R21 | Firefox trusts the CA through the enterprise policy `Certificates.Install`, merged with upstream's policies (no override) | `test-appliance-boot` (block A); `nix flake check` evaluates the merged attrset | `/etc/firefox/policies/policies.json` contains the CA path and upstream's `DisableTelemetry`/Plasma integration entries |
 | R22 | Chromium trusts the CA: the per-login user service imports it into `~/.pki/nssdb` of the logged-in `dawo` user, idempotently | `test-appliance-boot` (block B, after the Plasma session) | `dawo-appliance-ca-nss.service` active in the user manager; `certutil -L` lists exactly one `DAWO appliance local CA` with trust `C,,`, DER equal to `ca.crt`; a restart keeps one entry |
 
 ## Not (yet) automated
 
-- A real install on hardware (`install --target-disk … --confirm-destroy`) and
-  the first boot from disk. Covered indirectly: `appliance-disk-image` applies
-  the layout; `test-appliance-boot` boots the configuration.
+- A real install on **hardware** (#16). The same install path runs in a VM in
+  `test-install-e2e` (R23), including the UEFI boot from the written disk.
 - The visual result (panel layout, wallpaper, dialog wording): look at
   `nix run .#appliance-vm`. The boot test's `desktop.png` screenshot is best
   effort in a software-rendered VM.

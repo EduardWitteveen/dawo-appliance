@@ -153,7 +153,7 @@
             assert "extra-files" in out, "install --dry-run did not preview the password step"
             # The default flake source (/etc/dawo-appliance/config, a symlink into
             # the store) must be resolved to a real path Nix accepts as a flake.
-            assert "flake:        /nix/store/" in out, "default flake ref was not resolved to a store path"
+            assert "flake:        path:/nix/store/" in out, "default flake ref was not resolved to a path: store flake"
             # A real install on a valid, unmounted disk is refused for the right
             # reason: no --confirm-destroy.
             out = machine.fail("dawo-appliance-bootstrap install --target-disk /dev/vdb 2>&1")

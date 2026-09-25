@@ -353,9 +353,12 @@ cmd_install() {
   validate_target_disk_for_mode
 
   # NixOS puts /etc entries behind symlinks into the store; Nix refuses a
-  # symlink as a path flake, so resolve the default (or any directory) first.
+  # symlink as a path flake, so resolve the default (or any directory) first,
+  # and name it explicitly as a `path:` flake: a bare directory that contains a
+  # `.git` entry is otherwise treated as a git repository (found by the
+  # end-to-end test, issue #14).
   if [[ -d "${FLAKE_REF}" || -L "${FLAKE_REF}" ]]; then
-    FLAKE_REF="$(readlink -f "${FLAKE_REF}")"
+    FLAKE_REF="path:$(readlink -f "${FLAKE_REF}")"
   fi
   local flake_target="${FLAKE_REF}#${INSTALL_ATTR}"
   # disko-install performs partition + format + mount + nixos-install in one
