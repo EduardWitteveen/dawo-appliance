@@ -30,8 +30,9 @@ is.
 - **License: EUPL-1.2** (`LICENSE`). Keep the SPDX identifier `EUPL-1.2` and do
   not relicense without the maintainer's approval.
 - **Remote:** `github.com/EduardWitteveen/dawo-appliance` (public, since
-  2026-09-25). Pushing there needs the maintainer's go-ahead each time, same as
-  commits; do not force-push or push to any other remote without asking.
+  2026-09-25). All changes go through the GitHub workflow below; never push
+  directly to `main`, never force-push, never push to any other remote without
+  asking.
 - **Non-destructive by default.** Any code that can write to a disk MUST require
   an explicit target disk AND an explicit confirmation flag. Never make
   destructive disk changes while developing or testing.
@@ -55,8 +56,8 @@ is.
   Runbook: `docs/nix-setup.md`.
 - `/mnt/c` mounts with `metadata` (since 2026-06-22), so `chmod` and git work
   from WSL too (OQ-1 resolved). The repo is a git repo on `main` with a remote
-  (`github.com/EduardWitteveen/dawo-appliance`, OQ-8); commits and pushes need
-  maintainer approval.
+  (`github.com/EduardWitteveen/dawo-appliance`, OQ-8); changes follow the
+  GitHub workflow (issue, branch, PR, merge).
 - Line endings: the repo is LF-only (`.gitattributes`). Windows git has
   `core.autocrlf=true`; do not convert files to CRLF.
 - qemu/libvirt are not installed on the Windows side; VM tests run inside WSL
@@ -103,7 +104,34 @@ Ask a question only when:
 Do not stop after analysis or a plan. Make the change, test it, and then report
 briefly what was done and what could not yet be established. (The hard rules
 above — non-destructive by default, no secrets, no host/WSL changes without
-asking, commits only when asked — always take precedence.)
+asking, changes only via the GitHub workflow — always take precedence.)
+
+## GitHub workflow (since 2026-09-25)
+
+More than one Claude session works on this repository (on different
+machines). To stay out of each other's way, every change goes through GitHub:
+
+1. **Issue first.** Open (or pick up) a GitHub issue describing the change;
+   check open issues and open PRs first so two sessions do not do the same
+   work. Assign/comment on the issue when you start.
+2. **Feature branch** from an up-to-date `main`: `git fetch && git switch -c
+   <type>/<issue-number>-<slug> origin/main` (e.g. `feat/12-guest-autostart`).
+3. **Commits** on the branch: Conventional Commits, English, logical steps.
+   Author is the maintainer's GitHub noreply address (repo-local git config).
+   No AI attribution lines (no `Co-Authored-By: Claude`, no "Generated with").
+4. **Pull request** referencing the issue (`Closes #N`), with what changed and
+   the verification run (`bash scripts/verify.sh` result, or which subset and
+   why). Keep PRs small and focused.
+5. **Stay in sync.** `git fetch` at the start of every task, before opening
+   the PR and before merging; if `origin/main` moved, rebase the branch on it
+   (`git rebase origin/main`), re-run the relevant checks, then push the
+   branch (`--force-with-lease` is fine on your own feature branch only).
+   After a merge, `git switch main && git pull --ff-only`.
+6. **Merge** once the checks are green: the session that opened the PR may
+   merge it itself (squash merge), then **delete the branch** (remote and
+   local) and pull `main`.
+7. Never push to `main` directly, never force-push, never rewrite published
+   history without the maintainer's explicit go-ahead.
 
 ## Test-driven, in the small
 
@@ -131,4 +159,5 @@ asking, commits only when asked — always take precedence.)
 
 - Commit messages: Conventional Commits (matches DAWO-Core upstream), English.
 - Shell scripts: `bash`, `set -euo pipefail`, pass `shellcheck`.
-- Do not create commits unless the maintainer asks.
+- Commits and PRs follow the GitHub workflow above; no direct commits to
+  `main`.
