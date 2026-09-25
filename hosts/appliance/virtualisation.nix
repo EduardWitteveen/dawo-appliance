@@ -1,7 +1,7 @@
 # KVM/libvirt on the appliance host (Slice 3). An addition on top of the DAWO
 # workplace (ADR 0003): it changes nothing in the desktop experience; it adds
 # the hypervisor the Ubuntu 24.04 / K3s / Mijn Bureau guest (Slice 4+) runs on.
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   virtualisation.libvirtd = {
@@ -26,5 +26,7 @@
   networking.firewall.trustedInterfaces = [ "virbr0" ];
 
   # The DAWO bootstrap/operator account (upstream `users-dawo`) may manage VMs.
-  users.users.dawo.extraGroups = [ "libvirtd" ];
+  # Guarded like upstream's own definition, so disabling the bootstrap user
+  # later does not leave a dangling user definition.
+  users.users.dawo.extraGroups = lib.mkIf config.dawo.bootstrapUser.enable [ "libvirtd" ];
 }

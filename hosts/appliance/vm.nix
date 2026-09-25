@@ -25,7 +25,9 @@
     graphics = true;
     resolution = { x = 1600; y = 900; };
     qemu.options = [ "-cpu host" ];
-    # No shared store mount; boot from the VM disk like a real machine would.
+    # The host's Nix store is shared into the VM (read-only) with a writable
+    # overlay on the VM disk: fast to start, no multi-GB image to build. A
+    # from-disk boot like real hardware is what appliance-disk-image is for.
     writableStore = true;
   };
 }

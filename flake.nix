@@ -105,6 +105,9 @@
           name = "installer-boot";
           nodes.machine = { ... }: {
             imports = [ ./installer/live-payload.nix liveInstallerExtras ];
+            # A spare, unmounted disk (/dev/vdb) so the install gate is exercised
+            # on a valid target, not only on the live disk.
+            virtualisation.emptyDiskImages = [ 1024 ];
           };
           testScript = ''
             start_all()
@@ -144,11 +147,20 @@
             # nothing; without --confirm-destroy a real install is refused even
             # for a real block device.
             out = machine.succeed(
-                "dawo-appliance-bootstrap install --target-disk /dev/vda "
+                "dawo-appliance-bootstrap install --target-disk /dev/vdb "
                 "--dry-run --generate-password 2>&1")
             assert "NO DISK WRITES PERFORMED" in out, "install --dry-run did not report no-writes"
             assert "extra-files" in out, "install --dry-run did not preview the password step"
-            machine.fail("dawo-appliance-bootstrap install --target-disk /dev/vda")
+            # The default flake source (/etc/dawo-appliance/config, a symlink into
+            # the store) must be resolved to a real path Nix accepts as a flake.
+            assert "flake:        /nix/store/" in out, "default flake ref was not resolved to a store path"
+            # A real install on a valid, unmounted disk is refused for the right
+            # reason: no --confirm-destroy.
+            out = machine.fail("dawo-appliance-bootstrap install --target-disk /dev/vdb 2>&1")
+            assert "confirm-destroy" in out, "refusal was not about --confirm-destroy: " + out
+            machine.succeed("test -z \"$(lsblk -nro FSTYPE /dev/vdb)\"")  # still untouched
+            # The live disk itself is refused as a target.
+            machine.fail("dawo-appliance-bootstrap install --target-disk /dev/vda --confirm-destroy")
 
             # Screenshots for docs/screenshots (scripts/screenshots.sh copies
             # them): the plan as an operator sees it on the console.
@@ -182,7 +194,7 @@
           # permittedInsecurePackages); the test framework's read-only nixpkgs
           # would reject that, so let the node instantiate its own.
           node.pkgsReadOnly = false;
-          nodes.machine = { lib, ... }: {
+          nodes.machine = { lib, pkgs, ... }: {
             imports = dawoHostWiring ++ [ ./hosts/appliance/configuration.nix ];
             # A desktop needs room; the test harness boots without a bootloader.
             virtualisation.memorySize = 4096;
@@ -240,9 +252,10 @@
             machine.succeed("systemctl cat display-manager.service | grep -qi sddm")
             machine.succeed("test -f /etc/xdg/autostart/dawo-appliance-welcome.desktop")
 
-            # First-boot password service: drop a hash as the installer would,
-            # start the unit, and check it applied the hash, removed the file
-            # and left the marker. (At boot it was skipped: no file present.)
+            # First-boot password service: drop a hash + plain text as the
+            # installer would, start the unit, and check it applied the hash,
+            # removed the hash file and kept the plain text readable for the
+            # welcome dialog. (At boot it was skipped: no file present.)
             machine.succeed(
                 "h=$(mkpasswd -m yescrypt --stdin <<<'appliance-test-pw'); "
                 "printf '%s\\n' \"$h\" > /var/lib/dawo-appliance/dawo.password-hash; "
@@ -304,7 +317,7 @@
       checks.${system} = {
         # Run the offline bootstrap dry-run test inside the sandbox.
         bootstrap-dryrun = pkgs.runCommand "bootstrap-dryrun"
-          { nativeBuildInputs = [ pkgs.bash pkgs.coreutils pkgs.jq pkgs.gnused pkgs.gawk ]; }
+          { nativeBuildInputs = [ pkgs.bash pkgs.coreutils pkgs.jq pkgs.gnused pkgs.gawk pkgs.gnugrep pkgs.mkpasswd ]; }
           ''
             cp -r ${self} src
             chmod -R +w src

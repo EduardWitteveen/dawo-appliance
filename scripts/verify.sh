@@ -76,7 +76,8 @@ fresh_build() {
 run local-dryrun-suite bash tests/test-bootstrap-dryrun.sh
 if have shellcheck; then
   run shellcheck-local shellcheck installer/bootstrap/dawo-appliance-bootstrap \
-    tests/test-bootstrap-dryrun.sh scripts/status.sh scripts/verify.sh
+    tests/test-bootstrap-dryrun.sh scripts/status.sh scripts/verify.sh \
+    scripts/screenshots.sh scripts/speed-check.sh
 else
   skip shellcheck-local "shellcheck not on PATH; covered by nix flake check"
 fi

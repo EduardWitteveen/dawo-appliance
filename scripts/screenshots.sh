@@ -19,14 +19,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 out_dir="docs/screenshots"
 mkdir -p "${out_dir}"
 
-declare -a rebuild=()
-[[ "${FORCE:-0}" -eq 1 ]] && rebuild=(--rebuild)
-
 copy() {
   # copy TEST-ATTR SOURCE-NAME DEST-NAME
   local attr="$1" src="$2" dest="$3" result
   echo "==> ${attr} → ${out_dir}/${dest}"
-  result="$(nix build "${rebuild[@]}" ".#${attr}" --no-link --print-out-paths --no-warn-dirty)"
+  result="$(nix build ".#${attr}" --no-link --print-out-paths --no-warn-dirty)"
   if [[ -f "${result}/${src}" ]]; then
     cp -f "${result}/${src}" "${out_dir}/${dest}"
     chmod 644 "${out_dir}/${dest}"

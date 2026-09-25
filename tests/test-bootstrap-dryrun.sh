@@ -8,8 +8,12 @@
 #   2. `plan` against the trusted manifest verifies and prints a plan (exit 0),
 #      and reports that no disk writes were performed.
 #   3. A tampered manifest is rejected (non-zero exit, no plan).
-#   4. Passing --target-disk / --confirm-destroy is refused (non-zero exit),
-#      i.e. the destructive path is not reachable in v0.1.
+#   4. Passing --target-disk / --confirm-destroy to `plan` is refused.
+#   5-8. `install` gating: needs a target, refuses non-devices, --dry-run
+#      previews and writes nothing, no --confirm-destroy -> refused.
+#   9. The password stage tree (`--generate-password`) has the layout and modes
+#      disko-install can copy without changing the mode of `/` (needs mkpasswd;
+#      skipped where it is not installed).
 
 set -euo pipefail
 
@@ -132,6 +136,32 @@ if run_bootstrap install --target-disk /dev/dawo-nonexistent >/dev/null 2>&1; th
   bad "install ran without --confirm-destroy (should refuse)"
 else
   ok "install refuses without --confirm-destroy"
+fi
+
+# --- 9. password stage tree: modes safe for `cp -ar STAGE/var ROOT/var` ------
+# Needs the whois `mkpasswd` (yescrypt, --stdin); Git Bash ships a Cygwin tool of
+# the same name that cannot do this, hence the capability probe.
+if printf 'x
+' | mkpasswd -m yescrypt --stdin >/dev/null 2>&1; then
+  stage="${tmp}/stage"; root="${tmp}/root"
+  mkdir -p "${stage}" "${root}"; chmod 700 "${stage}"; chmod 755 "${root}"
+  if STAGE_DIR="${stage}" STAGE_PASSWORD="test-pw" run_bootstrap stage-password-files >/dev/null 2>&1 \
+     && cp -ar "${stage}/var" "${root}/var" \
+     && [[ "$(stat -c %a "${root}")" == "755" ]] \
+     && [[ "$(stat -c %a "${root}/var")" == "755" ]] \
+     && [[ "$(stat -c %a "${root}/var/lib/dawo-appliance")" == "755" ]] \
+     && [[ "$(stat -c %a "${root}/var/lib/dawo-appliance/dawo.password-hash")" == "600" ]] \
+     && [[ "$(stat -c %a "${root}/var/lib/dawo-appliance/dawo.password.txt")" == "644" ]] \
+     && grep -qx "test-pw" "${root}/var/lib/dawo-appliance/dawo.password.txt" \
+     && grep -q '^[$]y[$]' "${root}/var/lib/dawo-appliance/dawo.password-hash"; then
+    ok "password stage tree copies with safe modes (root stays 755, hash 600, text 644)"
+  else
+    bad "password stage tree has wrong layout or modes"
+    find "${root}" -printf '%M %p
+' 2>/dev/null | sed 's/^/      | /'
+  fi
+else
+  echo "  SKIP password stage tree (mkpasswd not installed here; covered by nix flake check)"
 fi
 
 echo "test-bootstrap-dryrun: ${pass} passed, ${fail} failed"

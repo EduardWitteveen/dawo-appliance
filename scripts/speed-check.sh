@@ -77,7 +77,6 @@ if command -v nix >/dev/null 2>&1; then
   kvm_probe() {
     local out
     if out="$(nix build .#check-kvm --rebuild --no-link --no-warn-dirty 2>&1)"; then return 0; fi
-    # shellcheck disable=SC2181
     if grep -q "not valid, so checking is not possible" <<<"${out}"; then
       nix build .#check-kvm --no-link --no-warn-dirty >/dev/null 2>&1; return $?
     fi

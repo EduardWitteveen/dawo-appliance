@@ -57,6 +57,7 @@ INSTALL_ATTR="appliance"
 # --- options ---------------------------------------------------------------
 MANIFEST_URL="${DEFAULT_MANIFEST_URL}"
 GENERATE_PASSWORD=0
+ALLOW_SMALL_STORE=0
 EXPECTED_SHA=""
 EXPECTED_SHA_FILE="${DEFAULT_EXPECTED_SHA_FILE}"
 OFFLINE=0
@@ -100,8 +101,11 @@ Options:
   --confirm-destroy           Confirm that 'install' may ERASE the target disk.
   --flake REF                 Flake to install (default: ${DEFAULT_FLAKE_REF}).
   --generate-password         install only: give user 'dawo' a random first-login
-                              password (shown once) instead of upstream's
-                              documented default. Default: off (demo = easy).
+                              password instead of upstream's documented default.
+                              Shown at install and in the welcome dialog (demo
+                              appliance, not for production). Default: off.
+  --allow-small-store         install only: skip the free-space check on the live
+                              Nix store (the appliance closure needs ~12 GiB).
                               The '#${INSTALL_ATTR}' attribute is used.
   --dry-run                   For 'install': print the plan and the exact command
                               that WOULD run, and write nothing.
@@ -259,9 +263,10 @@ validate_target_disk() {
   [[ -b "${dev}" ]] || die "target disk is not a block device: ${dev}"
 
   # Refuse if the device, or any of its partitions, is currently mounted.
+  # (`grep -c` exits 1 on zero matches; with pipefail that must not abort us.)
   if have lsblk; then
     local mounted
-    mounted="$(lsblk -nro MOUNTPOINT "${dev}" 2>/dev/null | grep -c .)"
+    mounted="$(lsblk -nro MOUNTPOINT "${dev}" 2>/dev/null | grep -c . || true)"
     [[ "${mounted}" -eq 0 ]] \
       || die "refusing: ${dev} (or one of its partitions) is mounted"
   fi
@@ -280,9 +285,31 @@ validate_target_disk() {
   fi
 }
 
+# Checks on the live environment that only matter once we are really going to
+# install. Run after the confirmation gate so the operator always sees the
+# confirmation refusal first.
+MIN_STORE_FREE_GIB=12
+validate_install_environment() {
+  # The appliance layout is GPT + ESP and upstream's boot-loader is systemd-boot:
+  # a legacy-BIOS boot of the ISO would wipe the disk and then fail bootctl.
+  [[ -d /sys/firmware/efi ]] \
+    || die "the installer is not running in UEFI mode; reboot the ISO in UEFI mode (GPT + ESP layout, systemd-boot)"
+
+  # disko-install first realises the whole appliance closure (Plasma, the pilot
+  # apps) in the LIVE system's Nix store, which on the ISO is RAM-backed. Too
+  # little room means a failure after the disk has been erased.
+  local avail
+  avail="$(df --output=avail -B1 /nix/store 2>/dev/null | tail -1 | tr -d ' ' || true)"
+  if [[ "${ALLOW_SMALL_STORE}" -ne 1 && -n "${avail}" && "${avail}" -lt $((MIN_STORE_FREE_GIB * 1024 * 1024 * 1024)) ]]; then
+    die "only $((avail / 1024 / 1024 / 1024)) GiB free in the live Nix store (/nix/store); the appliance closure needs about ${MIN_STORE_FREE_GIB} GiB. Use a machine with more RAM, or pass --allow-small-store to try anyway."
+  fi
+}
+
 # Where the installed system expects the first-login password hash; applied
 # once at first boot by dawo-appliance-set-password.service
-# (hosts/appliance/appliance-services.nix) and then removed.
+# (hosts/appliance/appliance-services.nix) and then removed. The plain text
+# (dawo.password.txt, next to it) stays for the welcome dialog: demo appliance,
+# NOT for production.
 PASSWORD_HASH_PATH="/var/lib/dawo-appliance/dawo.password-hash"
 
 # A random first-login password: 16 unambiguous lower-case letters/digits in
@@ -295,14 +322,44 @@ generate_password() {
   printf '%s-%s-%s-%s' "${raw:0:4}" "${raw:4:4}" "${raw:8:4}" "${raw:12:4}"
 }
 
+# stage_password_files STAGE PASSWORD — build the tree that disko-install copies
+# into the fresh root with `--extra-files STAGE/var /var` (cp -ar). Right after
+# formatting the target has no /var yet, so cp creates it from the stage; the
+# stage's OWN root directory is never mapped onto / — doing that (cp -ar
+# STAGE/. ROOT/) copies the 0700 mode of a mktemp directory onto / and leaves
+# the installed system unbootable. Directory modes are therefore set to 0755
+# explicitly. Also reachable as the internal subcommand `stage-password-files`
+# so the test suite can verify exactly this layout.
+stage_password_files() {
+  local stage="$1" password="$2" dir
+  dir="${stage}${PASSWORD_HASH_PATH%/*}"
+  mkdir -p "${dir}"
+  chmod 755 "${stage}/var" "${stage}/var/lib" "${dir}"
+  (
+    umask 077
+    printf '%s\n' "${password}" | mkpasswd -m yescrypt --stdin > "${stage}${PASSWORD_HASH_PATH}"
+  )
+  # Demo appliance, NOT for production: the plain password is also shipped,
+  # world-readable, so the welcome dialog can show it after auto-login.
+  printf '%s\n' "${password}" > "${dir}/dawo.password.txt"
+  chmod 644 "${dir}/dawo.password.txt"
+}
+
 cmd_install() {
   # Hard rule: an explicit target disk is always required.
   validate_target_disk_for_mode
 
+  # NixOS puts /etc entries behind symlinks into the store; Nix refuses a
+  # symlink as a path flake, so resolve the default (or any directory) first.
+  if [[ -d "${FLAKE_REF}" || -L "${FLAKE_REF}" ]]; then
+    FLAKE_REF="$(readlink -f "${FLAKE_REF}")"
+  fi
   local flake_target="${FLAKE_REF}#${INSTALL_ATTR}"
   # disko-install performs partition + format + mount + nixos-install in one
   # step, overriding the disk device explicitly (so nothing is hard-coded).
-  local -a cmd=(disko-install --flake "${flake_target}" --disk main "${TARGET_DISK}")
+  # --write-efi-boot-entries: register systemd-boot in the firmware instead of
+  # relying on the removable fallback path alone.
+  local -a cmd=(disko-install --flake "${flake_target}" --disk main "${TARGET_DISK}" --write-efi-boot-entries)
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     echo
@@ -312,14 +369,16 @@ cmd_install() {
     echo "target disk:  ${TARGET_DISK}"
     echo "flake:        ${flake_target}"
     if [[ "${GENERATE_PASSWORD}" -eq 1 ]]; then
-      echo "would run:    ${cmd[*]} --extra-files <staged password hash>/. /"
+      echo "would run:    ${cmd[*]} --extra-files <stage>/var /var"
       echo "would set:    a generated first-login password for user 'dawo'"
-      echo "              (shipped as a hash to ${PASSWORD_HASH_PATH}, shown once)"
+      echo "              (hash to ${PASSWORD_HASH_PATH}; plain text next to it"
+      echo "              for the welcome dialog — demo appliance, not for production)"
     else
       echo "would run:    ${cmd[*]}"
       echo "login:        user 'dawo' with upstream's documented default password"
       echo "              (add --generate-password for a random one)"
     fi
+    [[ -d /sys/firmware/efi ]] || echo "note:         not booted in UEFI mode; a real install would refuse"
     echo
     echo "NO DISK WRITES PERFORMED. Re-run with --confirm-destroy (and without"
     echo "--dry-run) to ERASE ${TARGET_DISK} and install."
@@ -333,37 +392,27 @@ cmd_install() {
     die "refusing without --confirm-destroy (preview with --dry-run)"
   fi
   have disko-install || die "disko-install not found on PATH (the install medium must ship it)"
+  validate_install_environment
 
   # First-login password for the `dawo` account (ADR 0003). Default: upstream's
-  # documented bootstrap default stays (the appliance auto-logs in and a welcome
-  # dialog tells the user). With --generate-password a random password is
-  # generated here, never stored anywhere but the operator's screen; only its
-  # yescrypt hash is copied into the fresh root, where
-  # dawo-appliance-set-password.service applies it at first boot. The stage is
-  # a directory tree so disko-install's `cp -ar STAGE/. ROOT/` creates
-  # var/lib/dawo-appliance.
+  # documented bootstrap default stays (the appliance auto-logs in and the
+  # welcome dialog shows it). With --generate-password a random password is
+  # generated here; its yescrypt hash AND its plain text go into the fresh
+  # root (see stage_password_files), where dawo-appliance-set-password.service
+  # applies the hash at first boot and the welcome dialog shows the text.
   local stage="" password=""
   if [[ "${GENERATE_PASSWORD}" -eq 1 ]]; then
     have mkpasswd || die "mkpasswd not found on PATH (the install medium must ship it)"
     stage="$(mktemp -d)"
-    chmod 700 "${stage}"
-    mkdir -p "${stage}${PASSWORD_HASH_PATH%/*}"
-    chmod 700 "${stage}${PASSWORD_HASH_PATH%/*}"
+    # shellcheck disable=SC2064  # expand now: the stage path is fixed
+    trap "rm -rf '${stage}'" EXIT
     password="$(generate_password)"
-    (
-      umask 077
-      printf '%s\n' "${password}" | mkpasswd -m yescrypt --stdin > "${stage}${PASSWORD_HASH_PATH}"
-    )
-    # Demo appliance, NOT for production: the plain password is also shipped,
-    # world-readable, so the welcome dialog can show it after auto-login.
-    printf '%s\n' "${password}" > "${stage}${PASSWORD_HASH_PATH%/*}/dawo.password.txt"
-    chmod 644 "${stage}${PASSWORD_HASH_PATH%/*}/dawo.password.txt"
-    cmd+=(--extra-files "${stage}/." /)
+    stage_password_files "${stage}" "${password}"
+    cmd+=(--extra-files "${stage}/var" /var)
   fi
 
   log "ERASING ${TARGET_DISK} and installing ${flake_target} ..."
   "${cmd[@]}"
-  [[ -n "${stage}" ]] && rm -rf "${stage}"
 
   echo
   echo "=========================================================="
@@ -375,8 +424,8 @@ cmd_install() {
     echo " it again (demo appliance, not for production). Change it with passwd."
   else
     echo " The appliance logs in automatically as user 'dawo'. The screen lock"
-    echo " and admin tasks use upstream's documented default password; a"
-    echo " welcome dialog on the desktop repeats this."
+    echo " and admin tasks use upstream's documented default password; the"
+    echo " welcome dialog on the desktop shows it."
   fi
   echo " Reboot to start the appliance."
   echo "=========================================================="
@@ -410,6 +459,7 @@ while [[ $# -gt 0 ]]; do
     --confirm-destroy)       CONFIRM_DESTROY=1; shift ;;
     --flake)                 FLAKE_REF="${2:?}"; shift 2 ;;
     --generate-password)     GENERATE_PASSWORD=1; shift ;;
+    --allow-small-store)     ALLOW_SMALL_STORE=1; shift ;;
     --dry-run)               DRY_RUN=1; shift ;;
     -h|--help)               usage; exit 0 ;;
     *) die "unknown option: $1 (try: ${PROGRAM_NAME} help)" ;;
@@ -448,6 +498,13 @@ case "${COMMAND}" in
   plan)    cmd_verify_or_plan 1 ;;
   verify)  cmd_verify_or_plan 0 ;;
   install) cmd_install ;;
+    # Internal, for the test suite: build the password stage tree in DIR.
+    stage-password-files)
+      [[ $# -ge 0 ]] || true
+      have mkpasswd || die "mkpasswd not found on PATH"
+      [[ -n "${STAGE_DIR:-}" && -n "${STAGE_PASSWORD:-}" ]] \
+        || die "stage-password-files needs STAGE_DIR and STAGE_PASSWORD in the environment"
+      stage_password_files "${STAGE_DIR}" "${STAGE_PASSWORD}" ;;
   version) echo "${PROGRAM_NAME} ${PROGRAM_VERSION}" ;;
   help|-h|--help) usage ;;
   *) die "unknown command: ${COMMAND} (try: ${PROGRAM_NAME} help)" ;;
