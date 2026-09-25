@@ -1,0 +1,181 @@
+{
+  "source": {
+    "repo": "https://github.com/MinBZK/mijn-bureau-infra",
+    "rev": "b2ae545013c153b9a3fb0aebcb51d22f348e1573",
+    "file": "helmfile/environments/default/container.yaml.gotmpl"
+  },
+  "resolved": "2026-09-25",
+  "images": {
+    "docker.io/bitnamilegacy/keycloak-config-cli:6.4.0-debian-12-r9": {
+      "digest": "sha256:e3a723d11723a63001e7d691e7a165753fdc6c4d48eb0e0bceca388feafa5582",
+      "amd64_digest": "sha256:969bf44555b8bb5ff7abbdf2daa7b02e472b8a7a7715fb4c5833ba650a7026c5",
+      "used_by": "keycloak_cli"
+    },
+    "docker.io/bitnamilegacy/keycloak:26.3.3-debian-12-r0": {
+      "digest": "sha256:da3df0976a9f9a664bdbde6cb5308b78f03ac94d0abf33b2df355bbb06cbc5b9",
+      "amd64_digest": "sha256:c1d791ca7bc906f82bb82cc2c2c0ef72c85eeca560413fd86e9cf6c9d6dc5ff6",
+      "used_by": "keycloak"
+    },
+    "docker.io/bitnamilegacy/kubectl:1.33.4": {
+      "digest": "sha256:ed0b31a0508da84ee655c5c6e01bd3897fc56ad6cf69debb27fa1893a06d2246",
+      "amd64_digest": "sha256:681609aff6bf316acf464d9c9e369d84c49d50be6379247291b01ac311a7f5f5",
+      "used_by": "kubectl"
+    },
+    "docker.io/bitnamilegacy/minio-object-browser:2.0.2-debian-12-r4": {
+      "digest": "sha256:ff9a524c8c200671626e3b074364c17e0da205df421cfb84275aec01e7c4a819",
+      "amd64_digest": "sha256:96b72ef5edf9250bd62eea782e8e4acc414469d3c9b3a48ea3d915660a78b9df",
+      "used_by": "minio_console"
+    },
+    "docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5": {
+      "digest": "sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20",
+      "amd64_digest": "sha256:f24044f19432b7664fb956eade7dbb55ed5f7f22f08eb7c8fce68ac0ffaceca4",
+      "used_by": "minio"
+    },
+    "docker.io/bitnamilegacy/nginx:1.29.1": {
+      "digest": "sha256:b2e803958eda5723aae1e36ed0e418f6e0c79e7ce890820eba9cad85a6381286",
+      "amd64_digest": "sha256:5c10f50fade071e6132090c5d63ad591c23b73f6282f58f4f6efadd257e1a7e3",
+      "used_by": "nginx"
+    },
+    "docker.io/bitnamilegacy/os-shell:12-debian-12-r51": {
+      "digest": "sha256:77e65e9d633ec1463f8bea185763aa7ef91e5ddbe0b60beb1b0b5d4da58882b6",
+      "amd64_digest": "sha256:4ce5097738341ec0d3ddbc201e850a26364d9b581eb050461b3549e7ac3514a1",
+      "used_by": "minio_shell, osShell"
+    },
+    "docker.io/bitnamilegacy/postgres-exporter:0.17.1-debian-12-r9": {
+      "digest": "sha256:95a026f0b68ac00da8c71ea579cba16503e080be538415d62c650d0cc74965e9",
+      "amd64_digest": "sha256:42ea1901afa39fcb005471640685e6934a157d11e5a463c45893904d6506e951",
+      "used_by": "postgres_exporter"
+    },
+    "docker.io/bitnamilegacy/postgresql:17.6.0-debian-12-r4": {
+      "digest": "sha256:926356130b77d5742d8ce605b258d35db9b62f2f8fd1601f9dbaef0c8a710a8d",
+      "amd64_digest": "sha256:42ce087c029b3b61cfb10230c571172f41a5bf2d463871a61bde314b59fa197f",
+      "used_by": "postgres"
+    },
+    "docker.io/bitnamilegacy/redis-exporter:1.76.0-debian-12-r0": {
+      "digest": "sha256:d111b8a14d96f7edd67324776d6801b76023035d9390d03fbb13d1c21bda8b88",
+      "amd64_digest": "sha256:e3f75693ee7a7fc6caa92165d6015cfa076836381161b9713bdc5fcf5e65ec4e",
+      "used_by": "redis_exporter"
+    },
+    "docker.io/bitnamilegacy/redis:8.2.1-debian-12-r0": {
+      "digest": "sha256:25bf63f3caf75af4628c0dfcf39859ad1ac8abe135be85e99699f9637b16dc28",
+      "amd64_digest": "sha256:74ab6cfca061752e8d784787db08a0e9003980f07d38fc33ca592574587f5a6f",
+      "used_by": "redis"
+    },
+    "docker.io/clamav/clamav:1.5.3": {
+      "digest": "sha256:d06c1d6a451d616e1dd79b42f44c8c8c291bba9cf4e75ebc4d0e43c1c6dd87bb",
+      "amd64_digest": "sha256:afbacf91caa6e02cd3b86238a4b130255bc465c8928dfe505cae63ae22c7e966",
+      "used_by": "clamav"
+    },
+    "docker.io/collabora/code:26.04.2.2.1": {
+      "digest": "sha256:f8a308bcd12ad09babcd635662b512776b0749fc04c9a63db568865bd195b4d9",
+      "amd64_digest": "sha256:9fb54aace38fe616babc4632f5f64e7171d0f9048069d5ba1332198906cca5a7",
+      "used_by": "collabora"
+    },
+    "docker.io/gristlabs/grist:1.7.16": {
+      "digest": "sha256:d93db4640aeef1b2c3a1375b315798e72c591c98587a0a68c67286162a39a8ff",
+      "amd64_digest": "sha256:19097c6d265fb69d70abec86e115648708d4a2bd9be6488927204097e8f37b4f",
+      "used_by": "grist"
+    },
+    "docker.io/lasuite/conversations-backend:v0.0.19": {
+      "digest": "sha256:f9ec5f4766abe8176c1ce378c77e58a7ceeaa77c2e5a658daacec97e7618a415",
+      "amd64_digest": "sha256:6717df53cdec95762bc962ecc802c79faeeb5a56c77cfc56cf7e8087339894b0",
+      "used_by": "conversations_backend"
+    },
+    "docker.io/lasuite/conversations-frontend:v0.0.19": {
+      "digest": "sha256:0829749e9bda909061cb07980d2af1db81a6c99b3dd7c45e0a4cc5133952869c",
+      "amd64_digest": "sha256:be20985293ae283254d7ff15b867bb42051c23ce24a94ecea564b9ac64cc52c7",
+      "used_by": "conversations_frontend"
+    },
+    "docker.io/lasuite/drive-backend:v0.20.0": {
+      "digest": "sha256:bd5780e0dfe0097f10ace9020d2c9d12b2056bc88d8a9e787dbe37d29b107daf",
+      "amd64_digest": "sha256:72eeed299db2c11eac5096894458c19abc575f15af6356ed05e8e5573f4ac6b4",
+      "used_by": "drive_backend"
+    },
+    "docker.io/lasuite/drive-frontend:v0.20.0": {
+      "digest": "sha256:bacefd805360c7a8682ac411874b1816f40b7e06dd74524b856caf7446cd169c",
+      "amd64_digest": "sha256:b0bcc33e0a0c6f6f226e4d1efb19db3a70af913cc8f994815c1681d21c730f9b",
+      "used_by": "drive_frontend"
+    },
+    "docker.io/lasuite/impress-backend:v5.4.1": {
+      "digest": "sha256:5c299a7ac029ed07fe6d8ae3535201c80728b68a05550536b7e7dd73df13ea40",
+      "amd64_digest": "sha256:54c0704b54b3cf5624096eac2ec18d6eb105fea5c8c672bd2db1dd5e13665557",
+      "used_by": "docs.backend"
+    },
+    "docker.io/lasuite/impress-frontend:v5.4.1": {
+      "digest": "sha256:9fb3c38fe43bfb9c79a6f03fae828fe0c681f4893a8ce24e010ef5f8d0b6ebd3",
+      "amd64_digest": "sha256:4d6e943f2801c726e14c037a46c170470b44ccb0ede046ad96485b9bafa3074f",
+      "used_by": "docs.frontend"
+    },
+    "docker.io/lasuite/impress-y-provider:v5.4.1": {
+      "digest": "sha256:5af19c0191491ded862cb00dade1255cbac6fbc6bc51a754d5960cf488706b76",
+      "amd64_digest": "sha256:2ed72899d1f31ac420f6b0fdd5482e5d1da8120ba5785f1e7b07b29305fd5274",
+      "used_by": "docs.yProvider"
+    },
+    "docker.io/lasuite/meet-backend:v1.23.0": {
+      "digest": "sha256:1462e0040f75c92182a3624e97af4e912fb91063a058dbf2455dbb8cdd52d57e",
+      "amd64_digest": "sha256:2acb6a4b7664dbf468043b8539a8aff32abdf7af52bb9876dc05f3d16aee1d66",
+      "used_by": "meet_backend"
+    },
+    "docker.io/lasuite/meet-frontend:v1.23.0": {
+      "digest": "sha256:ddd0a9c181213e3bb39d866dee813adafb964646b844a60358251caf972811b6",
+      "amd64_digest": "sha256:a027cdce8470859d366de1ba8ba7559340763439e30018361835aad60e05549a",
+      "used_by": "meet_frontend"
+    },
+    "docker.io/library/nextcloud:34.0.1-apache": {
+      "digest": "sha256:b52f7bc0e496f227b0e85e3b88571a42c68b6245ccde29d577e733227715dcf5",
+      "amd64_digest": "sha256:3ab7a9fd94d7e7192b6d207cfba93f51f2b9b8469adc291fb920d1d46ac90283",
+      "used_by": "nextcloud"
+    },
+    "docker.io/livekit/livekit-server:v1.13.4": {
+      "digest": "sha256:189f7c81b704a36642bc5c7e2d3e1ae83744627c11978a23a251bf19fbec64e0",
+      "amd64_digest": "sha256:f63579e294b6dbf38e0e6151a24a5b425e9293e75e6d41959f470c957248b8a7",
+      "used_by": "livekit_server"
+    },
+    "docker.io/matrixdotorg/synapse:v1.156.0": {
+      "digest": "sha256:d2215c4a0e0bbd304489af228345b31d6857c1a228175471358d3fda187c0d91",
+      "amd64_digest": "sha256:09eaa18f837182d03196a6617a61fbafc0c16ce74de7f9b107f9b511d4703e2b",
+      "used_by": "synapse"
+    },
+    "docker.io/ollama/ollama:0.32.1": {
+      "digest": "sha256:6345fbc18bd73a1e16404be681dbc6fd291a027cab43ed541abe78c4c81051b0",
+      "amd64_digest": "sha256:1d9f0b83b852efef42435e65fd53d0dc4f462a60dabf5c719058c99d47f32e36",
+      "used_by": "ollama"
+    },
+    "docker.io/vectorim/element-web:v1.12.23": {
+      "digest": "sha256:2a65f32acc6fd7163523d1c4b5174de354b5ceb085898b15898f4d8ea01a8e3d",
+      "amd64_digest": "sha256:920adc92770bd9d610cb0b4519f220643dc39dba79ef4533820f52da2d89b015",
+      "used_by": "elementweb"
+    },
+    "ghcr.io/cloudnative-pg/postgresql:17.9-standard-bookworm": {
+      "digest": "sha256:e6ef7cc6ef88c0936b1ae3893dfa5b779c03390b27c17efac6e88854a95f21f3",
+      "amd64_digest": "sha256:6643cc2e36dda87501ba87d0e7c0893407895dc2495c769cb28c7e231f889e2d",
+      "used_by": "cnpg_postgres"
+    },
+    "ghcr.io/docspecio/api:2.6.3": {
+      "digest": "sha256:1e1f37461ec3ed7556238132987ea717c78e18ec26cd7d0dfa3946586d501128",
+      "amd64_digest": "sha256:bead2916bf1935bd55bb47ea2baacf8257751d4f0c8ca6f014b667b794d67879",
+      "used_by": "docspec"
+    },
+    "ghcr.io/minbzk/bureaublad-api:v0.9.3": {
+      "digest": "sha256:e6c01c400c1674a4a9853f3de6113450cd8d3ec13ca6ca3a9776064455ab3a0c",
+      "amd64_digest": "sha256:313ad028d85252517f612715285f3a8a41275d99baea108f49b073fcd4e37201",
+      "used_by": "bureaublad.backend"
+    },
+    "ghcr.io/minbzk/bureaublad-frontend:v0.6.1": {
+      "digest": "sha256:15659ed7c50187448edb94683a1b4fa82503b6f847fd11cf4506a9498e2937c0",
+      "amd64_digest": "sha256:c38669f8b54ecbe362a160466247f4140449e17d8c324d15f0ff02786c1f6346",
+      "used_by": "bureaublad.frontend"
+    },
+    "ghcr.io/minbzk/mijnbureau-openproject:v16.6.3": {
+      "digest": "sha256:1fa19bef0124d9f8c0839c2d2025c7e073e9e1dfd6b3a87b2839efe4a9179ee2",
+      "amd64_digest": "sha256:fc347941447c8cbe8972fd121a8616a3b94cf27eb4bf38b09c3b3f62a0de38a5",
+      "used_by": "openproject.openproject"
+    },
+    "ghcr.io/openproject/hocuspocus:main-defdb238": {
+      "digest": null,
+      "amd64_digest": null,
+      "used_by": "openproject.hocuspocus",
+      "error": "Error parsing image name \"docker://ghcr.io/openproject/hocuspocus:main-defdb238\": Requesting bearer token: received unexpected HTTP status: 403 Forbidden"
+    }
+  }
+}

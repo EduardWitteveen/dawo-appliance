@@ -76,6 +76,16 @@ Upstream pins container images by **tag** (e.g. `nextcloud:34.0.0-apache`) in
 ask for digests. Resolving every tag to a `sha256:` digest is a follow-up task;
 v0.1 records tags and the upstream revision they come from, and flags this.
 
+**Resolved 2026-09-25 (tooling); wiring into Helmfile is Slice 6.**
+`scripts/resolve-image-digests.sh` reads the full image list from upstream at
+the pinned rev and writes `manifest/image-digests.json` (manifest-list and
+linux/amd64 digests per image; `--check` fails when a tag was re-pointed).
+33 of 34 images resolved; `ghcr.io/openproject/hocuspocus:main-defdb238` is
+not publicly pullable (403) but upstream disables it. Offline test:
+`tests/test-image-digests.sh`. Details: `docs/upstream/image-digests.md`. The
+deployment still pulls by tag until Slice 6 feeds these digests into the
+Helmfile values.
+
 ## OQ-6 (RESOLVED 2026-09-25): exact K3s and Ubuntu image pins
 
 **Pinned in the manifest 2026-09-25** (Ubuntu 24.04 `release-20260911`, K3s

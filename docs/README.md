@@ -42,6 +42,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`upstream/revisions.md`](upstream/revisions.md) | The exact DAWO-Core and mijn-bureau-infra revisions inspected and pinned, and the facts that shape our design. |
 | [`upstream/ecosystem.md`](upstream/ecosystem.md) | Which DAWO / Mijn Bureau repositories exist and which ones we consume. |
 | [`upstream/pins-vm-k3s.md`](upstream/pins-vm-k3s.md) | Researched pins with checksums for the Ubuntu 24.04 cloud image and K3s (OQ-6), ready for the manifest once approved. |
+| [`upstream/image-digests.md`](upstream/image-digests.md) | Why and how every Mijn Bureau image tag is resolved to a `sha256:` digest in `manifest/image-digests.json` (OQ-5), how `--check` catches re-pointed tags, and the Slice 6 follow-up to pull by digest. |
 
 ## Elsewhere in the repository
 
