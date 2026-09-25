@@ -6,8 +6,8 @@
 # next step (from docs/STATUS.md), the blocking open questions, a few live
 # checks (manifest checksum + dry-run tests), and recently changed files.
 #
-# Self-contained: no network, no Nix, no root, no git required. Safe to run on
-# the /mnt/c path where git/Nix do not work (see docs/open-questions.md OQ-1).
+# Self-contained: no network, no Nix, no root, no git required, so it works on
+# any checkout (Windows Git Bash, WSL, a plain Linux box).
 #
 # Usage:
 #   bash scripts/status.sh            # full report (runs the dry-run tests)
@@ -114,7 +114,8 @@ fi
 hr
 
 # --- Recently changed files -------------------------------------------------
-# No git on this path (OQ-1), so use modification time as the signal.
+# Modification time rather than git, so this works without git and shows
+# uncommitted work too.
 printf '%sRecently changed (by mtime):%s\n' "$B" "$X"
 find . \
   -path ./.git -prune -o \
