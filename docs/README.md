@@ -44,6 +44,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`upstream/ecosystem.md`](upstream/ecosystem.md) | Which DAWO / Mijn Bureau repositories exist and which ones we consume. |
 | [`upstream/pins-vm-k3s.md`](upstream/pins-vm-k3s.md) | Researched pins with checksums for the Ubuntu 24.04 cloud image and K3s (OQ-6), ready for the manifest once approved. |
 | [`upstream/image-digests.md`](upstream/image-digests.md) | Why and how every Mijn Bureau image tag is resolved to a `sha256:` digest in `manifest/image-digests.json` (OQ-5), how `--check` catches re-pointed tags, and the Slice 6 follow-up to pull by digest. |
+| [`upstream/mijn-bureau-sizing.md`](upstream/mijn-bureau-sizing.md) | Mijn Bureau resource sizing at rev `b2ae545` (`predicted_resources.py` per preset and app subset, K3s/OS/desktop overhead) and the proposed `laptop-demo` / `full` profiles (#11). |
 
 ## Elsewhere in the repository
 

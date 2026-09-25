@@ -36,7 +36,7 @@ Status: **active** (in the code), **planned** (decided, not yet built),
 | D13 | Master password passed on the command line | Generated once inside the guest, root-only | No secrets in Git or shell history | active | `apps/mijn-bureau/README.md` |
 | D14 | Images pulled by tag | Images pinned by digest | Tags can be re-pointed | planned | `docs/upstream/image-digests.md`, #9 |
 | D15 | cert-manager v1.16.2 (EOL, K8s <= 1.32) | Undecided on K3s 1.36 | Supportability vs parity | open | #10 |
-| D16 | >= 12 vCPU / 48 GiB for single-node | Possibly a smaller "laptop-demo" profile | Must run on the reference laptop | open | #11 |
+| D16 | >= 12 vCPU / 48 GiB for single-node, `resourcesPreset: none` | Default `laptop-demo` profile: 5 core apps, global preset `micro` (per-app map unchanged), guest 8 vCPU / 16 GiB; `full` profile keeps upstream sizing | Must run next to the desktop on the 32 GB reference laptop | planned | `docs/upstream/mijn-bureau-sizing.md`, #11 |
 
 ## Versus common practice (tooling and process)
 
