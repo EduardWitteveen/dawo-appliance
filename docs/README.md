@@ -48,6 +48,7 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | [`adr/0003-workplace-parity.md`](adr/0003-workplace-parity.md) | The host is the DAWO pilot workplace, unchanged, plus additions; the list of deviations. |
 | [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Accepted:** local DNS + TLS for the demo: base domain `dawo.internal`, per-install appliance CA, cert-manager CA issuer, browser trust (resolves OQ-3). |
 | [`adr/0005-ai-agent-conduct.md`](adr/0005-ai-agent-conduct.md) | **Accepted:** AI agent conduct and multi-agent workflow: GitHub as SSOT, thoughtful investigation, English conventions, safety. |
+| [`adr/0006-live-usb-first.md`](adr/0006-live-usb-first.md) | **Proposed:** live USB first (boot an existing machine, internal disk untouched, data partition with per-boot reports); installing stays optional. |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream
