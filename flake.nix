@@ -466,13 +466,20 @@
             pick = n: builtins.head (builtins.filter (p: (p.name or "") == n) sysPkgs);
             health = pick "dawo-appliance-health";
             opener = pick "dawo-appliance-open-dashboard";
+            # The real /etc/dawo-appliance/ca.env the health check sources.
+            caEnv = pkgs.writeText "ca.env"
+              self.nixosConfigurations.appliance.config.environment.etc."dawo-appliance/ca.env".text;
           in
           pkgs.runCommand "health-selfcontained" { } ''
             set -u
+            # ca.env must source cleanly (issue #100: an unquoted value with
+            # spaces ran "appliance" as a command).
+            ${pkgs.bash}/bin/bash -euc ". ${caEnv}; test -n \"\$DAWO_APPLIANCE_CA_NICKNAME\"" 2> ca.err || { cat ca.err; echo "FAIL: ca.env does not source cleanly"; exit 1; }
+            if [ -s ca.err ]; then cat ca.err; echo "FAIL: sourcing ca.env printed errors"; exit 1; fi
             rc=0
-            env -i HOME=$TMPDIR PATH= ${health}/bin/dawo-appliance-health --once > h.out 2> h.err || rc=$?
+            env -i HOME=$TMPDIR PATH= HEALTH_CA_ENV=${caEnv} ${health}/bin/dawo-appliance-health --once > h.out 2> h.err || rc=$?
             cat h.out h.err
-            if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || grep -q "command not found" h.err; then
+            if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || grep -qi "command not found\|opdracht niet gevonden" h.err; then
               echo "FAIL: dawo-appliance-health is not self-contained (exit $rc)"; exit 1
             fi
             rc=0
