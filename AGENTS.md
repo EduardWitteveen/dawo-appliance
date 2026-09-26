@@ -30,6 +30,7 @@ It is **not** an official DAWO / Mijn Bureau / BZK distribution. Never imply it 
 8. **No host/WSL changes without asking:** Do not install or change Windows/WSL system components (e.g. `/etc/wsl.conf`, installing Nix system-wide) without asking first.
 9. **Stay in scope:** Do not add speculative functionality outside the stated v0.1 scope (`docs/adr/0001-project-scope.md`). Structure for extension; do not build unscoped features.
 10. **Investigative & Thoughtful:** Understand context, existing structure, and verify assumptions before proposing or applying code changes. Distinguish blocking problems from later improvements.
+11. **Never post to an external tracker on our own authority:** Filing an upstream bug (Codeberg DAWO-Core, GitHub mijn-bureau-infra, or any third-party tracker) is a public action outside this repository and needs the maintainer's explicit go-ahead each time — track the underlying problem as our own GitHub issue first (see issue #35 for the pattern: documented here, reported upstream only if and when the maintainer decides to). This applies to all agents equally.
 
 ---
 
