@@ -12,8 +12,20 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`purpose.md`](purpose.md) | Why the project exists, what it adds, where it deviates from upstream, what it costs, what "done" means for v0.1. |
 | [`deviations.md`](deviations.md) | Every deviation from upstream or common practice, one line each, with the reason and where it is motivated. |
 | [`architecture.md`](architecture.md) | The boot-to-demo flow, topology, component boundaries, manifest trust chain, safety model. |
-| [`roadmap.md`](roadmap.md) | The vertical slices 0–7 with their state and what each verified. |
+| [`roadmap.md`](roadmap.md) | The vertical slices 0-7 with their state and what each verified. |
 | [`STATUS.md`](STATUS.md) | Session handoff: now / next / recently done. Printed by `bash scripts/status.sh`. |
+
+## Target Audience Materials (Dutch)
+
+Targeted documentation addressing municipal stakeholder concerns, explicitly authorized to be written in Dutch per `AGENTS.md` Rule 2.
+
+| Document | What it answers |
+| --- | --- |
+| [`demo-script.md`](demo-script.md) | A 5-minute meeting demonstration script for municipal decision makers, highlighting sovereignty and local processing. |
+| [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
+| [`audience/bio-compliance.md`](audience/bio-compliance.md) | For CISOs: explains the security boundaries of the demo vs. the hardened DAWO production stack (LUKS, TPM). |
+| [`audience/integratie-visie.md`](audience/integratie-visie.md) | For IT Architects: explains identity federation (SAML/OIDC) and NixOS declarative fleet management. |
+| [`audience/adoptie-gids.md`](audience/adoptie-gids.md) | For End Users: a simple cheat sheet translating M365 concepts to Mijn Bureau apps. |
 
 ## Working on it
 
@@ -23,8 +35,6 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`testing.md`](testing.md) | Which check covers which requirement; how to read a failure; the "a bug becomes a check first" rule. |
 | [`releasing.md`](releasing.md) | How a release is cut: tag, ISO, manifest, draft GitHub release; how the bootstrap finds the release manifest. |
 | [`nix-setup.md`](nix-setup.md) | Runbook for installing Nix in WSL2 and making KVM usable inside the Nix sandbox. |
-| [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
-| [`demo-script.md`](demo-script.md) | A 5-minute meeting demonstration script for municipal decision makers, highlighting sovereignty and local processing. |
 | [`verification-latest.md`](verification-latest.md) | **Generated** by `REPORT=1 bash scripts/verify.sh`: result and timings of the latest real run. |
 | `verification-history.csv` | **Generated**: every recorded check duration, feeds the mean/range columns above. |
 | [`screenshots/README.md`](screenshots/README.md) | Rules for the screenshots in the README; [`screenshots/PROVENANCE.md`](screenshots/PROVENANCE.md) is **generated** by `scripts/screenshots.sh`. |
