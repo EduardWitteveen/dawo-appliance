@@ -50,6 +50,11 @@ let
         if [ -w /dev/ttyS0 ]; then echo "$line" > /dev/ttyS0 2>/dev/null || true; fi
       }
       say "report started"
+      if [ ! -e /dev/kvm ]; then
+        # Real laptops often ship with VT-x/AMD-V disabled; a VM host may not
+        # pass virtualisation through (VirtualBox on a Hyper-V host).
+        say "WARNING no /dev/kvm: hardware virtualisation (VT-x/AMD-V) is off or not passed through; the Ubuntu guest and K3s cannot start"
+      fi
       key=/var/lib/dawo-appliance/ssh/id_ed25519
       g() { ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 "$@"; }
       deadline=$(( $(up) + ''${DAWO_LIVE_REPORT_TIMEOUT:-1800} ))
