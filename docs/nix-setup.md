@@ -88,9 +88,11 @@ things are needed, and there is one trap:
    (`extra-system-features = kvm` in `/etc/nix/nix.conf`; restart `nix-daemon`).
 2. The sandbox build user must be able to open `/dev/kvm`. **Trap:** adding
    `nixbld*` to group `kvm` is not enough, because the Nix sandbox drops
-   supplementary groups. `/dev/kvm` must be mode `0666` (udev rule
-   `/etc/udev/rules.d/99-kvm-nix-sandbox.rules`:
-   `KERNEL=="kvm", GROUP="kvm", MODE="0666"`).
+   supplementary groups. `/dev/kvm` must be mode `0666`, **persistently**: a
+   systemd-tmpfiles rule `/etc/tmpfiles.d/99-kvm-nix-sandbox.conf`
+   (`z /dev/kvm 0666 - - -`) applied at every boot, plus the udev rule
+   `/etc/udev/rules.d/99-kvm-nix-sandbox.rules` for hot-plug. On WSL the udev
+   rule alone does not survive `wsl --shutdown` (issue #37).
 
 Do not do this by hand; the re-entrant checker reports and, with `APPLY=1`,
 fixes it:

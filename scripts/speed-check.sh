@@ -40,8 +40,22 @@ if [[ -e /dev/kvm ]]; then
   else
     report FIX "/dev/kvm mode" "is 0${mode}; VM tests fall back to slow TCG emulation"
     if [[ "${apply}" -eq 1 ]]; then
-      echo "       applying: udev rule + chmod (sudo)"
-      sudo bash -c 'printf "KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0666\"\n" > /etc/udev/rules.d/99-kvm-nix-sandbox.rules && chmod 666 /dev/kvm && (udevadm control --reload 2>/dev/null || true)'
+      echo "       applying: chmod now (sudo); the persistent rule is the next item"
+      sudo chmod 666 /dev/kvm
+    fi
+  fi
+  # Persistence: on WSL the udev rule is not applied to the /dev/kvm created at
+  # boot, so after `wsl --shutdown` the mode fell back to 0660 (issue #37). A
+  # systemd-tmpfiles rule is applied at every boot; the udev rule stays for
+  # hot-plug on other Linux hosts.
+  tmpfiles_rule=/etc/tmpfiles.d/99-kvm-nix-sandbox.conf
+  if grep -qs '^z /dev/kvm 0666' "${tmpfiles_rule}"; then
+    report OK "/dev/kvm mode persists" "${tmpfiles_rule} (applied at every boot)"
+  else
+    report FIX "/dev/kvm mode persists" "no ${tmpfiles_rule}: the mode reverts to 0660 after a (WSL) restart"
+    if [[ "${apply}" -eq 1 ]]; then
+      echo "       applying: tmpfiles.d + udev rule (sudo)"
+      sudo bash -c "printf '%s\n' '# dawo-appliance: the Nix sandbox drops supplementary groups; VM tests need' '# /dev/kvm world-accessible (docs/nix-setup.md). Applied at every boot.' 'z /dev/kvm 0666 - - -' > ${tmpfiles_rule} && printf 'KERNEL==\"kvm\", GROUP=\"kvm\", MODE=\"0666\"\n' > /etc/udev/rules.d/99-kvm-nix-sandbox.rules && systemd-tmpfiles --create ${tmpfiles_rule}"
     fi
   fi
 else
