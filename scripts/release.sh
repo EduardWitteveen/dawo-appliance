@@ -5,7 +5,7 @@
 #   bash scripts/release.sh prepare 0.1.0
 #       Branch release/v0.1.0 from origin/main, set manifest appliance.version
 #       to 0.1.0, regenerate the checksum, commit, push, open a pull request.
-#       Merge it through the normal GitHub workflow (CLAUDE.md).
+#       Merge it through the normal GitHub workflow (AGENTS.md).
 #
 #   bash scripts/release.sh publish 0.1.0
 #       On an up-to-date main whose manifest says 0.1.0: tag v0.1.0, build the

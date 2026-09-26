@@ -54,7 +54,7 @@ GPU acceleration is much faster.
 
 ## Requirement → test matrix
 
-| # | Requirement (from `docs/purpose.md`, ADRs, `CLAUDE.md`) | Where it is checked | How |
+| # | Requirement (from `docs/purpose.md`, ADRs, `AGENTS.md`) | Where it is checked | How |
 | --- | --- | --- | --- |
 | R1 | Manifest is the pinned root of trust; tampering is detected | `tests/test-bootstrap-dryrun.sh` 1–3; `nix flake check` (`bootstrap-dryrun`) | committed `.sha256` matches; `plan` verifies and prints the plan; a tampered manifest is rejected |
 | R2 | Non-destructive by default: `plan`/`verify` never write; destructive flags refused | dry-run suite 4; `test-installer-boot` | `--target-disk`/`--confirm-destroy` on `plan` exit non-zero |

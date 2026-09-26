@@ -7,7 +7,7 @@ lives in `roadmap.md`; the verified result of the last real run in
 `verification-latest.md`; all documents in `README.md` (this directory).
 
 This is an **experimental, unofficial** appliance, not an official DAWO / Mijn
-Bureau / BZK distribution (`CLAUDE.md`).
+Bureau / BZK distribution (`AGENTS.md`).
 
 ## Now
 
@@ -105,7 +105,7 @@ for the live, per-item backlog — it supersedes any list here. Highlights:
 ## GitHub workflow (since 2026-09-25)
 
 More than one Claude session works on this repo, on different machines —
-see `CLAUDE.md`'s "GitHub workflow" section for the issue/branch/PR/merge
+see `AGENTS.md`'s "GitHub workflow" section for the issue/branch/PR/merge
 process every change now follows. Known environment difference worth
 recording here because it isn't a per-issue concern: **not every machine has
 usable KVM.** The original laptop does (`docs/nix-setup.md`); a second

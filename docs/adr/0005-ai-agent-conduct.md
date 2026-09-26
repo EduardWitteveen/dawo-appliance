@@ -37,7 +37,7 @@ All AI agents working on `dawo-appliance` must observe the following principles:
 
 5. **Cross-Agent Standards Entrypoint (`AGENTS.md`):**
    - Provide a root `AGENTS.md` specifying these rules and operational procedures as the universal standard recognized across diverse AI tools.
-   - `CLAUDE.md` and `AGENTS.md` are kept aligned so all agents follow the exact same guidelines.
+   - `AGENTS.md` serves as the sole canonical standard; tool-specific files (such as `CLAUDE.md`) are retired to eliminate duplication.
 
 ## Consequences
 

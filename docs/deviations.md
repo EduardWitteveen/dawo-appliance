@@ -2,7 +2,7 @@
 
 > Experimental and unofficial. See `README.md`.
 
-The rule (`CLAUDE.md`, "Standards first"): follow upstream and common practice
+The rule (`AGENTS.md`, "Standards first"): follow upstream and common practice
 unless it stands in the way of the goal, **a live installer that installs and
 runs the appliance on one machine**. Every place where we do something
 differently is listed here, one line each, with the reason and where it is
@@ -44,5 +44,5 @@ Status: **active** (in the code), **planned** (decided, not yet built),
 | --- | --- | --- | --- | --- | --- |
 | D17 | `/dev/kvm` mode 0660, group `kvm` | Development machine: udev rule for mode 0666 | The Nix sandbox drops supplementary groups; without it every VM test silently runs under TCG | active (dev machine only) | `docs/nix-setup.md` |
 | D18 | Continuous integration on every push | Local `scripts/verify.sh` with a committed report | No CI runner with KVM yet; the report is the evidence in each PR | active | `docs/testing.md` |
-| D19 | Squash merges | Rebase merges (`gh pr merge --rebase`) | Squash lets GitHub author the commit with the account's e-mail; rebase keeps the noreply author | active | #19, `CLAUDE.md` |
+| D19 | Squash merges | Rebase merges (`gh pr merge --rebase`) | Squash lets GitHub author the commit with the account's e-mail; rebase keeps the noreply author | active | #19, `AGENTS.md` |
 | D20 | disko-install builds its install artifacts at run time | The e2e test pre-builds the same artifacts by mirroring disko's `install-cli.nix` (rev de57087) | The test VM is offline; must be kept in sync when the disko pin moves | active (tests only) | `nix/tests/install-e2e.nix` |

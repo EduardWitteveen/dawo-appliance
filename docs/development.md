@@ -1,7 +1,7 @@
 # Development
 
 > Experimental and unofficial. See `README.md`. Rules and working method:
-> `CLAUDE.md`. What each check covers: `testing.md`.
+> `AGENTS.md`. What each check covers: `testing.md`.
 
 ## Prerequisites
 
