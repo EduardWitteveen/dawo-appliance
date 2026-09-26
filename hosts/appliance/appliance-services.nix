@@ -44,7 +44,17 @@ let
   # jq to parse the OIDC issuer, xdg-utils' xdg-open for the browser, kdialog
   # for the "not healthy yet" dialog. `k3s kubectl` itself runs over ssh on the
   # guest (ssh_run in the script), so no k3s/kubectl package is needed here.
+  # Self-contained: the scripts must not depend on the caller's PATH (an XDG
+  # autostart entry may start them with a minimal one; issue #98, where a
+  # missing mktemp made the health check exit 127 right after login).
   healthRuntimeInputs = with pkgs; [
+    bash
+    coreutils
+    gnugrep
+    gnused
+    gawk
+    findutils
+    iproute2
     openssh
     curl
     systemd

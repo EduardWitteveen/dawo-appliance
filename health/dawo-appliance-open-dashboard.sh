@@ -41,7 +41,9 @@ html_escape() {
 
 report=""
 rc=0
+SECONDS=0
 report="$(bash "${HEALTH}" --wait --timeout "${TIMEOUT}" 2>>"${LOG}")" || rc=$?
+elapsed="${SECONDS}"
 
 if [ "${rc}" -eq 0 ]; then
   echo "dawo-appliance: Mijn Bureau is healthy; opening ${URL}"
@@ -54,21 +56,28 @@ fi
 
 failing="$(printf '%s\n' "${report}" | grep -v '^OK' || true)"
 [ -n "${failing}" ] || failing="(health check exited ${rc} without a report; see ${LOG})"
-echo "dawo-appliance: Mijn Bureau not healthy after ${TIMEOUT}s:" >&2
+# Exit 1 is "not healthy within the timeout"; anything else means the check
+# itself failed, after ${elapsed}s rather than the full timeout (issue #98).
+if [ "${rc}" -eq 1 ]; then
+  why_nl="De gezondheidscontrole was na ${elapsed} seconden nog niet geslaagd."
+  why_en="the health check did not pass within ${elapsed}s"
+else
+  why_nl="De gezondheidscontrole is na ${elapsed} seconden afgebroken (foutcode ${rc})."
+  why_en="the health check failed after ${elapsed}s (exit ${rc})"
+fi
+echo "dawo-appliance: Mijn Bureau not healthy: ${why_en}:" >&2
 printf '%s\n' "${failing}" >&2
 
 "${KDIALOG_BIN}" \
   --title "DAWO appliance (experimenteel / experimental)" \
   --icon dialog-warning \
   --sorry "<h3>Mijn Bureau is nog niet bereikbaar</h3>
-<p>De gezondheidscontrole was na ${TIMEOUT} seconden nog niet geslaagd. De
-browser is daarom niet geopend. Nog niet in orde:</p>
+<p>${why_nl} De browser is daarom niet geopend. Nog niet in orde:</p>
 <pre>$(html_escape "${failing}")</pre>
 <p>Opnieuw controleren: <tt>dawo-appliance-health --once</tt>; daarna
 <tt>${URL}</tt> openen.</p>
 <hr/>
-<p><small>English: the health check did not pass within ${TIMEOUT}s, so the
-dashboard was not opened. Re-check with <tt>dawo-appliance-health --once</tt>,
+<p><small>English: ${why_en}, so the dashboard was not opened. Re-check with <tt>dawo-appliance-health --once</tt>,
 then open <tt>${URL}</tt>.</small></p>" \
   >/dev/null 2>&1 || true
 exit 1
