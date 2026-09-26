@@ -87,10 +87,14 @@ GPU acceleration is much faster.
 - The visual result (panel layout, wallpaper, dialog wording): look at
   `nix run .#appliance-vm`. The boot test's `desktop.png` screenshot is best
   effort in a software-rendered VM.
-- Slices 4–7 (VM, K3s, Mijn Bureau, health, browser): not built yet; their
-  tests come with them. The CA assertions (R20–R22) run in
-  `test-appliance-boot`; guest and cluster trust in the CA are Slice 4a/6
-  tests. The end-to-end run also needs a large host (OQ-2).
+- Slice 4a (guest VM) has no offline test of its own yet. Slice 4b's CA
+  assertions (R20–R22) run in `test-appliance-boot`. Slices 5–7 (K3s, Mijn
+  Bureau, health) each have an offline test
+  (`tests/test-k3s-install.sh`, `tests/test-mijnbureau-driver.sh`,
+  `tests/test-health-check.sh`), but none of the five has ever run against a
+  real guest, cluster or deployment — only their offline, fully-faked logic is
+  covered. Guest and cluster trust in the CA are Slice 4a/6 tests. The
+  end-to-end run also needs a large host (OQ-2).
 
 ## Reading a failure
 
