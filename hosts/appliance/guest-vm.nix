@@ -118,6 +118,7 @@ let
     VCPUS = toString cfg.vcpus;
     OVERLAY_DISK = overlayDisk;
     SEED_ISO = seedIso;
+    K3S_ISO = "${k3sArtifactsIso}";
     NETWORK_NAME = net.name;
     GUEST_MAC = net.guestMac;
   };
@@ -137,6 +138,35 @@ let
   # service always embeds the one canonical copy verbatim — never hand-copied
   # or re-pinned here.
   k3sInstallScript = ../../k8s/bootstrap/install-k3s.sh;
+
+  # Slice 5, air-gap install (the documented K3s method; docs/deviations.md
+  # D23): the three pinned K3s artifacts are fetched at build time as
+  # fixed-output derivations (Nix verifies the manifest SHA-256) and handed to
+  # the guest on a small read-only ISO. The guest needs no internet for K3s and
+  # installs exactly the pinned bits; install-k3s.sh re-verifies the binary
+  # and install.sh from K3S_OFFLINE_DIR.
+  k3sPin = manifest.kubernetes.version;
+  k3sBinary = pkgs.fetchurl {
+    url = "${k3sPin.download_base}k3s";
+    sha256 = k3sPin.binary.sha256;
+  };
+  k3sInstallSh = pkgs.fetchurl {
+    url = k3sPin.install_script.url;
+    sha256 = k3sPin.install_script.sha256;
+  };
+  k3sAirgapImages = pkgs.fetchurl {
+    url = "${k3sPin.download_base}k3s-airgap-images-amd64.tar.zst";
+    sha256 = k3sPin.airgap_images_zst_sha256;
+  };
+  k3sArtifactsIso = pkgs.runCommand "dawo-appliance-k3s-${k3sPin.tag}.iso"
+    { nativeBuildInputs = [ pkgs.cdrkit ]; }
+    ''
+      mkdir d
+      cp ${k3sBinary} d/k3s
+      cp ${k3sInstallSh} d/install.sh
+      cp ${k3sAirgapImages} d/k3s-airgap-images-amd64.tar.zst
+      genisoimage -quiet -output $out -volid DAWO_K3S -joliet -rock         -input-charset utf-8 d
+    '';
 
   # Tools the services need on PATH.
   servicePath = with pkgs; [

@@ -49,12 +49,22 @@
       <target dev='sda' bus='sata'/>
       <readonly/>
     </disk>
+    <!-- Pinned K3s artifacts for the air-gap install (label DAWO_K3S). -->
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='@K3S_ISO@'/>
+      <target dev='sdb' bus='sata'/>
+      <readonly/>
+    </disk>
     <interface type='network'>
       <source network='@NETWORK_NAME@'/>
       <mac address='@GUEST_MAC@'/>
       <model type='virtio'/>
     </interface>
     <serial type='pty'>
+      <!-- Guest console copied to a file on the host, for debugging a guest
+           that boots but never answers (standard libvirt serial log). -->
+      <log file='/var/log/libvirt/qemu/@NAME@-console.log' append='off'/>
       <target type='isa-serial' port='0'>
         <model name='isa-serial'/>
       </target>
