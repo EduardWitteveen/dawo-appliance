@@ -1,5 +1,35 @@
 # dawo-appliance
 
+<div align="center">
+
+**Digitale Soevereiniteit in de Praktijk**  
+*Een veilige, cloud-onafhankelijke werkplek voor de Nederlandse overheid—direct te testen op een afgeschreven laptop.*
+
+[![DAWO Workplace](docs/screenshots/appliance-desktop.png)](#wat-is-dit)
+
+[Bekijk het 5-minuten pitch script](docs/demo-script.md) | [Hardware Vereisten](docs/demo-hardware.md) | [Waarom bestaat dit project?](docs/purpose.md)
+
+</div>
+
+---
+
+### 🇳🇱 Voor Gemeenten en Overheidsinstellingen (NL)
+*(English technical documentation continues below)*
+
+Gemeenten worstelen met *vendor lock-in* (zoals Microsoft 365) en strenge BIO-compliancy eisen rondom data in de cloud. Dit open-source project maakt "Digitale Soevereiniteit" tastbaar. 
+
+Deze demonstrator installeert een compleet ecosysteem op **één enkele test-laptop**:
+1. **De Werkplek (DAWO):** Een veilig alternatief voor Windows, precies zoals gebruikt in de huidige BZK-pilots.
+2. **De Samenwerkingssuite (Mijn Bureau):** Een lokaal draaiend alternatief voor OneDrive, Word en Excel (Nextcloud & Collabora).
+
+**Het grote voordeel:** Alle documenten en data blijven 100% lokaal op de laptop staan. Er gaat geen enkele byte naar commerciële cloud-providers. Je kunt dit systeem volledig risicovrij [uitproberen via een opstartbare USB-stick](docs/demo-hardware.md). 
+
+**Veelgestelde vragen:**
+- *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) gebaseerd op de officiële broncode van de Rijksoverheid.
+- *Kan dit morgen in productie?* Nee, dit is bedoeld voor evaluatie en bestuurlijke demo's. 
+
+---
+
 > **Experimental and unofficial.** This is an independent experiment. It is
 > **not** an official DAWO, Mijn Bureau, or Ministerie van BZK distribution and
 > is not endorsed by them.
