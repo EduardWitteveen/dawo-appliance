@@ -397,6 +397,92 @@ else
   ok "unknown top-level argument refused"
 fi
 
+# =============================================================================
+# 6. digest pinning (OQ-5, issue #9): phase_values overlays container.<key>.tag
+#    with tag@sha256:digest from manifest/image-digests.json; the post-deploy
+#    check plans a kubectl imageID comparison; hocuspocus stays unpinned.
+# =============================================================================
+echo "  -- 6. digest pinning: phase_values overlay vs manifest/image-digests.json --"
+DIGESTS="${REPO_ROOT}/manifest/image-digests.json"
+[[ -f "${DIGESTS}" ]] || { echo "digest file not found: ${DIGESTS}"; exit 2; }
+
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' bash "${DEPLOY}" --dry-run --phase values 2>&1)" || rc=$?
+if [[ "${rc}" -eq 0 ]] \
+  && grep -q "container:" <<<"${out}" \
+  && grep -qF 'tag: "26.3.3-debian-12-r0@sha256:da3df0976a9f9a664bdbde6cb5308b78f03ac94d0abf33b2df355bbb06cbc5b9"' <<<"${out}" \
+  && grep -qF 'tag: "v5.4.1@sha256:5c299a7ac029ed07fe6d8ae3535201c80728b68a05550536b7e7dd73df13ea40"' <<<"${out}" \
+  && grep -qF 'tag: "v16.6.3@sha256:1fa19bef0124d9f8c0839c2d2025c7e073e9e1dfd6b3a87b2839efe4a9179ee2"' <<<"${out}"; then
+  ok "phase_values --dry-run emits digest-pinned tags for container.keycloak, container.docs.backend, container.openproject.openproject"
+else
+  bad "phase_values --dry-run missing expected digest-pinned tag lines (rc=${rc})"; dump "${out}"
+fi
+
+if ! grep -q "hocuspocus:" <<<"${out}"; then
+  ok "phase_values --dry-run never sets container.openproject.hocuspocus (unresolvable upstream, disabled by upstream's own values)"
+else
+  bad "phase_values --dry-run unexpectedly declares an openproject.hocuspocus key (manifest/image-digests.json records it as unresolvable/null)"
+  dump "${out}"
+fi
+
+echo "  -- cross-check: every resolved image in manifest/image-digests.json has a matching --print-pins image_digest_<key> --"
+pins_out="$(run_clean bash "${DEPLOY}" --print-pins)"
+expected_pins="$("${PY}" - "${DIGESTS}" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+expected = {}
+for image, entry in doc["images"].items():
+    digest = entry.get("digest")
+    if digest is None:
+        continue  # unresolvable (hocuspocus): deploy.sh must not pin it
+    tag = image.rsplit(":", 1)[-1]
+    for key in (k.strip() for k in entry.get("used_by", "").split(",")):
+        if key:
+            expected[key] = "%s@%s" % (tag, digest)
+for key in sorted(expected):
+    print("%s\t%s" % (key, expected[key]))
+PY
+)"
+# Native Windows Python opens stdout in text mode and translates \n -> \r\n;
+# strip it so the byte-for-byte comparison below is not fooled by a trailing \r.
+expected_pins="$(tr -d '\r' <<<"${expected_pins}")"
+all_ok=1
+report=""
+n_checked=0
+while IFS=$'\t' read -r key want; do
+  [[ -n "${key}" ]] || continue
+  n_checked=$((n_checked + 1))
+  got="$(grep -F "image_digest_${key}=" <<<"${pins_out}" | head -n1)"
+  got="${got#image_digest_"${key}"=}"
+  if [[ "${got}" != "${want}" ]]; then
+    all_ok=0
+    report="${report}image_digest_${key}: want '${want}', got '${got:-<absent>}'"$'\n'
+  fi
+done <<<"${expected_pins}"
+if [[ "${all_ok}" -eq 1 && "${n_checked}" -gt 0 ]]; then
+  ok "all ${n_checked} resolved manifest/image-digests.json entries have a matching, exact image_digest_<key> in --print-pins"
+else
+  bad "digest pins in --print-pins do not match manifest/image-digests.json (checked ${n_checked}):"
+  dump "${report}"
+fi
+
+if ! grep -q "image_digest_openproject.hocuspocus=" <<<"${pins_out}"; then
+  ok "--print-pins has no image_digest_openproject.hocuspocus (unresolvable upstream; would be wrong to pin a digest that does not exist)"
+else
+  bad "--print-pins unexpectedly pins openproject.hocuspocus"
+fi
+
+echo "  -- post-deploy digest verification is planned by phase_wait_certs --"
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' bash "${DEPLOY}" --dry-run --phase wait-certs 2>&1)" || rc=$?
+if [[ "${rc}" -eq 0 ]] \
+  && grep -qF "kubectl get pods -A -o json" <<<"${out}" \
+  && grep -q "pinned digests" <<<"${out}"; then
+  ok "phase_wait_certs --dry-run plans the post-deploy image-digest verification (kubectl get pods -A -o json, warn-only)"
+else
+  bad "phase_wait_certs --dry-run missing the digest-verification plan line (rc=${rc})"; dump "${out}"
+fi
+
 echo "  -- shellcheck --"
 SHELLCHECK_BIN="$(command -v shellcheck || true)"
 if [[ -z "${SHELLCHECK_BIN}" && -x "${HOME}/.local/shellcheck/shellcheck.exe" ]]; then

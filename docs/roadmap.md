@@ -197,19 +197,32 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   mijn-bureau-infra at the pinned rev `b2ae545…` (git, hash-verified),
   installs Helm/Helmfile/helm-diff and cert-manager from pinned,
   checksum-verified release artifacts, creates the CA `ClusterIssuer`,
-  generates the master password once, runs `helmfile -e demo apply`, drives
-  upstream's networking/OIDC-restart/post-fix scripts from the pinned
-  checkout, waits for every Certificate to be Ready (stable count), and
-  patches in-cluster CA trust into Grist/Docs/Meet/Element. `--dry-run`
-  prints every action and changes nothing.
+  generates the master password once, runs `helmfile -e demo apply` with
+  every resolved image digest-pinned, drives upstream's
+  networking/OIDC-restart/post-fix scripts from the pinned checkout, waits
+  for every Certificate to be Ready (stable count) and then verifies running
+  pods' `imageID`s against those pinned digests, and patches in-cluster CA
+  trust into Grist/Docs/Meet/Element. `--dry-run` prints every action and
+  changes nothing.
 - ⚠️ Partial: in-cluster CA trust for Keycloak (back-channel), Collabora
   (WOPI) and the Docs celery/y-provider and Bureaublad backend runtimes are
   explicit `TODO`s inside `phase_trust`, not yet implemented.
-- ❌ Digest-pinning images (OQ-5) is **recorded but not consumed**: 33/34
-  images are resolved to a `sha256:` digest in `manifest/image-digests.json`
-  (`docs/upstream/image-digests.md`), but this driver still deploys by tag;
-  feeding the digests into the Helmfile values is unstarted follow-up work.
-- ✅ `tests/test-mijnbureau-driver.sh`: 19 offline checks — full `--dry-run`
+- ✅ Digest-pinning images (OQ-5, issue #9) is **wired in**: `phase_values`
+  overlays `container.<key>.tag = "<tag>@sha256:<digest>"` for all 33 resolved
+  images from `manifest/image-digests.json` (`docs/upstream/image-digests.md`
+  explains why this single splice form covers every image here, including
+  the bitnami subcharts whose chart-native `digest` field turned out to be
+  unreachable from environment values); `openproject.hocuspocus` (the one
+  unresolvable image, disabled upstream) is skipped. `phase_wait_certs` ends
+  with `verify_image_digests`, a warn-only post-deploy check comparing every
+  running pod's `imageID` against the pinned set. `scripts/verify.sh` now
+  also runs `resolve-image-digests.sh --check` (network + skopeo/nix) so a
+  re-pointed upstream tag fails normal verification. **Not verified against
+  a real cluster** (none available): the values-template reading is checked
+  against the actual pinned mijn-bureau-infra checkout, and the overlay/
+  post-deploy-check logic is offline-tested, but Helmfile has never actually
+  applied these values, and the post-deploy check has never seen a real pod.
+- ✅ `tests/test-mijnbureau-driver.sh`: 24 offline checks — full `--dry-run`
   touches no real files/state and calls no real kubectl/curl/git/tar/install/
   sha256sum/python3 (kubectl/curl/etc. are logging fakes on `PATH`, helm/
   helmfile are faked through `MB_BIN_DIR`); `run_phase()` rejects a malformed
@@ -219,12 +232,16 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   and `CERT_MANAGER_VERSION` equal the appliance manifest; `phase_tools` only
   downloads a tool whose detected version does not match the pin;
   `phase_issuer`'s dry-run output matches the ADR 0004 ClusterIssuer/CA-secret
-  commands. `HELM_VERSION`, `HELM_DIFF_VERSION` and every `*_SHA256` constant
-  have no second recorded copy in this repository, so those are checked for
+  commands; `phase_values`'s digest overlay and `--print-pins`'
+  `image_digest_<key>` values match `manifest/image-digests.json` exactly
+  (all 34 non-null entries), `openproject.hocuspocus` stays absent from both,
+  and `phase_wait_certs --dry-run` plans the post-deploy digest check.
+  `HELM_VERSION`, `HELM_DIFF_VERSION` and every `*_SHA256` constant have no
+  second recorded copy in this repository, so those are checked for
   well-formedness only.
 - ❌ **Never run.** No cluster has ever executed this driver, and Mijn Bureau
-  has never been observed deployed or reachable; the offline test above
-  covers the driver's own logic, not a real deployment.
+  has never been observed deployed or reachable; the offline tests above
+  cover the driver's own logic, not a real deployment.
 
 ## Slice 7 — health + browser (offline-tested 2026-09-25; wired into the host 2026-09-25; never run against a real deployment)
 
@@ -274,7 +291,8 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   exercised end-to-end regardless of code/test state.
 
 Resolved: OQ-1 (WSL `metadata` enabled, git/Nix work here), OQ-3 (local DNS +
-TLS, ADR 0004), OQ-4 (license = EUPL-1.2), OQ-6 (K3s + Ubuntu image pins).
-OQ-5 (image digests) is resolved as tooling but not yet wired into Slice 6.
+TLS, ADR 0004), OQ-4 (license = EUPL-1.2), OQ-6 (K3s + Ubuntu image pins),
+OQ-5 (image digests: resolved and wired into Slice 6's deploy driver, issue
+#9; never applied against a real cluster).
 Decided 2026-09-25: own installer kept (ADR 0002), workplace parity
 (ADR 0003).

@@ -75,27 +75,58 @@ Everything the manifest's `images_by_tag` lists (17 images) is pinned.
 Notable: Docker Hub images are keyed as `docker.io/...` even where upstream
 writes `registry-1.docker.io`; both hostnames serve the same content.
 
-## Follow-up: make the Helmfile use these digests (Slice 6)
+## Follow-up: make the Helmfile use these digests (Slice 6, issue #9)
 
-Recording digests protects nothing until the deployment pulls by digest.
-Upstream's values take `registry` / `repository` / `tag` per image, and most
-charts render `{{ registry }}/{{ repository }}:{{ tag }}`. The approach for
-Slice 6, per chart, without forking upstream:
+**Implemented.** Recording digests protects nothing until the deployment
+pulls by digest; `apps/mijn-bureau/deploy.sh`'s `phase_values` now writes a
+`container:` overlay into the demo environment values
+(`helmfile/environments/demo/mijnbureau.yaml.gotmpl`) with one entry per
+`used_by` key path in this file, and `phase_wait_certs` ends with a
+post-deploy check comparing every running pod's `imageID` against the pinned
+digests.
 
-- **Charts that support a `digest` field** (bitnami-style `image.digest`, the
-  `bitnamilegacy/*` images, Keycloak, MinIO, PostgreSQL, Redis, nginx): pass
-  `digest: sha256:...` from `image-digests.json`; bitnami's `common.images.image`
-  helper then renders `repository@sha256:...` and ignores the tag.
-- **Charts that only take `tag`**: set `tag: "<tag>@sha256:<digest>"`. OCI
-  references of the form `repo:tag@sha256:digest` are valid and the digest
-  wins; container runtimes (containerd in K3s) accept this. Verify per chart
-  that the tag is not otherwise parsed (e.g. for version comparisons).
-- **Charts that hard-code `image: repo:tag`** (no repository/tag split): need
-  an upstream change or a Kustomize/`strategic-merge` post-render; list them
-  as deviations in ADR 0003's table.
+The three-case split originally sketched here (bitnami `digest` field /
+tag-only splice / hard-coded, needs a post-renderer) turned out, on reading
+the pinned mijn-bureau-infra checkout's actual release-values templates
+(`helmfile/apps/*/values*.yaml.gotmpl`), to collapse into **one** case for
+every image this project resolves:
 
-The mechanism: generate an environment values overlay
-(`container.yaml` with `digest` / `tag@sha256` per key path from `used_by`)
-from `image-digests.json` at deploy time in `apps/`, and add a post-deploy
-check that every running pod's `imageID` ends in a digest from the file.
-Not implemented in this slice.
+- Every one of those templates renders `tag: {{ .Values.container.<key>.tag }}`
+  (or, for `cnpg_postgres`, splices it into an `imageName: repo:tag` string) —
+  so `container.<key>.tag` is always a reachable override point via an
+  environment values overlay.
+- **None of them forward a `.digest` field from environment values.** Several
+  of the vendored bitnami subcharts (postgresql, redis, minio, nginx) *do*
+  support `image.digest` in the chart itself, but mijn-bureau-infra's own
+  release-values template hardcodes `digest: ""` as a literal in the
+  rendered YAML for those — not templated from `.Values` at all — so it
+  can't be reached without patching upstream's own template (out of scope:
+  we do not fork upstream, per the hard rules).
+- So every image is pinned the same way: `tag: "<upstream tag>@sha256:<digest>"`.
+  `repo:tag@sha256:digest` is a valid OCI/Docker reference (tag *and* digest;
+  the digest wins), and containerd (K3s) accepts it. Verified by reading the
+  pinned checkout; **never applied against a live cluster** (none available
+  here), so a runtime surprise specific to one image/chart cannot be ruled
+  out.
+- No image among the 33 resolved here turned out to be hard-coded with no
+  override point at all (the "needs a post-renderer" case). If a future
+  mijn-bureau-infra revision adds one, that is a new deviation for
+  `docs/deviations.md`, not something this mechanism can cover.
+
+`openproject.hocuspocus` (the one unresolvable image) is skipped: no
+`container.openproject.hocuspocus` override is emitted, and it is absent
+from the post-deploy check's known-digest set, since there is no digest to
+compare against and upstream disables it (`hocuspocus.enabled: false`)
+regardless.
+
+The post-deploy check (`verify_image_digests` in `deploy.sh`) is a
+membership check, not a strict per-pod key mapping: it collects every
+running container's `imageID` cluster-wide and reports which ones match none
+of the pinned digests. That is expected noise for cluster-system pods this
+project never pins (Traefik, CoreDNS, cert-manager, local-path-provisioner)
+and only meaningful for `mb-*` application pods; it warns rather than fails
+the deploy, since it has never been exercised against a real cluster.
+
+`bash scripts/resolve-image-digests.sh --check` is now also part of
+`scripts/verify.sh` (network + skopeo/nix required), so a re-pointed upstream
+tag is caught in normal verification, not only on manual re-resolution.

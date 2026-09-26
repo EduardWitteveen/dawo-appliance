@@ -69,22 +69,25 @@ with DAWO-Core (GPL-3.0), which the EUPL Appendix lists as a Compatible
 Licence. We consume DAWO-Core as a flake input (aggregation); EUPL/GPL
 compatibility covers the combined-distribution case.
 
-## OQ-5 (non-blocking): image digest pinning
+## OQ-5 (RESOLVED 2026-09-26): image digest pinning
 
 Upstream pins container images by **tag** (e.g. `nextcloud:34.0.0-apache`) in
 `helmfile/environments/default/container.yaml.gotmpl`, not by digest. Our rules
-ask for digests. Resolving every tag to a `sha256:` digest is a follow-up task;
-v0.1 records tags and the upstream revision they come from, and flags this.
+ask for digests.
 
-**Resolved 2026-09-25 (tooling); wiring into Helmfile is Slice 6.**
+**Resolved 2026-09-25 (tooling) and 2026-09-26 (wired into Slice 6, issue #9).**
 `scripts/resolve-image-digests.sh` reads the full image list from upstream at
 the pinned rev and writes `manifest/image-digests.json` (manifest-list and
-linux/amd64 digests per image; `--check` fails when a tag was re-pointed).
-33 of 34 images resolved; `ghcr.io/openproject/hocuspocus:main-defdb238` is
-not publicly pullable (403) but upstream disables it. Offline test:
-`tests/test-image-digests.sh`. Details: `docs/upstream/image-digests.md`. The
-deployment still pulls by tag until Slice 6 feeds these digests into the
-Helmfile values.
+linux/amd64 digests per image; `--check` fails when a tag was re-pointed, and
+is now also run by `scripts/verify.sh`). 33 of 34 images resolved;
+`ghcr.io/openproject/hocuspocus:main-defdb238` is not publicly pullable (403)
+but upstream disables it. `apps/mijn-bureau/deploy.sh`'s `phase_values`
+splices each resolved digest into `container.<key>.tag` (`tag@sha256:digest`;
+see `docs/upstream/image-digests.md` for why this one mechanism covers every
+image, including the bitnami subcharts) and `phase_wait_certs` ends with a
+post-deploy check of every running pod's `imageID` against the pinned set.
+Offline tests: `tests/test-image-digests.sh`, `tests/test-mijnbureau-driver.sh`.
+**Never applied against a real cluster** — no cluster available here.
 
 ## OQ-6 (RESOLVED 2026-09-25): exact K3s and Ubuntu image pins
 

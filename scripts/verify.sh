@@ -91,6 +91,19 @@ else
   skip shellcheck-local "shellcheck not on PATH; covered by nix flake check"
 fi
 
+# --- needs network + skopeo (or nix) -----------------------------------------
+# Catches a re-pointed upstream image tag (OQ-5, issue #9): re-resolves every
+# image in helmfile/environments/default/container.yaml.gotmpl at the pinned
+# mijn-bureau-infra revision and compares against the committed
+# manifest/image-digests.json, without writing it. Unlike the offline suites
+# above this hits the network (registry inspections over HTTPS via skopeo);
+# tests/test-image-digests.sh already covers the file's shape offline.
+if have skopeo || have nix; then
+  run image-digests-check bash scripts/resolve-image-digests.sh --check
+else
+  skip image-digests-check "neither skopeo nor nix on PATH"
+fi
+
 if ! have nix; then
   skip nix-flake-check "nix not on PATH"
   skip iso-build "nix not on PATH"
