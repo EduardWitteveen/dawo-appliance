@@ -48,7 +48,7 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 3 | DAWO workplace (`profiles-dawo-generic`, Plasma) + KVM/libvirt, parity check, `nix run .#appliance-vm` | Built 2026-09-25, boot-tested; visual review pending |
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Written 2026-09-25; not boot-tested, guest never actually started |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`) | Built 2026-09-25; boot-test assertions written, not yet wired into `test-appliance-boot` |
-| 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Written 2026-09-25; not wired into the guest's cloud-init, never run |
+| 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Written 2026-09-25; wired into the guest's cloud-init 2026-09-25, never boot-tested |
 | 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Written and offline-tested 2026-09-25 (`tests/test-mijnbureau-driver.sh`); never run against a cluster |
 | 7 | Health check + auto-open browser, offline-tested | Written 2026-09-25; not wired into the host, never observed a real deployment |
 

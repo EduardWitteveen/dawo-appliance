@@ -8,6 +8,10 @@
 #   @APPLIANCE_VERSION@   from manifest/appliance-manifest.json
 # The line "#@CA_CERTS@" is replaced by a `ca_certs:` block with the appliance
 # CA (/var/lib/dawo-appliance/ca/ca.crt) when that file exists, or removed.
+# The line "#@K3S_INSTALL_SCRIPT@" is replaced by the verbatim, indented
+# contents of k8s/bootstrap/install-k3s.sh (Slice 5). The canonical, pinned,
+# offline-tested copy lives only in that file (tests/test-k3s-install.sh); it
+# is never hand-copied here.
 # No secrets live in this file: the key pair and the CA are generated per
 # installation and never enter Git.
 hostname: @HOSTNAME@
@@ -51,15 +55,40 @@ write_files:
       DAWO_APPLIANCE_VERSION=@APPLIANCE_VERSION@
       DAWO_APPLIANCE_ROLE=guest
       DAWO_APPLIANCE_OFFICIAL=false
-  # Slice 5 placeholder: the K3s stage. NOT IMPLEMENTED YET. Slice 5 replaces
-  # this script with the pinned K3s install (binary + install.sh verified
-  # against manifest kubernetes.version; INSTALL_K3S_SKIP_DOWNLOAD=true).
+  # Slice 5: the pinned, offline-tested K3s installer
+  # (k8s/bootstrap/install-k3s.sh), embedded verbatim below by
+  # dawo-appliance-guest.service at the "#@K3S_INSTALL_SCRIPT@" placeholder.
+  # Its own defaults ARE the manifest pins (kubernetes.version); nothing here
+  # re-states a version or a checksum. WIRED BUT NEVER BOOT-TESTED: no VM has
+  # actually run this yet (see roadmap.md Slice 5).
+  - path: /usr/local/lib/dawo-appliance/install-k3s.sh
+    permissions: "0755"
+    content: |
+#@K3S_INSTALL_SCRIPT@
   - path: /usr/local/lib/dawo-appliance/k3s-stage.sh
     permissions: "0755"
     content: |
       #!/bin/sh
-      # dawo-appliance: K3s stage placeholder (Slice 5). Does nothing yet.
-      echo "dawo-appliance: K3s stage not implemented yet (roadmap Slice 5); skipping" | tee /var/lib/dawo-appliance-k3s-stage.skipped
+      # dawo-appliance: K3s stage (Slice 5). Runs the embedded, pinned
+      # installer above and leaves a .done/.failed marker plus a full log, so
+      # a health check or a debugging session can tell whether this stage ran
+      # and how it went (mirrors the earlier .skipped placeholder marker).
+      set -e
+      log=/var/log/dawo-appliance-k3s-stage.log
+      rm -f /var/lib/dawo-appliance-k3s-stage.done /var/lib/dawo-appliance-k3s-stage.failed
+      set +e
+      /usr/local/lib/dawo-appliance/install-k3s.sh >"$log" 2>&1
+      rc=$?
+      set -e
+      cat "$log"
+      if [ "$rc" -eq 0 ]; then
+        date -u +%Y-%m-%dT%H:%M:%SZ >/var/lib/dawo-appliance-k3s-stage.done
+        echo "dawo-appliance: K3s stage done (log: $log)"
+      else
+        echo "$rc" >/var/lib/dawo-appliance-k3s-stage.failed
+        echo "dawo-appliance: K3s stage FAILED (exit $rc); see $log" >&2
+      fi
+      exit "$rc"
 
 runcmd:
   - [systemctl, enable, --now, qemu-guest-agent.service]

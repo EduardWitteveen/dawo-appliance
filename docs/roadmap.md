@@ -125,9 +125,12 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   cloud-init finished or that it answers SSH; `nix flake check` only
   evaluates the Nix module. The guest has never actually been booted on any
   machine so far.
-- ❌ The K3s stage inside cloud-init is still an explicit placeholder
-  (`vm/ubuntu-2404/user-data.yaml.in`: "NOT IMPLEMENTED YET"). Wiring
-  `k8s/bootstrap/install-k3s.sh` (Slice 5) into `runcmd` is unstarted.
+- ✅ The K3s stage inside cloud-init is wired: `vm/ubuntu-2404/user-data.yaml.in`
+  now embeds `k8s/bootstrap/install-k3s.sh` verbatim (spliced in at render time
+  by `dawo-appliance-guest.service`, the same mechanism as the appliance CA
+  block — see Slice 5) and `k3s-stage.sh` in `runcmd` runs it, leaving a
+  `.done`/`.failed` marker and a log under `/var/log`. **Wired, never
+  boot-tested**: no VM has actually run this cloud-init yet.
 
 ### Slice 4b — per-install appliance CA (built 2026-09-25)
 
@@ -140,7 +143,7 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   `test-appliance-boot`** — the module evaluates and builds as part of the
   appliance host, but nothing has asserted it boots and behaves correctly yet.
 
-## Slice 5 — single-node K3s (installer written and offline-tested 2026-09-25; never run)
+## Slice 5 — single-node K3s (installer written and offline-tested 2026-09-25; wired into cloud-init, never booted)
 
 - ✅ K3s release pinned (`v1.36.4+k3s1`, binary + `install.sh` SHA-256) —
   resolves OQ-6 part 2 (`docs/upstream/pins-vm-k3s.md`). Upstream installs K3s
@@ -150,12 +153,24 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   `install.sh`, verifies both by SHA-256, installs with
   `INSTALL_K3S_SKIP_DOWNLOAD` and upstream's exec flags plus `--tls-san`, and
   waits for the node to report Ready.
-- ✅ `tests/test-k3s-install.sh`: 13 offline checks (pins equal the manifest,
-  tampered binary/`install.sh` rejected, dry run writes nothing, flag
-  content) — no network, no root, no Nix required.
-- ❌ **Not wired into the guest**: cloud-init still ships the Slice-5
-  placeholder (see Slice 4a). The script has never actually run inside a VM;
-  no K3s node has ever come up.
+- ✅ `tests/test-k3s-install.sh`: 10 offline checks (11 with shellcheck, skipped
+  when not installed): pins equal the manifest, tampered binary/`install.sh`
+  rejected, dry run writes nothing, flag content — no network, no root, no
+  Nix required.
+- ✅ **Wired into the guest**: `hosts/appliance/guest-vm.nix` reads
+  `k8s/bootstrap/install-k3s.sh` by path (`k3sInstallScript`, no hand-copy of
+  the file or its pins) and splices it verbatim into
+  `vm/ubuntu-2404/user-data.yaml.in` at render time, at a
+  `#@K3S_INSTALL_SCRIPT@` marker line — the same splice technique already used
+  for the appliance CA (`#@CA_CERTS@`). `runcmd`'s `k3s-stage.sh` runs the
+  embedded installer, writes
+  `/var/lib/dawo-appliance-k3s-stage.done`/`.failed` and
+  `/var/log/dawo-appliance-k3s-stage.log` so a health check or a debugging
+  session can tell whether the stage ran and how it went. **Not boot-tested**:
+  the script has never actually run inside a VM; no K3s node has ever come up.
+  Fixed in passing: the guest render script's own "unrendered placeholder"
+  self-check falsely matched the template's header prose (which spells out
+  `"#@CA_CERTS@"` in a comment); it now ignores comment lines.
 
 ## Slice 6 — Mijn Bureau (deploy driver written and offline-tested 2026-09-25; never run)
 
