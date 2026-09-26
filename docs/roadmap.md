@@ -142,6 +142,23 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   requirements R20–R22 in `docs/testing.md`) but **not yet pasted into
   `test-appliance-boot`** — the module evaluates and builds as part of the
   appliance host, but nothing has asserted it boots and behaves correctly yet.
+- ✅ Issue #6, second part: the CA certificate **and private key** are now
+  transported into the guest, via cloud-init `write_files`, to
+  `/etc/dawo-appliance/{ca.crt,ca.key}` (root-only in the guest) — the
+  `APPLIANCE_CA_DIR` contract `apps/mijn-bureau/deploy.sh` already expects for
+  its cert-manager `ClusterIssuer` (ADR 0004). Wired in
+  `hosts/appliance/guest-vm.nix` (new `caKeyFile` option) and
+  `vm/ubuntu-2404/user-data.yaml.in` (new `#@CA_FILES@` splice marker, same
+  awk/marker technique as `#@CA_CERTS@`/`#@K3S_INSTALL_SCRIPT@`), only when
+  both host files exist. Because the seed ISO now can carry the private key,
+  it and its debug user-data copy on the host are tightened to `0600`
+  root-only (previously `0644`/`0640`) — recorded as `D22` in
+  `docs/deviations.md`. Boot-test assertions were added to
+  `test-appliance-boot` (paths and the seed ISO mode, host-side only) and to
+  `nix/tests/guest-boot.nix` (the files actually land in the guest with
+  `ca.key` `600:root:root`) — **wired, but not yet boot-tested**: this repo's
+  Nix eval/build passed, but no KVM-capable machine has run either test with
+  this change yet.
 
 ## Slice 5 — single-node K3s (installer written and offline-tested 2026-09-25; wired into cloud-init, never booted)
 

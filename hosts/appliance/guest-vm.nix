@@ -40,7 +40,12 @@
 # Contract with hosts/appliance/appliance-ca.nix (Slice 4b): the CA certificate
 # at `appliance.guest.caCertFile` is injected as cloud-init `ca_certs` when the
 # file exists; the guest unit orders After=/Wants= dawo-appliance-ca.service and
-# tolerates its absence. The K3s stage inside the guest runs the pinned
+# tolerates its absence. The CA certificate and private key (`caCertFile` and
+# `caKeyFile`) are additionally written into the guest, via cloud-init
+# `write_files`, at /etc/dawo-appliance/{ca.crt,ca.key} (root-only) when both
+# files exist on the host — the APPLIANCE_CA_DIR contract of
+# apps/mijn-bureau/deploy.sh's cert-manager ClusterIssuer (ADR 0004, issue #6).
+# The K3s stage inside the guest runs the pinned
 # installer at k8s/bootstrap/install-k3s.sh, embedded verbatim into cloud-init
 # (Slice 5) — wired, but never boot-tested (no VM has actually run it). No
 # secrets in Git: key pair and CA are generated per installation.
@@ -240,6 +245,19 @@ in
       type = lib.types.str;
       default = "${stateDir}/ca/ca.crt";
       description = "The appliance CA certificate (hosts/appliance/appliance-ca.nix); injected as cloud-init ca_certs when the file exists.";
+    };
+
+    caKeyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${stateDir}/ca/ca.key";
+      description = ''
+        The appliance CA private key (hosts/appliance/appliance-ca.nix).
+        Written into the guest, together with `caCertFile`, at
+        /etc/dawo-appliance/{ca.crt,ca.key} (root-only) when both files exist
+        on the host — the APPLIANCE_CA_DIR contract of
+        apps/mijn-bureau/deploy.sh's cert-manager ClusterIssuer (ADR 0004,
+        issue #6).
+      '';
     };
 
     network = {
@@ -479,7 +497,8 @@ in
           "$tmp/user-data.pre" > "$tmp/user-data.in"
 
         ca=${lib.escapeShellArg cfg.caCertFile}
-        if [ -s "$ca" ] && grep -q 'BEGIN CERTIFICATE' "$ca"; then
+        key=${lib.escapeShellArg cfg.caKeyFile}
+        if [ -s "$ca" ] && grep -q 'BEGIN CERTIFICATE' "$ca" && [ -s "$key" ] && grep -q 'PRIVATE KEY' "$key"; then
           {
             echo "# Appliance CA (ADR 0004), from $ca on the host."
             echo "ca_certs:"
@@ -487,16 +506,35 @@ in
             echo "    - |"
             sed 's/^/      /' "$ca"
           } > "$tmp/ca-block"
+          # write_files entries for apps/mijn-bureau/deploy.sh's
+          # APPLIANCE_CA_DIR contract (ADR 0004, issue #6): the cert-manager
+          # ClusterIssuer needs the CA private key too, root-only in the
+          # guest, matching hosts/appliance/appliance-ca.nix's own protection
+          # of the host copy.
+          {
+            echo "  - path: /etc/dawo-appliance/ca.crt"
+            echo "    owner: root:root"
+            echo "    permissions: \"0644\""
+            echo "    content: |"
+            sed 's/^/      /' "$ca"
+            echo "  - path: /etc/dawo-appliance/ca.key"
+            echo "    owner: root:root"
+            echo "    permissions: \"0600\""
+            echo "    content: |"
+            sed 's/^/      /' "$key"
+          } > "$tmp/ca-files-block"
           awk -v f="$tmp/ca-block" '/^#@CA_CERTS@$/ { while ((getline l < f) > 0) print l; next } { print }' \
-            "$tmp/user-data.in" > "$tmp/user-data"
-          echo "dawo-appliance-guest: appliance CA $ca injected as cloud-init ca_certs"
+            "$tmp/user-data.in" > "$tmp/user-data.step2"
+          awk -v f="$tmp/ca-files-block" '/^#@CA_FILES@$/ { while ((getline l < f) > 0) print l; next } { print }' \
+            "$tmp/user-data.step2" > "$tmp/user-data"
+          echo "dawo-appliance-guest: appliance CA $ca injected as cloud-init ca_certs; $ca and $key injected at /etc/dawo-appliance/{ca.crt,ca.key}"
         else
-          grep -v '^#@CA_CERTS@$' "$tmp/user-data.in" > "$tmp/user-data"
-          echo "dawo-appliance-guest: no appliance CA at $ca (yet); user-data without ca_certs"
+          grep -Ev '^#@(CA_CERTS|CA_FILES)@$' "$tmp/user-data.in" > "$tmp/user-data"
+          echo "dawo-appliance-guest: no complete appliance CA (cert+key) at $ca / $key (yet); user-data without ca_certs or CA files"
         fi
         # Comment lines are excluded: the file's own header documents the
-        # @CA_CERTS@/@K3S_INSTALL_SCRIPT@ marker syntax in prose (e.g.
-        # `"#@CA_CERTS@"`), which would otherwise false-positive here even
+        # @CA_CERTS@/@CA_FILES@/@K3S_INSTALL_SCRIPT@ marker syntax in prose
+        # (e.g. `"#@CA_CERTS@"`), which would otherwise false-positive here even
         # though those markers are consumed above and no real placeholder
         # (hostname:/fqdn:/ssh_authorized_keys:/content: values) is a comment.
         if grep -Ev '^[[:space:]]*#' "$tmp/user-data" | grep -Eq '@[A-Z_]+@'; then
@@ -511,9 +549,9 @@ in
         # specifically and exactly, which the header prose can't trigger
         # (it never has the marker as the WHOLE line, always with leading
         # text before it).
-        if grep -Eq '^#@(CA_CERTS|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data"; then
+        if grep -Eq '^#@(CA_CERTS|CA_FILES|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data"; then
           echo "dawo-appliance-guest: a splice marker was not substituted (awk pattern out of sync with the template?):" >&2
-          grep -En '^#@(CA_CERTS|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data" >&2
+          grep -En '^#@(CA_CERTS|CA_FILES|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data" >&2
           exit 1
         fi
         # The instance-id follows the user-data: a changed key or CA re-runs
@@ -530,8 +568,12 @@ in
           echo "dawo-appliance-guest: building cloud-init seed ${seedIso} (instance-id $instance)"
           genisoimage -quiet -output "$tmp/seed.iso" -volid cidata -joliet -rock -input-charset utf-8 \
             "$tmp/user-data" "$tmp/meta-data" "$tmp/network-config"
-          install -m 0644 "$tmp/seed.iso" ${seedIso}
-          install -m 0640 "$tmp/user-data" ${renderedUserData}
+          # 0600, root-only: since the CA private key may now be embedded
+          # (ADR 0004, issue #6), only libvirtd (root) needs to read the ISO
+          # to attach it as a cdrom; the debug copy of user-data gets the same
+          # treatment, matching hosts/appliance/appliance-ca.nix's ca.key mode.
+          install -m 0600 "$tmp/seed.iso" ${seedIso}
+          install -m 0600 "$tmp/user-data" ${renderedUserData}
           install -m 0644 "$tmp/meta-data" ${guestDir}/meta-data
           install -m 0644 "$tmp/network-config" ${guestDir}/network-config
           echo "$want" > "$stamp"

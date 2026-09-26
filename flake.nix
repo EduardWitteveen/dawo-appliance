@@ -329,6 +329,12 @@
             machine.succeed("su -s /bin/sh dawo -c 'test -r /var/lib/dawo-appliance/ssh/id_ed25519'")
             machine.succeed("grep -q 'ssh-ed25519' /var/lib/dawo-appliance/guest/user-data")
             machine.succeed("grep -q 'BEGIN CERTIFICATE' /var/lib/dawo-appliance/guest/user-data")  # CA injected
+            # CA cert+key transported into the guest at deploy.sh's
+            # APPLIANCE_CA_DIR contract (ADR 0004, issue #6).
+            machine.succeed("grep -q '/etc/dawo-appliance/ca.crt' /var/lib/dawo-appliance/guest/user-data")
+            machine.succeed("grep -q '/etc/dawo-appliance/ca.key' /var/lib/dawo-appliance/guest/user-data")
+            machine.succeed("grep -q 'PRIVATE KEY' /var/lib/dawo-appliance/guest/user-data")
+            machine.succeed("test \"$(stat -c %a /var/lib/dawo-appliance/guest/seed.iso)\" = 600")
             machine.succeed("command -v dawo-appliance-guest-status")
 
             # Auto-update is deliberately off on the appliance (ADR 0003).

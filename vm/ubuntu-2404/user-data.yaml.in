@@ -8,6 +8,12 @@
 #   @APPLIANCE_VERSION@   from manifest/appliance-manifest.json
 # The line "#@CA_CERTS@" is replaced by a `ca_certs:` block with the appliance
 # CA (/var/lib/dawo-appliance/ca/ca.crt) when that file exists, or removed.
+# The line "#@CA_FILES@" is replaced by two `write_files` entries that put the
+# appliance CA certificate and private key at /etc/dawo-appliance/ca.crt and
+# ca.key (root:root, 0644/0600) when both host files exist, or removed
+# otherwise (same condition as "#@CA_CERTS@" above, plus the key). This is the
+# APPLIANCE_CA_DIR contract of apps/mijn-bureau/deploy.sh's cert-manager
+# ClusterIssuer (ADR 0004, issue #6).
 # The line "#@K3S_INSTALL_SCRIPT@" is replaced by the verbatim, indented
 # contents of k8s/bootstrap/install-k3s.sh (Slice 5). The canonical, pinned,
 # offline-tested copy lives only in that file (tests/test-k3s-install.sh); it
@@ -53,6 +59,12 @@ write_files:
       DAWO_APPLIANCE_VERSION=@APPLIANCE_VERSION@
       DAWO_APPLIANCE_ROLE=guest
       DAWO_APPLIANCE_OFFICIAL=false
+  # Appliance CA certificate + private key (ADR 0004, issue #6): the
+  # APPLIANCE_CA_DIR contract of apps/mijn-bureau/deploy.sh (require_ca_files,
+  # phase_issuer). Spliced in by dawo-appliance-guest.service at the
+  # "#@CA_FILES@" placeholder when the host-side CA (cert and key) exists;
+  # omitted (no entries at all) otherwise, same as "#@CA_CERTS@" above.
+#@CA_FILES@
   # Slice 5: the pinned, offline-tested K3s installer
   # (k8s/bootstrap/install-k3s.sh), embedded verbatim below by
   # dawo-appliance-guest.service at the "#@K3S_INSTALL_SCRIPT@" placeholder.
