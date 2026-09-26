@@ -35,6 +35,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`adr/0002-own-installer-iso.md`](adr/0002-own-installer-iso.md) | Why we keep our own installer next to upstream's headless fleet installer. |
 | [`adr/0003-workplace-parity.md`](adr/0003-workplace-parity.md) | The host is the DAWO pilot workplace, unchanged, plus additions; the list of deviations. |
 | [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Accepted:** local DNS + TLS for the demo: base domain `dawo.internal`, per-install appliance CA, cert-manager CA issuer, browser trust (resolves OQ-3). |
+| [`adr/0005-ai-agent-conduct.md`](adr/0005-ai-agent-conduct.md) | **Accepted:** AI agent conduct and multi-agent workflow: GitHub as SSOT, thoughtful investigation, English conventions, safety. |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream
@@ -49,7 +50,8 @@ One line per document. Generated files are marked; never edit those by hand.
 
 ## Elsewhere in the repository
 
-- [`../CLAUDE.md`](../CLAUDE.md): hard rules and working method for AI assistants and humans.
+- [`../AGENTS.md`](../AGENTS.md): universal rules, environment notes and working method for AI coding agents.
+- [`../CLAUDE.md`](../CLAUDE.md): guidance for Claude Code and human operators.
 - [`../hosts/appliance/README.md`](../hosts/appliance/README.md): the installed host's modules.
 - [`../hosts/profiles/disko/README.md`](../hosts/profiles/disko/README.md): the storage layout and the no-LUKS decision.
 - `../vm/`, `../k8s/`, `../apps/`, `../health/`: one README each, scaffolding for slices 4–7.

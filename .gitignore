@@ -49,3 +49,7 @@ Thumbs.db
 
 # Claude Code — machine-local settings (shared settings.json may be committed)
 .claude/settings.local.json
+
+# AI agents & local environment
+.aider*
+.env
