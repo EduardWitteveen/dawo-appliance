@@ -38,6 +38,19 @@ Status: **active** (in the code), **planned** (decided, not yet built),
 | D15 | cert-manager v1.16.2 (EOL, K8s <= 1.32) | Undecided on K3s 1.36 | Supportability vs parity | open | #10 |
 | D16 | >= 12 vCPU / 48 GiB for single-node, `resourcesPreset: none` | Default `laptop-demo` profile: 5 core apps, global preset `micro` (per-app map unchanged), guest 8 vCPU / 16 GiB; `full` profile keeps upstream sizing | Must run next to the desktop on the 32 GB reference laptop | planned | `docs/upstream/mijn-bureau-sizing.md`, #11 |
 
+## Known upstream issues (tracked here, not reported upstream)
+
+Problems found in upstream code that we consume by pin. Per `AGENTS.md` rule 11
+(maintainer decision, #35) they are **not** reported to upstream trackers
+during v0.1: each has its own GitHub issue with the label `upstream`, and this
+table records our workaround so it stays traceable. Reporting upstream is a
+later, separate decision. A workaround that changes behaviour is also a
+deviation and gets its own row above.
+
+| # | Upstream (pin) | Problem | Our workaround | Issue |
+|---|---|---|---|---|
+| U1 | DAWO-Core 0.1.3 (`maid-dawo-generic`) | `kdeconfig-cleanup.service` fails on the first boot of a fresh install: `find: '/home/*/.config': No such file or directory`, because no user has logged in yet. Harmless; it runs again later | None in the code: we do not patch upstream. No check asserts "no failed units"; a check that does must allow this unit explicitly and point at U1. Suggested upstream fix: a tolerant glob (`nullglob`, or `find /home -mindepth 2 -maxdepth 2 -name .config`) | #35 |
+
 ## Versus common practice (tooling and process)
 
 | # | Standard | What we do | Why | Status | Motivation |
