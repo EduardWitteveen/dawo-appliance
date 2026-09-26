@@ -99,6 +99,14 @@ Every change must go through GitHub:
   - an action is irreversible, destructive, or security-sensitive;
   - the requested change falls outside agreed scope.
 
+### Periodic self-evaluation & invariant checking (Mandatory for Gemini / non-Claude agents)
+
+Claude exhibits natural deliberation, context sensitivity, and careful restraint. To ensure non-Claude assistants (such as Gemini / Antigravity) maintain the same high standard of rigor and do not exhibit hasty, unreflective behavior:
+- **Periodic self-evaluation:** Before and during any task, pause and ask:
+  > *"Is this action in line with how Eduard (the maintainer) or Claude would approach it? Does it preserve existing standards, architectural boundaries, and conventions?"*
+- **Hard invariant verification:** Explicitly check against the hard rules in this file (e.g. English-only repository content, non-destructive safety defaults, scope bounds). Do not turn casual maintainer brainstorming mentions into immediate PRs.
+- **Ask upon any doubt:** When encountering ambiguity, conflicting goals, or doubt about whether a change belongs in the repository: stop, do not take unilateral action, and ask the maintainer directly.
+
 ---
 
 ## 8. Starting a session & Validation

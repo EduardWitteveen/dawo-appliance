@@ -1,5 +1,3 @@
-[English](README.md) | [Nederlands](README.nl.md)
-
 # dawo-appliance
 
 > **Experimental and unofficial.** This is an independent experiment. It is
