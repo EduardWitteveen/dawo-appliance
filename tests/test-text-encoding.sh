@@ -21,7 +21,8 @@ while IFS= read -r -d '' f; do
   if [ "$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
     echo "FAIL: $f starts with a UTF-8 BOM"; fail=1
   fi
-  if tr -d '\000' <"$f" | cmp -s - "$f"; then :; else
+  size="$(wc -c <"$f")"
+  if [ "$(tr -d '\000' <"$f" | wc -c)" -ne "$size" ]; then
     echo "FAIL: $f contains NUL bytes (UTF-16 or binary?)"; fail=1; continue
   fi
   if grep -q $'\r' "$f"; then
