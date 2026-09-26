@@ -57,3 +57,14 @@ date,rev,check,status,seconds
 2026-09-25T19:07Z,6c8cd9a,kvm-in-sandbox,PASS,5
 2026-09-25T19:07Z,6c8cd9a,test-installer-boot,PASS,52
 2026-09-25T19:07Z,6c8cd9a,test-appliance-boot,PASS,232
+2026-09-26T07:53Z,24ad81b,local-dryrun-suite,PASS,1
+2026-09-26T07:53Z,24ad81b,offline-health-check,PASS,3
+2026-09-26T07:53Z,24ad81b,offline-image-digests,PASS,0
+2026-09-26T07:53Z,24ad81b,offline-k3s-install,PASS,0
+2026-09-26T07:53Z,24ad81b,offline-mijnbureau-driver,PASS,1
+2026-09-26T07:53Z,24ad81b,nix-flake-check,PASS,81
+2026-09-26T07:53Z,24ad81b,iso-build,PASS,13
+2026-09-26T07:53Z,24ad81b,appliance-vm-build,PASS,4
+2026-09-26T07:53Z,24ad81b,kvm-in-sandbox,PASS,2
+2026-09-26T07:53Z,24ad81b,test-installer-boot,PASS,27
+2026-09-26T07:53Z,24ad81b,test-appliance-boot,PASS,157
