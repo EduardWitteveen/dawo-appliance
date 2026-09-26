@@ -122,6 +122,11 @@ else
         run test-installer-boot nix build .#test-installer-boot -L --no-link --no-warn-dirty
         run test-appliance-boot nix build .#test-appliance-boot -L --no-link --no-warn-dirty
       fi
+      if [[ "${FORCE:-0}" -eq 1 ]]; then
+        run test-guest-boot fresh_build test-guest-boot
+      else
+        run test-guest-boot nix build .#test-guest-boot -L --no-link --no-warn-dirty
+      fi
       if [[ "${E2E:-0}" -eq 1 ]]; then
         if [[ "${FORCE:-0}" -eq 1 ]]; then
           run test-install-e2e fresh_build test-install-e2e
