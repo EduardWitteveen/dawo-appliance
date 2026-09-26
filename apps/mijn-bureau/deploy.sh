@@ -21,8 +21,9 @@
 #
 # Every phase is idempotent. `--dry-run` prints every action and touches
 # nothing. `--phase <n|name>` runs a single phase. See README.md in this
-# directory. Pins below MUST equal manifest/appliance-manifest.json
-# (tests/test-mijnbureau-driver.sh checks this).
+# directory. Pins below MUST equal manifest/appliance-manifest.json.
+# No offline test exists yet for this driver (unlike Slices 4a/5/7); it has
+# never been run against a real cluster either.
 #
 # SPDX-License-Identifier: EUPL-1.2
 
@@ -188,10 +189,14 @@ require_ca_files() {
 # ---------------------------------------------------------------------------
 # Phase 1: preflight
 # ---------------------------------------------------------------------------
-phase_preflight() {
-  log "[1/14] Preflight"
+validate_domain() {
   [[ "${MB_DOMAIN}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
     || die "MB_DOMAIN is not a valid DNS name: ${MB_DOMAIN}"
+}
+
+phase_preflight() {
+  log "[1/14] Preflight"
+  validate_domain
   require_ca_files
   info "CA material present: ${CA_CRT}, ${CA_KEY}"
   if command -v openssl >/dev/null 2>&1; then
@@ -250,7 +255,7 @@ phase_tools() {
   # declares no `secrets:`, so helm-secrets is not needed.
   local plugins_dir
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
+    # shellcheck disable=SC2016  # literal, meant to print as the command a real run would use
     plugins_dir='$(helm env HELM_PLUGINS)'
   else
     plugins_dir="$("${MB_BIN_DIR}/helm" env HELM_PLUGINS)"
@@ -536,7 +541,7 @@ phase_post_fixes() {
 phase_wait_certs() {
   log "[10/14] Waiting for all cert-manager Certificates (timeout ${MB_CERT_TIMEOUT}s)"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
+    # shellcheck disable=SC2016  # literal, meant to print as the command a real run would use
     printf 'DRY-RUN: poll `kubectl get certificate -A` until all Ready and the count is stable over two polls; then check issuerRef == %s\n' "${CLUSTER_ISSUER}"
     return 0
   fi
@@ -675,7 +680,7 @@ phase_trust() {
 phase_sessions() {
   log "[14/14] Keycloak session lifetimes on realm mijnbureau (upstream step 7)"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    # shellcheck disable=SC2016  # dry-run prints the command literally; no expansion wanted
+    # shellcheck disable=SC2016  # literal, meant to print as the command a real run would use
     printf 'DRY-RUN: KC_PASS=$(kubectl -n mb-keycloak get secret keycloak-keycloak -o jsonpath={.data.admin-password} | base64 -d)\n'
     printf 'DRY-RUN: curl --cacert %s --resolve id.%s:443:<node InternalIP> https://id.%s/realms/master/protocol/openid-connect/token (admin-cli) -> token\n' "${CA_CRT}" "${MB_DOMAIN}" "${MB_DOMAIN}"
     printf 'DRY-RUN: curl -X PUT https://id.%s/admin/realms/mijnbureau {"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}\n' "${MB_DOMAIN}"
@@ -688,13 +693,19 @@ phase_sessions() {
   [[ -n "${node_ip}" ]] || die "could not determine node InternalIP"
   resolve="id.${MB_DOMAIN}:443:${node_ip}"
   kc_pass="$(kubectl -n mb-keycloak get secret keycloak-keycloak -o jsonpath='{.data.admin-password}' | base64 -d)"
+  # kc_pass and the resulting bearer token never touch argv (visible to any
+  # local user via `ps`/`/proc/<pid>/cmdline`): the password goes to curl via
+  # --data-urlencode's "@-" stdin form, the token via a -K config on stdin.
   token="$(curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" \
     "https://id.${MB_DOMAIN}/realms/master/protocol/openid-connect/token" \
-    -d grant_type=password -d client_id=admin-cli -d username=admin --data-urlencode "password=${kc_pass}" \
+    -d grant_type=password -d client_id=admin-cli -d username=admin --data-urlencode "password@-" \
+    <<<"${kc_pass}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')"
+  [[ "${token}" != *$'\n'* && "${token}" != *'"'* ]] || die "unexpected characters in Keycloak access token"
   curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" -X PUT "https://id.${MB_DOMAIN}/admin/realms/mijnbureau" \
-    -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" \
-    -d '{"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}'
+    -K - -H "Content-Type: application/json" \
+    -d '{"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}' \
+    <<<"header = \"Authorization: Bearer ${token}\""
   info "realm updated: 30-minute access token, 7-day idle, 30-day max session, remember-me"
 }
 
@@ -750,6 +761,11 @@ EOF
 }
 
 run_phase() { # run_phase NUMBER
+  # Re-validated here (not just in phase_preflight) because --phase lets any
+  # single phase run standalone, and MB_DOMAIN is spliced unescaped into a
+  # YAML heredoc in phase_values (a bogus value there is a YAML-injection risk
+  # into the Helmfile values, not just a broken deploy).
+  validate_domain
   case "$1" in
     1) phase_preflight ;;
     2) phase_tools ;;

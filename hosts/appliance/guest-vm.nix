@@ -165,8 +165,12 @@ let
         echo "ssh:      cannot read $key (run as root)"
         exit 1
       fi
+      # accept-new (not "no"): pin the guest's host key on first contact and
+      # verify it after, like health/dawo-appliance-health.sh does — "no" would
+      # silently trust whatever key answers on $ip, including a spoofed guest
+      # on the same NAT segment.
       if ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 \
-           -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+           -o StrictHostKeyChecking=accept-new \
            -o LogLevel=ERROR "ops@$ip" true 2>/dev/null; then
         echo "ssh:      ok (ops@$ip)"
         exit 0
@@ -393,8 +397,9 @@ in
           fi
         else
           echo "dawo-appliance-guest-image: creating guest disk $overlay (${toString cfg.diskSizeGiB} GiB virtual, backing $base)"
-          qemu-img create -q -f qcow2 -b "$base" -F qcow2 "$overlay" ${toString cfg.diskSizeGiB}G
-          chmod 0600 "$overlay"
+          # umask first: qemu-img must never create the file world/group
+          # readable even for the instant before a separate chmod would fix it.
+          (umask 0177 && qemu-img create -q -f qcow2 -b "$base" -F qcow2 "$overlay" ${toString cfg.diskSizeGiB}G)
         fi
       '';
     };

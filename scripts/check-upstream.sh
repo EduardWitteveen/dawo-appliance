@@ -27,7 +27,8 @@
 #                                   file holding e.g. 403 simulates an error)
 #   CHECK_UPSTREAM_NOW=YYYY-MM-DD   reference date for the EOL heuristic
 #
-# Requires: bash, curl, python3 (no jq). Works in Windows Git Bash and WSL.
+# Requires: bash, curl, Python 3 (`python3` or `python`; no jq). Works in
+# Windows Git Bash and WSL.
 #
 set -euo pipefail
 
@@ -52,11 +53,15 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-for tool in curl python3; do
-  command -v "$tool" >/dev/null 2>&1 || { echo "error: $tool not found" >&2; exit 1; }
-done
+command -v curl >/dev/null 2>&1 || { echo "error: curl not found" >&2; exit 1; }
+# Windows Git Bash usually ships `python` (3.x) without a `python3` alias.
+PY="$(command -v python3 || command -v python || true)"
+if [ -z "$PY" ] || ! "$PY" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)'; then
+  echo "error: python 3 not found (looked for python3, python)" >&2
+  exit 1
+fi
 
-# On Windows Git Bash, python3 is a native Windows binary: hand it Windows paths.
+# On Windows Git Bash, python is a native Windows binary: hand it Windows paths.
 winpath() {
   if [ -n "$1" ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
@@ -76,7 +81,7 @@ CU_ROOT="$(winpath "$ROOT")" \
   CU_FIXTURES="$(winpath "$FIXTURES")" \
   CU_TIMEOUT="${CHECK_UPSTREAM_TIMEOUT:-20}" \
   CU_NOW="${CHECK_UPSTREAM_NOW:-}" \
-  python3 - <<'PY'
+  "$PY" - <<'PY'
 import datetime as dt
 import hashlib
 import json
@@ -127,12 +132,20 @@ def fetch(key, url):
     os.close(fd)
     cmd = ["curl", "-sS", "-L", "--max-time", TIMEOUT, "-D", hdr,
            "-H", "User-Agent: dawo-appliance-check-upstream"]
+    # The token, if any, is passed to curl via a -K config read from stdin,
+    # never as an argv element: argv (unlike stdin) is visible to any local
+    # user via `ps`/`/proc/<pid>/cmdline` for the process's lifetime.
+    stdin_data = None
     if url.startswith("https://api.github.com/"):
         cmd += ["-H", "Accept: application/vnd.github+json"]
-        if os.environ.get("GITHUB_TOKEN"):
-            cmd += ["-H", "Authorization: Bearer " + os.environ["GITHUB_TOKEN"]]
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            if "\n" in token or '"' in token:
+                raise FetchError("GITHUB_TOKEN contains unexpected characters")
+            cmd += ["-K", "-"]
+            stdin_data = ('header = "Authorization: Bearer %s"\n' % token).encode()
     try:
-        p = subprocess.run(cmd + [url], capture_output=True)
+        p = subprocess.run(cmd + [url], capture_output=True, input=stdin_data)
         with open(hdr, encoding="latin-1") as f:
             headers = f.read()
     finally:
