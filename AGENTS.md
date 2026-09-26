@@ -68,12 +68,13 @@ It is **not** an official DAWO / Mijn Bureau / BZK distribution. Never imply it 
 
 Every change must go through GitHub:
 
-1. **Issue first:** Open (or pick up) a GitHub issue describing the change; check open issues and open PRs first (`gh issue list`, `gh pr list`). Comment on or assign the issue when starting.
+1. **Issue first:** Open (or pick up) a GitHub issue describing the change; check open issues and open PRs first (`gh issue list`, `gh pr list`). Comment on or assign the issue when starting, **naming the machine** ("Picked up on the KVM laptop" / "on the VDI") — all sessions authenticate as the same GitHub account, so `assignees` cannot tell them apart, only free-text can. Issues that need a KVM-capable boot test are labeled `needs-kvm`; check for that label (or its absence) before claiming work if your machine has no KVM.
+   - A self-merged PR is typically open for seconds, not long enough for the other session to review it — `gh issue list`/`gh pr list --state open`, done immediately before you start, is the actual collision check, not PR review time.
 2. **Feature branch from up-to-date `main`:**
    ```bash
    git fetch && git switch -c <type>/<issue-number>-<slug> origin/main
    ```
-   (e.g. `feat/12-guest-autostart`, `docs/45-deduplicate-claude-md`).
+   (e.g. `feat/12-guest-autostart`, `docs/45-deduplicate-claude-md`). A cross-cutting change with no single matching issue (a multi-commit sync, a follow-up verification run) may use `chore/<slug>` or `test/verify-after-<ref>` instead — keep this rare.
 3. **Commits on the branch:**
    - Conventional Commits, English, logical steps.
    - Author is the maintainer's GitHub noreply address (`6449834+EduardWitteveen@users.noreply.github.com`).
@@ -83,9 +84,18 @@ Every change must go through GitHub:
    - Describe what changed and include verification run results.
    - Keep PRs small and focused.
 5. **Stay in sync:**
-   - `git fetch` before opening PR and before merging. If `origin/main` moved, rebase on it (`git rebase origin/main`).
+   - `git fetch` before opening PR and before merging. If `origin/main` moved, rebase on it (`git rebase origin/main`) — expect to redo this more than once; `main` can move every few minutes with three agents active.
 6. **Merge:**
    - Merge once checks pass with a **rebase merge** (`gh pr merge --rebase --delete-branch`), then pull `main` (`git switch main && git pull --ff-only`).
+
+### Division of labor (three concurrent agents, same git identity)
+
+At least three sessions work this repo at once: two Claude Code sessions (one on a KVM-capable physical laptop, one on a Nutanix AHV VDI with no KVM at all — nested virtualization is a hypervisor-level limit, not a config problem) and a Gemini/Antigravity session. All commit under the same noreply identity, so `git log` never tells you which session did what — only issue/PR comments do.
+
+- **KVM-capable session:** boot tests, `test-appliance-boot`/`test-guest-boot`/`test-install-e2e`, anything labeled `needs-kvm`.
+- **Non-KVM session(s):** offline test suites, `nix flake check` (eval/build-only, works fine without KVM), security review, Nix module wiring that doesn't need a boot to verify, docs/backlog reconciliation.
+- **Gemini:** documentation, localization, presentation, and target-audience material — not code or Nix modules. Per `docs/adr/0005-ai-agent-conduct.md`, an elaborate, unrequested multi-issue "initiative" (persona-driven docs, marketing framing) needs the maintainer's explicit go-ahead before implementation, not just a mention in conversation — see issue #44 for the concrete example (a Gemini-authored `README.nl.md` was merged, then reverted, for exactly this reason).
+- Shared working directories are a real hazard: a background agent's Bash tool and a live interactive session can end up pointed at the same checkout. Before switching/resetting a branch, check `git status --short` for surprises; if something unexpected is mid-flight, use `git worktree add` into a separate directory instead of touching the shared one.
 
 ---
 
