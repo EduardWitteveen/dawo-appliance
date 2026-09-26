@@ -76,6 +76,14 @@ pkgs.testers.runNixOSTest {
     ca_line = machine.succeed("sed -n 2p /var/lib/dawo-appliance/ca/ca.crt").strip()
     machine.succeed(f"${ssh} grep -qF '{ca_line}' /etc/ssl/certs/ca-certificates.crt")
 
+    # The CA cert and private key are transported into the guest at
+    # deploy.sh's APPLIANCE_CA_DIR contract, root-only (ADR 0004, issue #6).
+    machine.succeed(f"${ssh} sudo test -s /etc/dawo-appliance/ca.crt")
+    machine.succeed(f"${ssh} sudo test -s /etc/dawo-appliance/ca.key")
+    key_perms = machine.succeed(
+        f"${ssh} sudo stat -c '%a:%U:%G' /etc/dawo-appliance/ca.key").strip()
+    assert key_perms == "600:root:root", f"guest ca.key perms: {key_perms!r}"
+
     # The host status helper agrees.
     machine.succeed("dawo-appliance-guest-status")
     print(f"TIMING ssh={t_ssh:.0f}s cloud-init-finished={t_cloudinit:.0f}s")
