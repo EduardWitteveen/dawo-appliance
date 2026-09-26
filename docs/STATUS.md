@@ -124,6 +124,7 @@ run on hardware that actually has KVM.
 
 ## Recently done
 
+- 2026-09-26 (multi-agent orchestration): Formalized `AGENTS.md` and ADR 0005 to manage three concurrent agent sessions. Removed duplicate `CLAUDE.md`. Added `docs/demo-hardware.md` (municipal demo guide). Enforced strict English-only repository content invariant (reverted a Dutch README PR). Added Gemini self-evaluation protocol requiring high-tier reasoning models (`gemini-3.1-pro-high`) to prevent hasty actions. Added rule against autonomous external issue reporting (must be internal GitHub issue first).
 - 2026-09-25 (second machine, the Nutanix AHV VDI, no Nix/make/shellcheck/gh
   installed locally at first): committed the session's outstanding work as
   six logical commits (image-digests/OQ-5, Slice 4a guest VM, Slice 7 health
