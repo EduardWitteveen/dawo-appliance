@@ -113,6 +113,7 @@ At least three sessions work this repo at once: two Claude Code sessions (one on
 ### Periodic self-evaluation & invariant checking (Mandatory for Gemini / non-Claude agents)
 
 Claude exhibits natural deliberation, context sensitivity, and careful restraint. To ensure non-Claude assistants (such as Gemini / Antigravity) maintain the same high standard of rigor and do not exhibit hasty, unreflective behavior:
+- **Model self-verification:** The Gemini agent MUST operate using its highest reasoning tier (e.g., `gemini-3.1-pro-high` or a `claude-*-thinking` model) to match Claude's depth of thought. If the agent suspects it is running on a faster but shallower tier (like Flash), it must explicitly ask the user to adjust the `/model` setting before executing complex tasks.
 - **Periodic self-evaluation:** Before and during any task, pause and ask:
   > *"Is this action in line with how Eduard (the maintainer) or Claude would approach it? Does it preserve existing standards, architectural boundaries, and conventions?"*
 - **Hard invariant verification:** Explicitly check against the hard rules in this file (e.g. English-only repository content, non-destructive safety defaults, scope bounds). Do not turn casual maintainer brainstorming mentions into immediate PRs.
