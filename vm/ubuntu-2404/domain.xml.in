@@ -6,8 +6,8 @@
   q35 + UEFI (OVMF via libvirt firmware auto-selection from the descriptors
   NixOS' libvirtd module publishes; Secure Boot off), virtio disk and NIC on
   the appliance network with a fixed MAC (-> fixed DHCP lease), a cloud-init
-  NoCloud seed ISO, a serial console, the QEMU guest agent channel and a
-  localhost-only VNC console for virt-manager.
+  NoCloud seed ISO, a serial console and a localhost-only VNC console for
+  virt-manager.
 -->
 <domain type='kvm'>
   <name>@NAME@</name>
@@ -62,9 +62,6 @@
     <console type='pty'>
       <target type='serial' port='0'/>
     </console>
-    <channel type='unix'>
-      <target type='virtio' name='org.qemu.guest_agent.0'/>
-    </channel>
     <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'/>
     <video>
       <model type='virtio'/>

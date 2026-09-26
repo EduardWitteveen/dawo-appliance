@@ -35,16 +35,14 @@ users:
 ssh_pwauth: false
 disable_root: true
 
-# Pinned world: the image serial is pinned in the manifest and is not upgraded
-# at boot. The one exception is qemu-guest-agent, which the Ubuntu cloud image
-# does not ship and the host uses for state/IP reporting; it comes from the
-# Ubuntu archive at first boot (recorded as an unpinned element in
-# vm/ubuntu-2404/README.md).
+# Pinned world: the image serial is pinned in the manifest; nothing is updated
+# or installed from the Ubuntu archive at boot (issue #47: the former
+# qemu-guest-agent install was an unpinned download and nothing used it; the
+# host reads the guest's state from libvirt and the DHCP lease, and talks to it
+# over SSH).
 package_update: false
 package_upgrade: false
 package_reboot_if_required: false
-packages:
-  - qemu-guest-agent
 
 #@CA_CERTS@
 
@@ -91,7 +89,6 @@ write_files:
       exit "$rc"
 
 runcmd:
-  - [systemctl, enable, --now, qemu-guest-agent.service]
   - [/usr/local/lib/dawo-appliance/k3s-stage.sh]
 
 final_message: "dawo-appliance guest @FQDN@ ready after $UPTIME s (cloud-init $VERSION)"

@@ -64,13 +64,13 @@ pkgs.testers.runNixOSTest {
     machine.wait_until_succeeds("${ssh} test -f /var/lib/cloud/instance/boot-finished", timeout=900)
     t_cloudinit = time.time() - t0
     print(machine.succeed("${ssh} cloud-init status --long || true"))
-    # Offline, exactly two modules may fail: the apt install of
-    # qemu-guest-agent and the runcmd (K3s download). Anything else is a
+    # Offline, only the runcmd (K3s download, #7) may fail; nothing is
+    # installed from the Ubuntu archive any more (#47). Anything else is a
     # regression in our cloud-init.
     import json
     st = json.loads(machine.succeed("${ssh} cloud-init status --format json || true"))
     failed = sorted({e[0] if isinstance(e, list) else str(e).split("'")[1] for e in st.get("errors", [])})
-    assert set(failed) <= {"package_update_upgrade_install", "scripts_user"}, f"unexpected cloud-init errors: {st.get('errors')}"
+    assert set(failed) <= {"scripts_user"}, f"unexpected cloud-init errors: {st.get('errors')}"
 
     # The guest trusts the appliance CA (cloud-init ca_certs, ADR 0004).
     ca_line = machine.succeed("sed -n 2p /var/lib/dawo-appliance/ca/ca.crt").strip()
