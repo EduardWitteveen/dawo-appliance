@@ -1,128 +1,102 @@
-# Demo hardware and laptop setup guide
+# Handleiding: Test-hardware en laptop voorbereiding
 
-> Experimental and unofficial. Not an official DAWO, Mijn Bureau or BZK
-> distribution. Front door: [`../README.md`](../README.md).
+> Experimenteel en onofficieel. Dit is geen officiële distributie van DAWO, Mijn Bureau of BZK. Voordeur: [`../README.md`](../README.md).
 
-This guide helps municipal IT administrators, workplace engineers, and technical
-advisors prepare a physical test laptop or desktop from existing organizational
-inventory to demonstrate `dawo-appliance` live on real hardware.
+Deze gids helpt gemeentelijke IT-beheerders, werkplek-engineers en technisch adviseurs om een fysieke test-laptop (bijvoorbeeld uit de overgebleven IT-voorraad) klaar te maken voor een live demonstratie van de `dawo-appliance`.
 
 ---
 
-## 1. Candidate machines & hardware profiles
+## 1. Geschikte laptops & hardware-profielen
 
-Municipal organizations frequently have decommissioned, lease-returned, or spare
-laptops available that make excellent demonstration units.
+Gemeenten hebben vaak afgeschreven, 'einde-lease' of reserve-laptops beschikbaar die uitstekend dienst kunnen doen als demonstratie-unit.
 
-| Profile | Target machine specs | What runs | Sizing reference |
+| Profiel | Minimale specificaties | Wat kun je hiermee testen? | Referentie |
 | --- | --- | --- | --- |
-| **Inspection & plan** | >= 4 CPU cores, >= 8–16 GiB RAM, x86-64, SSD | Live ISO boots, network verification, `bootstrap plan` (dry-run) | Slice 1 |
-| **Host desktop only** | >= 4 CPU cores, 16 GiB RAM, >= 32 GiB SSD | Installed DAWO workplace (KDE Plasma 6, pilot app set) | Slice 3 (`appliance-vm`) |
-| **Full stack demo (`laptop-demo`)** | **>= 8–12 vCPU threads, 32 GiB RAM, >= 64 GiB NVMe/SSD** | Full stack: Host desktop + KVM Ubuntu VM (8 vCPU / 16 GiB) + single-node K3s + Mijn Bureau core apps | [`docs/upstream/mijn-bureau-sizing.md`](upstream/mijn-bureau-sizing.md) |
+| **Inspectie & plan** | >= 4 CPU cores, >= 8–16 GiB RAM, x86-64, SSD | Opstarten vanaf de USB, netwerkcontrole, `bootstrap plan` (dry-run zonder schijf-overschrijving) | Slice 1 |
+| **Alleen de werkplek (Host)** | >= 4 CPU cores, 16 GiB RAM, >= 32 GiB SSD | De geïnstalleerde DAWO werkplek (KDE Plasma 6 met de pilot-applicaties) | Slice 3 (`appliance-vm`) |
+| **Volledige stack demonstratie (`laptop-demo`)** | **>= 8–12 vCPU threads, 32 GiB RAM, >= 64 GiB NVMe/SSD** | Volledige stack: Host werkplek + KVM Ubuntu VM (8 vCPU / 16 GiB) + K3s node + Mijn Bureau kernapplicaties | [`docs/upstream/mijn-bureau-sizing.md`](upstream/mijn-bureau-sizing.md) |
 
-### Common municipal laptop models
+### Veelgebruikte gemeentelijke laptops
 
-Typical models commonly found in Dutch municipal hardware pools that meet the
-recommended 32 GiB demo profile:
-- **Dell Latitude** 5400 / 5500 series (e.g. 5420, 5430, 5540, 5550)
-- **Lenovo ThinkPad** T-series or L-series (e.g. T14 Gen 2/3/4, L14/L15)
-- **HP EliteBook** 800 series (e.g. 840 / 850 G7/G8/G9)
+Typische modellen die we vaak tegenkomen in de IT-pools van Nederlandse gemeenten en die voldoen aan de aanbevolen 32 GiB specificatie:
+- **Dell Latitude** 5400 / 5500 series (bijv. 5420, 5430, 5540, 5550)
+- **Lenovo ThinkPad** T-serie of L-serie (bijv. T14 Gen 2/3/4, L14/L15)
+- **HP EliteBook** 800-serie (bijv. 840 / 850 G7/G8/G9)
 
-> **RAM Note:** While upstream Mijn Bureau's standard single-node guide asks for
-> 48 GiB RAM, the optimized `laptop-demo` profile fits onto a **32 GiB**
-> reference laptop by running core applications (Keycloak, Bureaublad, Nextcloud,
-> Collabora, Element/Synapse) with the `micro` resource preset
-> ([`docs/upstream/mijn-bureau-sizing.md`](upstream/mijn-bureau-sizing.md)).
+> **RAM Notitie:** Waar de officiële 'single-node' handleiding van Mijn Bureau minimaal 48 GiB RAM vraagt, past dit geoptimaliseerde `laptop-demo` profiel precies op een **32 GiB** referentie-laptop. We draaien hiervoor alleen de kernapplicaties (Keycloak, Bureaublad, Nextcloud, Collabora, Element/Synapse) op het `micro` resource-niveau.
 
 ---
 
-## 2. BIOS / UEFI settings
+## 2. BIOS / UEFI Instellingen
 
-Before booting the installer, enter the machine's firmware setup (typically F2,
-F12, or Enter/F1 during power-on) and configure the following:
+Voordat je de USB-stick start, moet je de firmware van de laptop induiken (meestal F2, F12, of Enter/F1 tijdens het aanzetten) en het volgende configureren:
 
-1. **Virtualization technology (VT-x / AMD-V):**
-   - **Must be Enabled.** The appliance runs the Ubuntu 24.04 guest VM inside
-     KVM on the NixOS host. Hardware-assisted virtualization is strictly required.
-2. **Boot mode:**
-   - **UEFI only** (disable legacy CSM/BIOS boot).
+1. **Virtualisatie (VT-x / AMD-V):**
+   - **Verplicht AAN.** De appliance draait de Ubuntu VM lokaal via KVM op de NixOS host. Hardware-virtualisatie is een harde eis.
+2. **Boot modus:**
+   - **Alleen UEFI** (zet legacy CSM/BIOS boot UIT).
 3. **Secure Boot:**
-   - **Disabled** for v0.1 (per ADR 0003; Secure Boot integration is documented
-     for post-MVP hardening in issue #23).
-4. **Storage controller mode:**
-   - **AHCI / NVMe.** If the controller is set to "RAID On" or "Intel RST", switch
-     to standard AHCI mode so Linux kernel drivers can address the disk directly.
+   - **Tijdelijk UIT** voor v0.1 (volgens ADR 0003; integratie van Secure Boot volgt in een latere fase, zie issue #23).
+4. **Opslag-controller (Storage):**
+   - **AHCI / NVMe.** Als de laptop op "RAID On" of "Intel RST" staat, zet dit dan om naar standaard AHCI, anders herkent Linux de interne schijf niet.
 
 ---
 
-## 3. Creating the bootable USB flash drive
+## 3. De opstartbare USB-stick maken
 
-Download `dawo-appliance-installer.iso` from the release artifacts (or build it
-locally via `nix build .#installer-iso`). Write the image to a USB flash drive
-(minimum 4 GB):
+Download `dawo-appliance-installer.iso` uit de GitHub Release (of bouw deze lokaal via `nix build .#installer-iso`). Schrijf dit image naar een USB-stick van minimaal 4 GB.
 
-### Option A: Ventoy (Recommended)
-Ventoy is the easiest standard tool for municipal admins:
-1. Install Ventoy onto a USB drive (<https://www.ventoy.net>).
-2. Copy `dawo-appliance-installer.iso` directly onto the Ventoy partition.
-3. Boot the laptop from USB and select the ISO from the Ventoy menu.
+### Optie A: Ventoy (Aanbevolen voor IT-beheerders)
+Ventoy is dé standaard tool in veel gemeentelijke IT-afdelingen:
+1. Installeer Ventoy op de USB-stick (<https://www.ventoy.net>).
+2. Kopieer `dawo-appliance-installer.iso` als een los bestand naar de Ventoy-partitie.
+3. Start de laptop op vanaf de USB en kies de ISO in het Ventoy-menu.
 
-### Option B: Rufus (Windows)
-1. Select the USB drive and the `dawo-appliance-installer.iso`.
-2. Partition scheme: **GPT**.
-3. Target system: **UEFI (non CSM)**.
-4. When prompted, write in **DD Image mode** (or standard ISO mode if hybrid).
+### Optie B: Rufus (Windows)
+1. Selecteer de USB-stick en de `dawo-appliance-installer.iso`.
+2. Partitie-indeling: **GPT**.
+3. Doelsysteem: **UEFI (non CSM)**.
+4. Kies tijdens het schrijven voor **DD Image mode** (of standaard ISO-modus bij hybrid).
 
-### Option C: `dd` (Linux / macOS)
+### Optie C: `dd` (Linux / macOS)
 ```bash
 sudo dd if=dawo-appliance-installer.iso of=/dev/sdX bs=4M status=progress conv=fsync
 ```
-*(Replace `/dev/sdX` with the actual block device of your USB drive, not a partition).*
+*(Vervang `/dev/sdX` met de schijfletter van je USB-stick).*
 
 ---
 
-## 4. Booting & safe verification walkthrough
+## 4. Veilig opstarten & installatie walkthrough
 
-The installer is designed with safety defaults: **booting the live medium will
-never write to the laptop's internal disk automatically.**
+Het installatieprogramma is ontworpen om fouten te voorkomen: **opstarten vanaf de USB-stick zal nóóit uit zichzelf de harde schijf overschrijven.**
 
-### Step 1: Safe inspection (`plan`)
-1. Insert the USB drive and boot the laptop (press F12 on Dell/Lenovo or F9 on HP
-   for the boot menu).
-2. The live NixOS environment boots into a root shell with active networking.
-3. Test hardware detection and manifest verification without writing anything:
+### Stap 1: Veilige inspectie (Dry-run 'plan')
+1. Plaats de USB-stick en start de laptop (vaak via F12 op Dell/Lenovo of F9 op HP voor het bootmenu).
+2. De live NixOS-omgeving start op met een root shell en actieve netwerkverbinding.
+3. Test de hardware-herkenning en manifest-verificatie zónder iets weg te gooien:
    ```bash
    dawo-appliance-bootstrap plan
    ```
-4. The tool downloads the pinned manifest, checks its SHA-256 signature, and
-   previews the twelve installation steps. Output concludes with:
+4. De tool haalt het vastgezette (`pinned`) manifest op, controleert de SHA-256 handtekening, en laat een voorbeeld zien van de 12 installatie-stappen. De output eindigt netjes met:
    `NO DISK WRITES PERFORMED. This is a plan only (v0.1).`
 
-### Step 2: Gated installation (Target disk)
-Once you have confirmed that the machine is a dedicated test unit whose internal
-storage may be wiped:
+### Stap 2: Definitieve installatie (Target disk)
+Zodra je zeker weet dat dit een afgeschreven test-laptop is en de interne schijf volledig gewist mag worden:
 
-1. Identify the target disk device path (e.g. `/dev/nvme0n1` or `/dev/sda`):
+1. Zoek de bestandsnaam van de interne schijf op (bijv. `/dev/nvme0n1` of `/dev/sda`):
    ```bash
    lsblk
    ```
-2. Run the gated installer requiring both an explicit disk and confirmation:
+2. Start de installatie. Je móét expliciet de schijf opgeven én het commando bevestigen om per ongeluk wissen te voorkomen:
    ```bash
    dawo-appliance-bootstrap install --target-disk /dev/nvme0n1 --confirm-destroy
    ```
-3. The installer partitions the target disk using Disko (Btrfs root + swap),
-   installs the NixOS host configuration with the DAWO desktop profile, creates
-   the per-install appliance CA, and stages the initial credentials.
-4. Upon reboot, remove the USB drive. The system boots into the DAWO KDE Plasma 6
-   desktop, launches the VM in the background, and prepares the workspace demo.
+3. De installer formatteert de schijf (Btrfs root + swap), installeert het NixOS besturingssysteem met het DAWO-profiel, maakt het lokale SSL-certificaat (appliance CA) aan, en zet de initiële wachtwoorden klaar.
+4. Verwijder na de reboot de USB-stick. Het systeem start nu direct door naar de DAWO KDE Plasma 6 desktop, start de Mijn Bureau VM op de achtergrond, en zet de demonstratieomgeving klaar.
 
 ---
 
-## 5. Demonstration tips for meetings
+## 5. Tips voor bestuurlijke demonstraties
 
-- **Show, don't tell:** Connect the laptop to a meeting room projector or external
-  monitor via HDMI or USB-C. Plasma automatically configures standard displays.
-- **Offline / Local resilience:** Because the entire appliance stack (NixOS host,
-  Ubuntu VM, K3s, and Mijn Bureau) runs self-contained on the machine with a
-  local CA (`*.dawo.internal`), the demo continues to work even when disconnected
-  from the municipality's Wi-Fi network.
+- **Show, don't tell:** Sluit de laptop via HDMI of USB-C aan op een beeldscherm in de vergaderzaal of bestuurskamer. Het systeem configureert externe schermen automatisch.
+- **Werkt volledig lokaal (Offline-resilience):** Omdat de héle architectuur (NixOS, Ubuntu, K3s en Mijn Bureau) op deze ene laptop draait met een lokaal netwerk (`*.dawo.internal`), blijft de volledige demo perfect werken, zélfs als de wifiverbinding in de raadszaal even wegvalt.
