@@ -30,4 +30,13 @@
     # from-disk boot like real hardware is what appliance-disk-image is for.
     writableStore = true;
   };
+
+  # The Mijn Bureau guest inside this development VM: small, and not started
+  # automatically (nested KVM; start it by hand with `virsh start
+  # dawo-appliance-mb` when you want to try it).
+  appliance.guest = {
+    vcpus = 2;
+    memoryGiB = 2;
+    autostart = false;
+  };
 }

@@ -214,6 +214,17 @@
             # password-service check; openssl and python3 for the CA checks
             # (the CA service calls openssl by store path).
             environment.systemPackages = [ pkgs.mkpasswd pkgs.openssl pkgs.python3 ];
+            # Slice 4a guest: defined but not started (no nested guest boot in
+            # the test), tiny sizes, and a local empty image instead of the
+            # pinned download (the test sandbox has no network).
+            appliance.guest = {
+              vcpus = 1;
+              memoryGiB = 1;
+              autostart = false;
+              imageOverride = pkgs.runCommand "empty-guest-image.qcow2" { } ''
+                ${pkgs.qemu-utils}/bin/qemu-img create -f qcow2 $out 64M
+              '';
+            };
           };
           testScript = ''
             import os, time
@@ -290,6 +301,24 @@
             machine.succeed("test \"$(cat /proc/sys/kernel/kptr_restrict)\" != 0")
             machine.succeed("systemctl is-enabled sshd.service")
             machine.succeed("grep -q 'PasswordAuthentication no' /etc/ssh/sshd_config")
+
+            # Slice 4a: the guest's libvirt network, host DNS delegation for
+            # dawo.internal, image overlay, cloud-init seed and domain.
+            machine.wait_for_unit("dawo-appliance-guest-network.service")
+            machine.succeed("virsh -c qemu:///system net-info dawo-appliance | grep -Eq '^Active: +yes'")
+            machine.wait_until_succeeds(
+                "resolvectl query bureaublad.dawo.internal | grep -q 192.168.150.10", timeout=60)
+            machine.wait_until_succeeds(
+                "resolvectl query id.dawo.internal | grep -q 192.168.150.10", timeout=60)
+            machine.wait_for_unit("dawo-appliance-guest-image.service")
+            machine.succeed("test -s /var/lib/dawo-appliance/images/dawo-appliance-mb.qcow2")
+            machine.wait_for_unit("dawo-appliance-guest.service")
+            machine.succeed("virsh -c qemu:///system dominfo dawo-appliance-mb")
+            machine.succeed("test -s /var/lib/dawo-appliance/guest/seed.iso")
+            machine.succeed("test \"$(stat -c %a /var/lib/dawo-appliance/ssh/id_ed25519)\" = 600")
+            machine.succeed("grep -q 'ssh-ed25519' /var/lib/dawo-appliance/guest/user-data")
+            machine.succeed("grep -q 'BEGIN CERTIFICATE' /var/lib/dawo-appliance/guest/user-data")  # CA injected
+            machine.succeed("command -v dawo-appliance-guest-status")
 
             # Auto-update is deliberately off on the appliance (ADR 0003).
             machine.fail("systemctl is-active comin.service")
