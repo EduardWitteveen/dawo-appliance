@@ -323,7 +323,10 @@
             machine.wait_for_unit("dawo-appliance-guest.service")
             machine.succeed("virsh -c qemu:///system dominfo dawo-appliance-mb")
             machine.succeed("test -s /var/lib/dawo-appliance/guest/seed.iso")
-            machine.succeed("test \"$(stat -c %a /var/lib/dawo-appliance/ssh/id_ed25519)\" = 600")
+            # The guest key is readable by group libvirtd so the health check
+            # (running as dawo, a libvirtd member) can SSH into the guest (#49).
+            machine.succeed("test \"$(stat -c %a:%U:%G /var/lib/dawo-appliance/ssh/id_ed25519)\" = 640:root:libvirtd")
+            machine.succeed("su -s /bin/sh dawo -c 'test -r /var/lib/dawo-appliance/ssh/id_ed25519'")
             machine.succeed("grep -q 'ssh-ed25519' /var/lib/dawo-appliance/guest/user-data")
             machine.succeed("grep -q 'BEGIN CERTIFICATE' /var/lib/dawo-appliance/guest/user-data")  # CA injected
             machine.succeed("command -v dawo-appliance-guest-status")
