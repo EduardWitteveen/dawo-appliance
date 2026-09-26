@@ -72,8 +72,8 @@ Hand the stick (or that folder) back for debugging.
 3. Insert both sticks, power on and press the one-time boot menu key
    (Dell: **F12**). Choose the boot stick (UEFI).
 4. The desktop appears after about a minute; the welcome dialog shows the
-   password. The guest and K3s follow within a few minutes (on the test VM:
-   guest after about 160 s, K3s Ready after about 220 s).
+   password. The guest and K3s follow within a few minutes (in the test VM:
+   desktop after 19 s, guest after 92 s, K3s Ready after 143 s).
 
 Afterwards: power off, remove the sticks, and turn Secure Boot back on.
 
