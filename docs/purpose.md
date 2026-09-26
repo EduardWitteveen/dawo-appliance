@@ -1,64 +1,140 @@
-# Doel en Context (Purpose and rationale)
+# Purpose and rationale
 
-> Experimenteel en onofficieel. Dit is geen officiële distributie van DAWO, Mijn Bureau of BZK, en wordt niet door hen onderschreven. Zie `README.md`.
+> Experimental and unofficial. Not an official DAWO, Mijn Bureau or BZK
+> distribution, and not endorsed by them. See `README.md`.
 
-Dit document beschrijft wat de `dawo-appliance` precies is, waarom dit project bestaat naast de officiële landelijke projecten, waar we bewust afwijken van de standaard, en wat daarvan de voor- en nadelen zijn. Dit is het referentiekader voor discussies over de scope. Specifieke technische keuzes worden vastgelegd in architecturele besluiten (ADR's) in `docs/adr/`.
+This document states what `dawo-appliance` is for, why it should exist next to
+the official upstream projects, where it deliberately deviates from them, and
+what that costs. It is the reference for scope discussions; ADRs record the
+individual decisions (`docs/adr/`).
 
-## In één alinea
+## In one paragraph
 
-De `dawo-appliance` smeedt twee losse open-source overheidsprojecten samen tot **één zelfstandige, reproduceerbare demonstratie-machine**: je start een kleine installatie-USB op een x86-64 laptop, bevestigt de harde schijf, en je eindigt met de **DAWO werkplek** (de veilige NixOS overheids-desktop, exact zoals in de pilots) op je scherm. Op de achtergrond draait een virtuele machine (KVM) met **Mijn Bureau** (de overheids-samenwerkingssuite) op een lokaal K3s Kubernetes cluster, waarna het Mijn Bureau dashboard direct opent in de browser. Elk softwarecomponent is muurvast gezet op een exacte versie (pinned) in één manifest.
+`dawo-appliance` turns two separate open-source government projects into **one
+self-contained, reproducible demo machine**: boot a small installer ISO on a
+single x86-64 computer, confirm the target disk, and end up with the **DAWO
+workplace** (the NixOS-based government desktop, exactly as a pilot laptop gets
+it) on screen, running a virtual machine that hosts **Mijn Bureau** (the
+government collaboration suite) on single-node Kubernetes, with the Mijn Bureau
+dashboard open in the browser. Every component is pinned to an exact upstream
+revision and recorded in one manifest.
 
-## Het gat dat we vullen
+## The gap it fills
 
-De twee officiële projecten zijn uitstekend in wat ze doen, maar zijn niet gebouwd om samen als één demonstratie te draaien:
+The two upstream projects are excellent at their own jobs and are not meant to
+be a combined demo:
 
-- **DAWO-Core** levert de werkplek (als NixOS configuratie) en installeert deze met 'fleet tooling' voor massa-uitrol: een netwerk-installatie bedoeld om op afstand tientallen laptops tegelijk te installeren (`docs/adr/0002-own-installer-iso.md`).
-- **mijn-bureau-infra** installeert de samenwerkingssuite via Helmfile op een Kubernetes cluster. De standaard handleiding gaat uit van een **publieke server** op het internet met Let's Encrypt certificaten, een publiek domein en zware server-hardware (12 vCPU / 48 GiB RAM).
+- **DAWO-Core** (`codeberg.org/DAWO/DAWO-Core`) delivers the workplace as a
+  NixOS flake and installs it with **fleet tooling**: a headless provisioning
+  ISO or PXE image with an operator's SSH key baked in, driven remotely with
+  `nixos-anywhere`, aimed at imaging batches of laptops for a pilot
+  (`docs/adr/0002-own-installer-iso.md`).
+- **mijn-bureau-infra** (`code.overheid.nl/MinBZK/mijn-bureau-infra`) deploys
+  the suite with Helmfile onto a Kubernetes cluster. Its documented single-node
+  path assumes a **public server** with a wildcard DNS record, Let's Encrypt
+  and at least 12 vCPU / 48 GiB RAM.
 
-Iemand (zoals een CISO of beleidsadviseur) die *het totaalplaatje in actie wil zien*—op één lokale laptop, zónder publiek domein of ingewikkelde cloud-servers—moet dit nu allemaal handmatig in elkaar knutselen. Die ingewikkelde puzzel van NixOS, KVM, Ubuntu, K3s, lokale DNS, self-signed TLS en versiebeheer, is exact wat dit project oplost en automatiseert.
+Someone who wants to *see the whole thing together*, on one box, without a
+public domain, an operator workstation or cloud credentials, has to assemble it
+by hand: install NixOS, find the right DAWO modules, set up KVM, create an
+Ubuntu VM, install K3s, work around Let's Encrypt with self-signed TLS and local
+DNS, and pin everything so a colleague sees the same result. That assembly is
+this project.
 
-## Wat het toevoegt
+## What it adds
 
-1. **Eén systeem, één machine, één soepele stroom.** Opstarten, bevestigen, wachten en gebruiken. Geen externe servers of publieke domeinnamen nodig.
-2. **De échte werkplek, geen simulatie.** Het geïnstalleerde systeem gebruikt exact hetzelfde DAWO-Core profiel als de echte pilot-laptops (`profiles-dawo-generic`). Dezelfde desktop, apps en verplichte beveiligingseisen. Onze toevoegingen draaien op de achtergrond; de werkelijke gebruikerservaring wordt niet aangepast (`docs/adr/0003-workplace-parity.md`).
-3. **Reproduceerbaar en controleerbaar.** Exacte versies van DAWO, K3s, Ubuntu en alle container-images staan vast in het `manifest/appliance-manifest.json`, beveiligd met een cryptografische controle (checksum). Als twee gemeenten deze release bouwen, krijgen ze een 100% identiek resultaat.
-4. **Standaard veilig.** De installer doet niets zonder expliciete toestemming. De standaard actie is een veilige "dry-run". Wachtwoorden worden pas tijdens de installatie lokaal gegenereerd; er staan geen geheimen in de broncode.
-5. **Een brug voor integratie.** Dit project legt precies bloot waar de twee ecosystemen (DAWO en Mijn Bureau) elkaar nog niet soepel raken. Dit levert nuttige inzichten op voor de officiële projecten, zelfs als deze appliance nooit in productie gaat.
+1. **One artifact, one machine, one flow.** Boot, confirm, wait, use. No
+   external services, no operator machine, no public domain.
+2. **The real workplace, not a look-alike.** The installed host imports the
+   same DAWO-Core profile a pilot laptop imports (`profiles-dawo-generic`),
+   with the same desktop, apps, locale and mandatory hardening. Our additions
+   sit next to it; nothing that shapes the user experience is overridden
+   (`docs/adr/0003-workplace-parity.md`).
+3. **Reproducible and auditable.** Exact revisions of DAWO-Core, nixpkgs,
+   disko, mijn-bureau-infra, K3s, the Ubuntu image and every container image
+   live in `manifest/appliance-manifest.json`, protected by a checksum the ISO
+   carries. Two people building the same release get the same appliance.
+4. **Safe by default.** Nothing writes to disk without an explicit target and
+   an explicit confirmation; the default action shows the plan. No secrets are
+   stored in Git; the Mijn Bureau master password and the local user password
+   are generated at install time.
+5. **An integration probe.** Building the appliance surfaces exactly where the
+   two stacks do not yet meet: local DNS and TLS (OQ-3), resource needs
+   (OQ-2), unpinned upstream install steps (OQ-6), tag-only image pins (OQ-5).
+   Those findings are useful to upstream even if the appliance never is.
+6. **A learning and evaluation vehicle** for NixOS, disko, libvirt, K3s and
+   Helmfile in the Dutch government context, with every decision written down.
 
-## Wat het níét is
+## What it is not
 
-- Geen officiële distributie van de Rijksoverheid.
-- **Geen productieomgeving:** Het draait op één node, zonder back-ups en met tijdelijke certificaten (in v0.1). Zet hier géén echte (gevoelige) gemeentelijke productiedata op!
-- Geen beheertool voor honderden laptops. (Massa-uitrol is de taak van DAWO-Sextant).
-- Geen speeltuin voor complexe toekomstige wensen zoals Active Directory koppelingen of multi-node clusters. Dat valt buiten de scope van versie 0.1 (ADR 0001).
+- Not an official distribution and not a channel for either upstream project.
+- Not a production deployment: single node, no backups, no HA, self-signed
+  TLS, no disk encryption in v0.1. Do not put real data on it.
+- Not fleet management. Imaging many laptops, auto-update, Secure Boot and TPM
+  enrolment are upstream's domain (DAWO-Core, DAWO-Sextant,
+  DAWO-NixOS-installatie).
+- Not a place to build features "for later": openDesk, Nextcloud AIO,
+  multi-node, branding, Active Directory and offline install are out of scope
+  (ADR 0001).
 
-## Afwijkingen ten opzichte van de standaard (en waarom)
+## Where it deviates from upstream, and why
 
-*(Voor de volledige technische lijst, zie `docs/deviations.md`)*
-
-| Onderdeel | De officiële standaard | Deze appliance | Waarom? |
+| Area | Upstream | This appliance | Reason |
 | --- | --- | --- | --- |
-| **Installatie** | Massa-uitrol via netwerk (PXE/SSH) | Interactieve live USB-installer | Gemaakt voor één losse demonstratie-laptop (ADR 0002) |
-| **Opslag** | Standaard met schijfversleuteling (LUKS) en TPM | Nog **geen LUKS** versleuteling in v0.1 | Houdt de demonstratie en installatie voor nu simpel |
-| **Updates** | Automatische Codeberg updates op de achtergrond | Auto-update **uit** | De demonstrator is een vaste, reproduceerbare momentopname (ADR 0003) |
-| **Inloggen** | Normaal inlogscherm | Automatisch inloggen als `dawo` met een welkomstscherm | Een demonstratie moet je kunnen bekijken zonder meteen wachtwoorden te typen |
-| **Mijn Bureau** | Draait op een zware netwerkserver | Draait in een lokale Ubuntu VM op dezelfde laptop | "Digital Sovereignty in a Box" (alles lokaal op 1 machine) |
-| **Beveiliging (TLS)** | Publieke certificaten (Let's Encrypt) | Lokaal gegenereerde (self-signed) certificaten en lokale DNS | We hebben geen publiek internetdomein nodig voor een lokale demo |
+| Installer | headless ISO/PXE, remote `nixos-anywhere`, credentials baked in | interactive console installer, manifest-verified, gated disk writes, no secrets in the image | one machine, no operator host (ADR 0002) |
+| Storage | Btrfs on LUKS, fixed `/dev/nvme0n1`, TPM2 unlock | Btrfs, explicit target disk, **no LUKS** in v0.1 | never a default device; demo simplicity (Slice 2b) |
+| Hardware | per-laptop-model modules | generic Intel/AMD module | not one laptop model |
+| Updates | comin pulls Codeberg `main` and rebuilds the device | auto-update **off**; updates are a new pinned release | reproducible artifact (ADR 0003) |
+| Local user | `dawo` with a documented default password, SDDM login screen | auto-login as `dawo`, welcome dialog that shows the password (default, or the generated one with `install --generate-password`, which is kept readable on disk) | a demo must be usable without typing anything; **not for production** (ADR 0003) |
+| Mijn Bureau host | Ubuntu 24.04 server on the network | Ubuntu 24.04 **VM** on the same machine (KVM/libvirt) | one box |
+| TLS | Let's Encrypt, public wildcard DNS | self-signed CA, local wildcard DNS, CA trusted on the host | no public domain (OQ-3) |
+| K3s | installed from `get.k3s.io` unpinned | pinned release + checksum | pin everything (OQ-6) |
+| Install scripts | fetched from a raw `main` (or fork) URL at run time | fetched from the pinned revision | reproducibility |
+| Master password | passed on the command line | generated on the host at install time | no secrets in Git or shell history |
 
-## Nadelen en de kosten van deze aanpak
+## Advantages over doing it by hand or using upstream paths directly
 
-- **Zware Hardware-eisen.** Mijn Bureau eist veel geheugen. De host heeft minimaal 32 GiB RAM nodig voor het `laptop-demo` profiel, en eigenlijk 64 GiB voor de volledige versie. Een standaard kantoorlaptop trekt dit niet.
-- **Niet representatief voor de eindbeveiliging.** Zonder schijfversleuteling (LUKS) toont dit de *functionaliteit*, maar niet de geharde veiligheid van het definitieve overheidsproduct.
-- **Versies lopen achter.** Omdat wij alle versies "vastpinnen", lopen we altijd iets achter op de nieuwste updates van de officiële projecten. 
-- **Nog niet 100% soeverein.** Op de achtergrond worden er tijdens de installatie (build-fase) nog steeds componenten van Microsoft (GitHub) of Docker Hub gedownload. Dit is een landelijk probleem waaraan de officiële projecten nog werken.
+- The demo can be repeated by anyone with the ISO and a big enough machine.
+- What is shown is *the* workplace, so conclusions about the user experience
+  transfer to the pilots.
+- No public infrastructure, accounts or credentials are needed.
+- Destructive steps are gated and tested; the dry-run suite and boot tests run
+  without touching hardware.
+- All versions are visible in one file, which makes "which Nextcloud is this?"
+  a lookup rather than an investigation.
 
-## Wat betekent "Klaar" voor v0.1?
+## Disadvantages and costs
 
-1. Start de `dawo-appliance-installer.iso` op. Een test-plan toont wat er gaat gebeuren zonder de schijf te wissen.
-2. Na expliciete goedkeuring installeert het systeem de complete host.
-3. Automatische login start de KDE Plasma desktop (exact gelijk aan de beveiligde DAWO pilot).
-4. De Ubuntu virtuele machine start automatisch en installeert Mijn Bureau (met een nieuw, uniek wachtwoord).
-5. De automatische systeemcontrole (health check) geeft groen licht en opent direct het dashboard in de browser op `https://bureaublad.dawo.internal`.
-6. Alles gebeurt veilig op basis van de cryptografisch gecontroleerde bronnen in het `manifest/appliance-manifest.json`.
+- **Hardware.** Mijn Bureau alone wants 12 vCPU and 48 GiB RAM inside the VM,
+  so the physical host needs roughly 16 vCPU and 56 to 64 GiB. A laptop can
+  build and dry-run the installer but cannot run the full stack (OQ-2).
+- **Not representative for security.** No disk encryption, self-signed TLS,
+  auto-update off, single node, no backups. It demonstrates functionality, not
+  a hardened deployment.
+- **Lag.** Pins are deliberately behind upstream; every bump requires
+  re-inspection and, for DAWO-Core, a parity review (ADR 0003).
+- **Maintenance.** We own an ISO, a bootstrap, a disko module, a VM
+  definition, a K3s installer, a Helmfile driver and health checks. Each is
+  small, but they are ours.
+- **Drift risk.** Parity with the pilot workplace has to be checked, not
+  assumed; the parity check in Slice 3 exists for that reason.
+- **Still not sovereign in the strict sense.** Nix inputs come from GitHub,
+  container images from Docker Hub and GHCR. Upstream has the same dependency
+  and a roadmap to mirror it; we inherit both.
 
-*Voortgang van deze doelen staat in `docs/roadmap.md`.*
+## What "done" means for v0.1
+
+1. Boot `dawo-appliance-installer.iso`; `dawo-appliance-bootstrap plan` shows
+   the pinned plan and writes nothing.
+2. `dawo-appliance-bootstrap install --target-disk DEV --confirm-destroy`
+   installs the host; reboot.
+3. Auto-login as `dawo` (ADR 0003); the Plasma desktop, apps, locale and
+   policies match a DAWO pilot laptop at the pinned tag.
+4. The Ubuntu VM starts automatically; K3s comes up; Mijn Bureau deploys from
+   the pinned revision with a generated master password.
+5. The health check reports all certificates ready and the dashboard
+   responding; the browser opens `https://bureaublad.<base-domain>`.
+6. All of this from pins in `manifest/appliance-manifest.json`; `nix flake
+   check` and the boot tests are green.
+
+Progress per slice: `docs/roadmap.md`, `docs/STATUS.md`.
