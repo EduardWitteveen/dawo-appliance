@@ -13,10 +13,16 @@ boot tests work (`development.md`).
 Two machines have used this runbook so far, with different WSL distro names —
 check `wsl -l -v` before assuming which one has Nix:
 
-| Machine (as noted in `CLAUDE.md`) | WSL distro | Nix installed |
-| --- | --- | --- |
-| Laptop, 12 vCPU / 24 GB WSL | `Ubuntu-24.04` | yes, 2.34.7 |
-| This machine, 4 vCPU / 8 GB WSL, 6 CPU / 16 GB host | `Ubuntu` (plain, 24.04.1) | pending — see below |
+| Machine | WSL distro | Nix | KVM (`/dev/kvm`) |
+| --- | --- | --- | --- |
+| Laptop, physical, 12 vCPU / 24 GB WSL | `Ubuntu-24.04` | 2.34.7 | yes |
+| Nutanix AHV VDI, 4 vCPU / 8 GB WSL, 6 CPU / 16 GB host | `Ubuntu` (plain, 24.04.1) | 2.34.7 | **no** — WSL2 reports "nested virtualization is not supported on this computer" regardless of `nestedVirtualization=true` in `.wslconfig`. This is a VDI (Nutanix AHV, SeaBIOS), i.e. a VM itself; nested-in-nested KVM depends on the underlying hypervisor exposing nested-virt to the Windows guest, which is outside anything changeable from Windows/WSL. `nix flake check` and any eval/build-only work run fine here; VM boot tests would need slow TCG software emulation, or a machine that actually has KVM. |
+
+If `wsl -d <distro> -e bash -lc 'ls /dev/kvm'` fails after setting
+`nestedVirtualization=true` and `wsl --shutdown`, check whether the *physical*
+host itself is virtualized (`systeminfo`'s "System Manufacturer"/"System
+Model", or `(Get-CimInstance Win32_ComputerSystem).Model` in PowerShell) —
+if so, this is very likely the same hard limit, not a misconfiguration.
 
 Pin the exact same Nix version (**2.34.7**) on every machine so "it works
 here" means the same installer ran everywhere, not whatever was newest that
