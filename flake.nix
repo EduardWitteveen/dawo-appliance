@@ -73,6 +73,10 @@
         # The non-destructive live installer ISO (Slice 1). Build with:
         #   nix build .#installer-iso
         installer-iso = self.nixosConfigurations.installer-iso.config.system.build.isoImage;
+        # Live USB image of the appliance itself (ADR 0006, #93): boots an
+        # existing machine without touching its disk. Build with:
+        #   nix build .#appliance-live-iso
+        appliance-live-iso = self.nixosConfigurations.appliance-live.config.system.build.isoImage;
 
         # Does the Nix sandbox get hardware virtualisation? The VM tests use
         # `accel=kvm:tcg` and silently fall back to slow software emulation when
@@ -101,6 +105,15 @@
         # VM carrying the same live-system payload the ISO ships and asserts the
         # bootstrap works and stays non-destructive. Run explicitly:
         #   nix build .#test-installer-boot -L     (needs KVM; see docs/nix-setup.md)
+        # Boots the real live USB image under UEFI next to a patterned
+        # "internal disk"; passes on the image's own DAWO-LIVE report and an
+        # untouched disk (ADR 0006, #93). Needs KVM; ~10-20 min.
+        #   nix build .#test-live-iso-boot -L
+        test-live-iso-boot = import ./nix/tests/live-iso-boot.nix {
+          inherit pkgs;
+          iso = self.packages.${system}.appliance-live-iso;
+        };
+
         test-installer-boot = pkgs.testers.runNixOSTest {
           name = "installer-boot";
           nodes.machine = { ... }: {
@@ -473,6 +486,12 @@
       };
 
       nixosConfigurations.appliance = mkAppliance [ ];
+
+      # Live USB variant (ADR 0006, #93): same system, iso-image instead of disko.
+      nixosConfigurations.appliance-live = mkAppliance [
+        ./hosts/appliance/live.nix
+        liveInstallerExtras
+      ];
 
       # Same host, run as a local QEMU VM with a display (hosts/appliance/vm.nix).
       nixosConfigurations.appliance-vm = mkAppliance [ ./hosts/appliance/vm.nix ];
