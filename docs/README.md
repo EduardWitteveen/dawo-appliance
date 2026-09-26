@@ -53,6 +53,7 @@ One line per document. Generated files are marked; never edit those by hand.
 ## Elsewhere in the repository
 
 - [`../AGENTS.md`](../AGENTS.md): universal rules, environment notes and working method for AI coding agents and human contributors.
+- [`../CLAUDE.md`](../CLAUDE.md): one-line import that points Claude Code to `AGENTS.md`.
 - [`../hosts/appliance/README.md`](../hosts/appliance/README.md): the installed host's modules.
 - [`../hosts/profiles/disko/README.md`](../hosts/profiles/disko/README.md): the storage layout and the no-LUKS decision.
 - `../vm/`, `../k8s/`, `../apps/`, `../health/`: one README each, scaffolding for slices 4–7.
