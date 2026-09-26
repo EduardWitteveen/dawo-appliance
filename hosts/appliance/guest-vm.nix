@@ -47,7 +47,8 @@
 # apps/mijn-bureau/deploy.sh's cert-manager ClusterIssuer (ADR 0004, issue #6).
 # The K3s stage inside the guest runs the pinned
 # installer at k8s/bootstrap/install-k3s.sh, embedded verbatim into cloud-init
-# (Slice 5) — wired, but never boot-tested (no VM has actually run it). No
+# (Slice 5), air-gapped from the pinned artifacts ISO (D23); boot-tested by
+# test-guest-boot (node Ready). No
 # secrets in Git: key pair and CA are generated per installation.
 { config, lib, pkgs, ... }:
 

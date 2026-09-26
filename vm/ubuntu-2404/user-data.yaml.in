@@ -69,8 +69,8 @@ write_files:
   # (k8s/bootstrap/install-k3s.sh), embedded verbatim below by
   # dawo-appliance-guest.service at the "#@K3S_INSTALL_SCRIPT@" placeholder.
   # Its own defaults ARE the manifest pins (kubernetes.version); nothing here
-  # re-states a version or a checksum. WIRED BUT NEVER BOOT-TESTED: no VM has
-  # actually run this yet (see roadmap.md Slice 5).
+  # re-states a version or a checksum. Boot-tested by test-guest-boot (node
+  # Ready, docs/testing.md R26).
   - path: /usr/local/lib/dawo-appliance/install-k3s.sh
     permissions: "0755"
     content: |

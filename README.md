@@ -48,7 +48,7 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 3 | DAWO workplace (`profiles-dawo-generic`, Plasma) + KVM/libvirt, parity check, `nix run .#appliance-vm` | Built 2026-09-25, boot-tested; visual review pending |
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Written 2026-09-25; not boot-tested, guest never actually started |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
-| 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Written 2026-09-25; wired into the guest's cloud-init 2026-09-25, never boot-tested |
+| 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
 | 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Written and offline-tested 2026-09-25 (`tests/test-mijnbureau-driver.sh`); never run against a cluster |
 | 7 | Health check + auto-open browser, offline-tested | Wired into the host 2026-09-25 (autostart, packaged scripts, group-readable guest SSH key); `nix flake check` passes; not boot-tested, never observed a real deployment |
 

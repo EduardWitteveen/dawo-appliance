@@ -160,7 +160,7 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   Nix eval/build passed, but no KVM-capable machine has run either test with
   this change yet.
 
-## Slice 5 — single-node K3s (installer written and offline-tested 2026-09-25; wired into cloud-init, never booted)
+## Slice 5 — single-node K3s (air-gap install boot-tested 2026-09-26: node Ready, #7)
 
 - ✅ K3s release pinned (`v1.36.4+k3s1`, binary + `install.sh` SHA-256) —
   resolves OQ-6 part 2 (`docs/upstream/pins-vm-k3s.md`). Upstream installs K3s
