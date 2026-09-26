@@ -34,7 +34,7 @@ Status: **active** (in the code), **planned** (decided, not yet built),
 | D11 | K3s from `get.k3s.io`, unpinned | Pinned `v1.36.4+k3s1`, binary and install script verified by SHA-256 | Pin everything (hard rule) | active | `docs/upstream/pins-vm-k3s.md` |
 | D12 | `install.sh` fetches sub-scripts from a live raw URL (default: a fork branch) | Run from the pinned checkout of rev `b2ae545` | Reproducibility; no code from a moving URL | active | `apps/mijn-bureau/README.md` |
 | D13 | Master password passed on the command line | Generated once inside the guest, root-only | No secrets in Git or shell history | active | `apps/mijn-bureau/README.md` |
-| D14 | Images pulled by tag | Images pinned by digest | Tags can be re-pointed | planned | `docs/upstream/image-digests.md`, #9 |
+| D14 | Images pulled by tag | Images pinned by digest (`container.<key>.tag = "tag@sha256:digest"`, spliced by `apps/mijn-bureau/deploy.sh`'s `phase_values`; a post-deploy check compares running pods' `imageID`s against the pins) | Tags can be re-pointed; `--check` now runs in `scripts/verify.sh` to catch it | active | `docs/upstream/image-digests.md`, #9 |
 | D15 | cert-manager v1.16.2 (EOL, K8s <= 1.32) | Undecided on K3s 1.36 | Supportability vs parity | open | #10 |
 | D16 | >= 12 vCPU / 48 GiB for single-node, `resourcesPreset: none` | Default `laptop-demo` profile: 5 core apps, global preset `micro` (per-app map unchanged), guest 8 vCPU / 16 GiB; `full` profile keeps upstream sizing | Must run next to the desktop on the 32 GB reference laptop | planned | `docs/upstream/mijn-bureau-sizing.md`, #11 |
 

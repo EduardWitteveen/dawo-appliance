@@ -14,16 +14,20 @@
 #   - installs cert-manager from the pinned release manifest (SHA-256 verified)
 #     and creates the CA ClusterIssuer `dawo-appliance-ca` (ADR 0004);
 #   - writes the demo environment values as upstream's 01-deploy.sh does, with
-#     our base domain and issuer;
+#     our base domain and issuer, and digest-pins every resolved image (OQ-5,
+#     issue #9: manifest/image-digests.json spliced into container.<key>.tag);
 #   - generates MIJNBUREAU_MASTER_PASSWORD once, root-only, and reuses it;
 #   - deploys with `helmfile -e demo apply`, then applies the single-node
-#     workarounds, in-cluster CA trust and post-deploy fixes.
+#     workarounds, in-cluster CA trust and post-deploy fixes, then verifies
+#     running pods' imageIDs against the pinned digests (best-effort, warns
+#     only).
 #
 # Every phase is idempotent. `--dry-run` prints every action and touches
 # nothing. `--phase <n|name>` runs a single phase. See README.md in this
-# directory. Pins below MUST equal manifest/appliance-manifest.json.
-# No offline test exists yet for this driver (unlike Slices 4a/5/7); it has
-# never been run against a real cluster either.
+# directory. Pins below MUST equal manifest/appliance-manifest.json
+# (and manifest/image-digests.json for the DIGEST_* constants).
+# Offline test: tests/test-mijnbureau-driver.sh; it has never been run
+# against a real cluster.
 #
 # SPDX-License-Identifier: EUPL-1.2
 
@@ -58,6 +62,80 @@ readonly HELM_DIFF_SHA256="ffeff863e4a3cbe83282a13a55ee972f7497966dfb66f326a117f
 readonly CERT_MANAGER_VERSION="v1.16.2"
 readonly CERT_MANAGER_URL="https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml"
 readonly CERT_MANAGER_SHA256="1d51cdecd442f1f5f89783e9e0169b95d372724da203cc75dd7a5c4e50a10ce6"
+
+# ---------------------------------------------------------------------------
+# Container image digests (OQ-5, issue #9). MUST equal manifest/image-digests.json
+# (source of truth: docs/upstream/image-digests.md; refresh both together).
+#
+# Each value is "<upstream tag>@sha256:<digest>", spliced into
+# container.<key>.tag in phase_values below. Why the splice and not the
+# `digest:` field the vendored bitnami charts themselves support: every
+# release values template in the pinned mijn-bureau-infra checkout
+# (helmfile/apps/*/values*.yaml.gotmpl) renders `tag: {{ .Values.container.<key>.tag }}`
+# but never forwards a `.digest` from environment values -- a few of them even
+# hardcode `digest: ""` as a literal in the rendered YAML, not templated from
+# `.Values` at all. So `image.digest` is unreachable from an environment
+# values overlay without patching upstream's own templates (out of scope: we
+# do not fork upstream). `repo:tag@sha256:digest` is a valid OCI/Docker
+# reference (tag AND digest; the digest wins), so the splice works uniformly
+# for every image below, including cnpg_postgres's `imageName:` string field.
+# Verified by reading the pinned checkout at MB_REV above; never applied
+# against a live cluster (no cluster available here).
+#
+# openproject.hocuspocus is intentionally absent: ghcr.io refuses anonymous
+# access (403) and upstream disables it by default (hocuspocus.enabled:
+# false), so it is never pulled; see docs/upstream/image-digests.md.
+readonly DIGEST_KEYCLOAK="26.3.3-debian-12-r0@sha256:da3df0976a9f9a664bdbde6cb5308b78f03ac94d0abf33b2df355bbb06cbc5b9"
+readonly DIGEST_KEYCLOAK_CLI="6.4.0-debian-12-r9@sha256:e3a723d11723a63001e7d691e7a165753fdc6c4d48eb0e0bceca388feafa5582"
+readonly DIGEST_KUBECTL="1.33.4@sha256:ed0b31a0508da84ee655c5c6e01bd3897fc56ad6cf69debb27fa1893a06d2246"
+readonly DIGEST_MINIO="2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20"
+readonly DIGEST_MINIO_CONSOLE="2.0.2-debian-12-r4@sha256:ff9a524c8c200671626e3b074364c17e0da205df421cfb84275aec01e7c4a819"
+readonly DIGEST_OS_SHELL="12-debian-12-r51@sha256:77e65e9d633ec1463f8bea185763aa7ef91e5ddbe0b60beb1b0b5d4da58882b6"
+readonly DIGEST_NGINX="1.29.1@sha256:b2e803958eda5723aae1e36ed0e418f6e0c79e7ce890820eba9cad85a6381286"
+readonly DIGEST_POSTGRES="17.6.0-debian-12-r4@sha256:926356130b77d5742d8ce605b258d35db9b62f2f8fd1601f9dbaef0c8a710a8d"
+readonly DIGEST_POSTGRES_EXPORTER="0.17.1-debian-12-r9@sha256:95a026f0b68ac00da8c71ea579cba16503e080be538415d62c650d0cc74965e9"
+readonly DIGEST_REDIS="8.2.1-debian-12-r0@sha256:25bf63f3caf75af4628c0dfcf39859ad1ac8abe135be85e99699f9637b16dc28"
+readonly DIGEST_REDIS_EXPORTER="1.76.0-debian-12-r0@sha256:d111b8a14d96f7edd67324776d6801b76023035d9390d03fbb13d1c21bda8b88"
+readonly DIGEST_CLAMAV="1.5.3@sha256:d06c1d6a451d616e1dd79b42f44c8c8c291bba9cf4e75ebc4d0e43c1c6dd87bb"
+readonly DIGEST_COLLABORA="26.04.2.2.1@sha256:f8a308bcd12ad09babcd635662b512776b0749fc04c9a63db568865bd195b4d9"
+readonly DIGEST_GRIST="1.7.16@sha256:d93db4640aeef1b2c3a1375b315798e72c591c98587a0a68c67286162a39a8ff"
+readonly DIGEST_CONVERSATIONS_BACKEND="v0.0.19@sha256:f9ec5f4766abe8176c1ce378c77e58a7ceeaa77c2e5a658daacec97e7618a415"
+readonly DIGEST_CONVERSATIONS_FRONTEND="v0.0.19@sha256:0829749e9bda909061cb07980d2af1db81a6c99b3dd7c45e0a4cc5133952869c"
+readonly DIGEST_DRIVE_BACKEND="v0.20.0@sha256:bd5780e0dfe0097f10ace9020d2c9d12b2056bc88d8a9e787dbe37d29b107daf"
+readonly DIGEST_DRIVE_FRONTEND="v0.20.0@sha256:bacefd805360c7a8682ac411874b1816f40b7e06dd74524b856caf7446cd169c"
+readonly DIGEST_DOCS_BACKEND="v5.4.1@sha256:5c299a7ac029ed07fe6d8ae3535201c80728b68a05550536b7e7dd73df13ea40"
+readonly DIGEST_DOCS_FRONTEND="v5.4.1@sha256:9fb3c38fe43bfb9c79a6f03fae828fe0c681f4893a8ce24e010ef5f8d0b6ebd3"
+readonly DIGEST_DOCS_YPROVIDER="v5.4.1@sha256:5af19c0191491ded862cb00dade1255cbac6fbc6bc51a754d5960cf488706b76"
+readonly DIGEST_DOCSPEC="2.6.3@sha256:1e1f37461ec3ed7556238132987ea717c78e18ec26cd7d0dfa3946586d501128"
+readonly DIGEST_MEET_BACKEND="v1.23.0@sha256:1462e0040f75c92182a3624e97af4e912fb91063a058dbf2455dbb8cdd52d57e"
+readonly DIGEST_MEET_FRONTEND="v1.23.0@sha256:ddd0a9c181213e3bb39d866dee813adafb964646b844a60358251caf972811b6"
+readonly DIGEST_NEXTCLOUD="34.0.1-apache@sha256:b52f7bc0e496f227b0e85e3b88571a42c68b6245ccde29d577e733227715dcf5"
+readonly DIGEST_LIVEKIT_SERVER="v1.13.4@sha256:189f7c81b704a36642bc5c7e2d3e1ae83744627c11978a23a251bf19fbec64e0"
+readonly DIGEST_SYNAPSE="v1.156.0@sha256:d2215c4a0e0bbd304489af228345b31d6857c1a228175471358d3fda187c0d91"
+readonly DIGEST_OLLAMA="0.32.1@sha256:6345fbc18bd73a1e16404be681dbc6fd291a027cab43ed541abe78c4c81051b0"
+readonly DIGEST_ELEMENTWEB="v1.12.23@sha256:2a65f32acc6fd7163523d1c4b5174de354b5ceb085898b15898f4d8ea01a8e3d"
+readonly DIGEST_CNPG_POSTGRES="17.9-standard-bookworm@sha256:e6ef7cc6ef88c0936b1ae3893dfa5b779c03390b27c17efac6e88854a95f21f3"
+readonly DIGEST_BUREAUBLAD_BACKEND="v0.9.3@sha256:e6c01c400c1674a4a9853f3de6113450cd8d3ec13ca6ca3a9776064455ab3a0c"
+readonly DIGEST_BUREAUBLAD_FRONTEND="v0.6.1@sha256:15659ed7c50187448edb94683a1b4fa82503b6f847fd11cf4506a9498e2937c0"
+readonly DIGEST_OPENPROJECT="v16.6.3@sha256:1fa19bef0124d9f8c0839c2d2025c7e073e9e1dfd6b3a87b2839efe4a9179ee2"
+
+# Just the sha256 hashes (no tag), for the post-deploy membership check
+# (verify_image_digests): a running container's imageID either ends in one of
+# these, or it is not an image this project pins (fine: e.g. Traefik, CoreDNS,
+# cert-manager, local-path-provisioner) or a tag got re-pointed (not fine).
+readonly MB_KNOWN_DIGESTS=(
+  "${DIGEST_KEYCLOAK#*@}" "${DIGEST_KEYCLOAK_CLI#*@}" "${DIGEST_KUBECTL#*@}"
+  "${DIGEST_MINIO#*@}" "${DIGEST_MINIO_CONSOLE#*@}" "${DIGEST_OS_SHELL#*@}"
+  "${DIGEST_NGINX#*@}" "${DIGEST_POSTGRES#*@}" "${DIGEST_POSTGRES_EXPORTER#*@}"
+  "${DIGEST_REDIS#*@}" "${DIGEST_REDIS_EXPORTER#*@}" "${DIGEST_CLAMAV#*@}"
+  "${DIGEST_COLLABORA#*@}" "${DIGEST_GRIST#*@}" "${DIGEST_CONVERSATIONS_BACKEND#*@}"
+  "${DIGEST_CONVERSATIONS_FRONTEND#*@}" "${DIGEST_DRIVE_BACKEND#*@}" "${DIGEST_DRIVE_FRONTEND#*@}"
+  "${DIGEST_DOCS_BACKEND#*@}" "${DIGEST_DOCS_FRONTEND#*@}" "${DIGEST_DOCS_YPROVIDER#*@}"
+  "${DIGEST_DOCSPEC#*@}" "${DIGEST_MEET_BACKEND#*@}" "${DIGEST_MEET_FRONTEND#*@}"
+  "${DIGEST_NEXTCLOUD#*@}" "${DIGEST_LIVEKIT_SERVER#*@}" "${DIGEST_SYNAPSE#*@}"
+  "${DIGEST_OLLAMA#*@}" "${DIGEST_ELEMENTWEB#*@}" "${DIGEST_CNPG_POSTGRES#*@}"
+  "${DIGEST_BUREAUBLAD_BACKEND#*@}" "${DIGEST_BUREAUBLAD_FRONTEND#*@}" "${DIGEST_OPENPROJECT#*@}"
+)
 
 # ---------------------------------------------------------------------------
 # Environment (all overridable; defaults are the guest paths).
@@ -408,6 +486,8 @@ phase_values() {
   #    values would silently skip them and 03-restart-oidc-apps.sh would fail.
   #  Everything else (resource preset none, subnets, ollama/clamav/openproject
   #  disabled, OIDC endpoints) is upstream's, verbatim.
+  #  - container.<key>.tag: digest-pinned (OQ-5, issue #9) via the DIGEST_*
+  #    constants above; not part of upstream's 01-deploy.sh at all.
   write_file "${MB_SRC_DIR}/helmfile/environments/demo/mijnbureau.yaml.gotmpl" 0644 <<YAML
 ---
 # Written by dawo-appliance apps/mijn-bureau/deploy.sh (phase 7). Do not edit
@@ -475,6 +555,86 @@ authentication:
     userinfo_endpoint: "https://id.${MB_DOMAIN}/realms/mijnbureau/protocol/openid-connect/userinfo"
     end_session_endpoint: "https://id.${MB_DOMAIN}/realms/mijnbureau/protocol/openid-connect/logout"
     jwks_uri: "https://id.${MB_DOMAIN}/realms/mijnbureau/protocol/openid-connect/certs"
+
+# Digest-pin every image this project has resolved (OQ-5, issue #9; see the
+# DIGEST_* constants above for why this is a tag@sha256 splice rather than the
+# chart-native digest field). Sparse overlay: only "tag" is set here, so
+# registry/repository/imagePullSecret keep upstream's defaults from
+# helmfile/environments/default/container.yaml.gotmpl (Helmfile deep-merges
+# environment value files; environments/demo/* is loaded after
+# environments/default/*, see helmfile/bases/environment.yaml.gotmpl).
+container:
+  keycloak:
+    tag: "${DIGEST_KEYCLOAK}"
+  keycloak_cli:
+    tag: "${DIGEST_KEYCLOAK_CLI}"
+  kubectl:
+    tag: "${DIGEST_KUBECTL}"
+  minio:
+    tag: "${DIGEST_MINIO}"
+  minio_console:
+    tag: "${DIGEST_MINIO_CONSOLE}"
+  minio_shell:
+    tag: "${DIGEST_OS_SHELL}"
+  osShell:
+    tag: "${DIGEST_OS_SHELL}"
+  nginx:
+    tag: "${DIGEST_NGINX}"
+  postgres:
+    tag: "${DIGEST_POSTGRES}"
+  postgres_exporter:
+    tag: "${DIGEST_POSTGRES_EXPORTER}"
+  redis:
+    tag: "${DIGEST_REDIS}"
+  redis_exporter:
+    tag: "${DIGEST_REDIS_EXPORTER}"
+  clamav:
+    tag: "${DIGEST_CLAMAV}"
+  collabora:
+    tag: "${DIGEST_COLLABORA}"
+  grist:
+    tag: "${DIGEST_GRIST}"
+  conversations_backend:
+    tag: "${DIGEST_CONVERSATIONS_BACKEND}"
+  conversations_frontend:
+    tag: "${DIGEST_CONVERSATIONS_FRONTEND}"
+  drive_backend:
+    tag: "${DIGEST_DRIVE_BACKEND}"
+  drive_frontend:
+    tag: "${DIGEST_DRIVE_FRONTEND}"
+  docs:
+    backend:
+      tag: "${DIGEST_DOCS_BACKEND}"
+    frontend:
+      tag: "${DIGEST_DOCS_FRONTEND}"
+    yProvider:
+      tag: "${DIGEST_DOCS_YPROVIDER}"
+  docspec:
+    tag: "${DIGEST_DOCSPEC}"
+  meet_backend:
+    tag: "${DIGEST_MEET_BACKEND}"
+  meet_frontend:
+    tag: "${DIGEST_MEET_FRONTEND}"
+  nextcloud:
+    tag: "${DIGEST_NEXTCLOUD}"
+  livekit_server:
+    tag: "${DIGEST_LIVEKIT_SERVER}"
+  synapse:
+    tag: "${DIGEST_SYNAPSE}"
+  ollama:
+    tag: "${DIGEST_OLLAMA}"
+  elementweb:
+    tag: "${DIGEST_ELEMENTWEB}"
+  cnpg_postgres:
+    tag: "${DIGEST_CNPG_POSTGRES}"
+  bureaublad:
+    backend:
+      tag: "${DIGEST_BUREAUBLAD_BACKEND}"
+    frontend:
+      tag: "${DIGEST_BUREAUBLAD_FRONTEND}"
+  openproject:
+    openproject:
+      tag: "${DIGEST_OPENPROJECT}"
 YAML
   # Upstream's 02-networking.sh and 07-session-lifetimes.sh read the domain
   # from here when run by hand; keep that working.
@@ -543,6 +703,7 @@ phase_wait_certs() {
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     # shellcheck disable=SC2016  # literal, meant to print as the command a real run would use
     printf 'DRY-RUN: poll `kubectl get certificate -A` until all Ready and the count is stable over two polls; then check issuerRef == %s\n' "${CLUSTER_ISSUER}"
+    verify_image_digests
     return 0
   fi
   sleep 30 # let cert-manager create Certificate objects for every Ingress
@@ -576,6 +737,58 @@ phase_wait_certs() {
   else
     info "every certificate references issuer ${CLUSTER_ISSUER}"
   fi
+  verify_image_digests
+}
+
+# verify_image_digests: post-deploy check for OQ-5 (issue #9). Compares every
+# running (and init) container's actual imageID against the digests pinned in
+# manifest/image-digests.json (DIGEST_*/MB_KNOWN_DIGESTS above). This is a
+# membership check, not a per-container key mapping: a live cluster has pods
+# (Traefik, CoreDNS, cert-manager, local-path-provisioner, ...) this project
+# never pins, so "not in the pinned set" is expected noise for those and only
+# meaningful for mb-* application pods. Never fails the deploy (warn only):
+# never run against a real cluster, so treated as informational until proven
+# otherwise on one.
+verify_image_digests() {
+  log "Verifying running pod image digests against manifest/image-digests.json (${#MB_KNOWN_DIGESTS[@]} pinned)"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl get pods -A -o json | compare every (init)containerStatuses[].imageID sha256 against the %d pinned digests; WARN (not fatal) on any container whose digest matches none of them\n' "${#MB_KNOWN_DIGESTS[@]}"
+    return 0
+  fi
+  MB_KNOWN_DIGESTS_LIST="${MB_KNOWN_DIGESTS[*]}" kubectl get pods -A -o json 2>/dev/null | python3 -c '
+import json, os, sys
+known = set(os.environ["MB_KNOWN_DIGESTS_LIST"].split())
+try:
+    data = json.load(sys.stdin)
+except ValueError:
+    print("    could not parse kubectl output as JSON; skipping digest verification")
+    sys.exit(0)
+pinned = unpinned = 0
+mismatches = []
+for pod in data.get("items", []):
+    ns = pod["metadata"]["namespace"]
+    name = pod["metadata"]["name"]
+    statuses = pod.get("status", {}).get("containerStatuses", []) \
+        + pod.get("status", {}).get("initContainerStatuses", [])
+    for cs in statuses:
+        image_id = cs.get("imageID", "")
+        if "sha256:" not in image_id:
+            continue
+        digest = "sha256:" + image_id.split("sha256:", 1)[1][:64]
+        if digest in known:
+            pinned += 1
+        else:
+            unpinned += 1
+            mismatches.append("%s/%s (%s): %s -> %s" % (ns, name, cs.get("name"), cs.get("image"), digest))
+print("    containers at a pinned digest: %d; not matching any pinned digest: %d" % (pinned, unpinned))
+if mismatches:
+    print("    containers NOT running at a digest recorded in manifest/image-digests.json")
+    print("    (expected for cluster-system pods outside our pin set, e.g. traefik/coredns/")
+    print("     cert-manager/local-path-provisioner; unexpected for any mb-* app pod -- a")
+    print("     re-pointed tag or a digest override that did not take effect):")
+    for m in mismatches:
+        print("      " + m)
+'
 }
 
 # ---------------------------------------------------------------------------
@@ -757,6 +970,40 @@ helm_diff_sha256=${HELM_DIFF_SHA256}
 cert_manager_version=${CERT_MANAGER_VERSION}
 cert_manager_url=${CERT_MANAGER_URL}
 cert_manager_sha256=${CERT_MANAGER_SHA256}
+image_digest_keycloak=${DIGEST_KEYCLOAK}
+image_digest_keycloak_cli=${DIGEST_KEYCLOAK_CLI}
+image_digest_kubectl=${DIGEST_KUBECTL}
+image_digest_minio=${DIGEST_MINIO}
+image_digest_minio_console=${DIGEST_MINIO_CONSOLE}
+image_digest_minio_shell=${DIGEST_OS_SHELL}
+image_digest_osShell=${DIGEST_OS_SHELL}
+image_digest_nginx=${DIGEST_NGINX}
+image_digest_postgres=${DIGEST_POSTGRES}
+image_digest_postgres_exporter=${DIGEST_POSTGRES_EXPORTER}
+image_digest_redis=${DIGEST_REDIS}
+image_digest_redis_exporter=${DIGEST_REDIS_EXPORTER}
+image_digest_clamav=${DIGEST_CLAMAV}
+image_digest_collabora=${DIGEST_COLLABORA}
+image_digest_grist=${DIGEST_GRIST}
+image_digest_conversations_backend=${DIGEST_CONVERSATIONS_BACKEND}
+image_digest_conversations_frontend=${DIGEST_CONVERSATIONS_FRONTEND}
+image_digest_drive_backend=${DIGEST_DRIVE_BACKEND}
+image_digest_drive_frontend=${DIGEST_DRIVE_FRONTEND}
+image_digest_docs.backend=${DIGEST_DOCS_BACKEND}
+image_digest_docs.frontend=${DIGEST_DOCS_FRONTEND}
+image_digest_docs.yProvider=${DIGEST_DOCS_YPROVIDER}
+image_digest_docspec=${DIGEST_DOCSPEC}
+image_digest_meet_backend=${DIGEST_MEET_BACKEND}
+image_digest_meet_frontend=${DIGEST_MEET_FRONTEND}
+image_digest_nextcloud=${DIGEST_NEXTCLOUD}
+image_digest_livekit_server=${DIGEST_LIVEKIT_SERVER}
+image_digest_synapse=${DIGEST_SYNAPSE}
+image_digest_ollama=${DIGEST_OLLAMA}
+image_digest_elementweb=${DIGEST_ELEMENTWEB}
+image_digest_cnpg_postgres=${DIGEST_CNPG_POSTGRES}
+image_digest_bureaublad.backend=${DIGEST_BUREAUBLAD_BACKEND}
+image_digest_bureaublad.frontend=${DIGEST_BUREAUBLAD_FRONTEND}
+image_digest_openproject.openproject=${DIGEST_OPENPROJECT}
 EOF
 }
 
