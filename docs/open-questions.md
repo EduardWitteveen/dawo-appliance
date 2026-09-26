@@ -96,7 +96,8 @@ Offline tests: `tests/test-image-digests.sh`, `tests/test-mijnbureau-driver.sh`.
 `release-20260911` cloud image and K3s `v1.36.4+k3s1`, with SHA-256 sums from
 the official sources and a manifest snippet. Not yet applied to the manifest
 (maintainer's confirmation). Risk noted: upstream's cert-manager v1.16.2 is
-end-of-life and officially supports Kubernetes up to 1.32.
+end-of-life and officially supports Kubernetes up to 1.32. Decided (#10): keep
+upstream's v1.16.2 and prove it at the first real deploy (deviations.md D15).
 
 Slices 1–2 stop before the VM/K3s steps, so the manifest currently marks the
 K3s release and the Ubuntu 24.04 cloud image as **unverified/pending pin**.

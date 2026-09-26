@@ -114,9 +114,11 @@ the appliance manages the unit itself.
 
 ## Open risks
 
-1. **cert-manager v1.16.2 is EOL and unsupported on Kubernetes 1.36.** Slice 6
-   must decide: follow upstream exactly, or pin a supported cert-manager
-   (1.21.x). Record in an ADR; it changes what "upstream parity" means.
+1. **cert-manager v1.16.2 is EOL and unsupported on Kubernetes 1.36.**
+   Decided (#10, maintainer 2026-09-26): follow upstream exactly (v1.16.2).
+   The first real deploy must prove it with a check (cert-manager pods Ready,
+   a `Certificate` issued). Only if that fails: pin a supported line (1.21.x)
+   as a deviation with an ADR (`docs/deviations.md` D15).
 2. Upstream tests on KIND 1.34, not 1.36; the Slice 5/6 end-to-end run is the
    real compatibility check.
 3. Ubuntu serials are re-published every few weeks (old ones still served, back
