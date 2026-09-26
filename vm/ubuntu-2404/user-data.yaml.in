@@ -86,6 +86,20 @@ write_files:
       set -e
       log=/var/log/dawo-appliance-k3s-stage.log
       rm -f /var/lib/dawo-appliance-k3s-stage.done /var/lib/dawo-appliance-k3s-stage.failed
+      # Air-gap install (docs/deviations.md D23): the host attaches the pinned
+      # K3s artifacts as a read-only disk labelled DAWO_K3S; K3s imports the
+      # images from its standard air-gap directory at start.
+      src=/mnt/dawo-k3s
+      dev="$(blkid -L DAWO_K3S || true)"
+      if [ -n "$dev" ]; then
+        mkdir -p "$src"
+        mountpoint -q "$src" || mount -o ro "$dev" "$src"
+        mkdir -p /var/lib/rancher/k3s/agent/images
+        cp "$src/k3s-airgap-images-amd64.tar.zst" /var/lib/rancher/k3s/agent/images/
+        export K3S_OFFLINE_DIR="$src"
+      else
+        echo "dawo-appliance: no DAWO_K3S disk; installing K3s online" >&2
+      fi
       set +e
       /usr/local/lib/dawo-appliance/install-k3s.sh >"$log" 2>&1
       rc=$?
