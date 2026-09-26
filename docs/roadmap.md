@@ -108,29 +108,102 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
 - Boot test `test-appliance-boot` extended: `graphical.target`, SDDM, pilot
   apps present, hardening active, libvirtd, comin inactive, screenshot.
 
-## Slice 4 — Ubuntu 24.04 VM
+## Slice 4 — Ubuntu 24.04 VM (code written 2026-09-25; not boot-tested)
 
-- Pin the Ubuntu 24.04 cloud image (version + SHA-256) — resolves OQ-6 part 1.
-- libvirt domain + cloud-init; auto-start the VM.
+### Slice 4a — guest VM, network, cloud-init
 
-## Slice 5 — single-node K3s
+- ✅ Ubuntu 24.04 cloud image pinned (`release-20260911`, SHA-256) — resolves
+  OQ-6 part 1 (`docs/upstream/pins-vm-k3s.md`, manifest `vm.image`).
+- ✅ `hosts/appliance/guest-vm.nix`: a dedicated libvirt NAT network
+  `dawo-appliance` (fixed DHCP lease, dnsmasq wildcard `*.dawo.internal`, ADR
+  0004), a host-side systemd-resolved DNS delegate, a download+checksum
+  service for the pinned image, cloud-init rendering
+  (`vm/ubuntu-2404/*.in`: user-data, meta-data, network-config, domain.xml)
+  and the libvirt domain definition; flagged for autostart. An operator SSH
+  key pair is generated on the host once, never in Git.
+- ❌ **Not boot-tested.** No automated check starts the guest and asserts
+  cloud-init finished or that it answers SSH; `nix flake check` only
+  evaluates the Nix module. The guest has never actually been booted on any
+  machine so far.
+- ❌ The K3s stage inside cloud-init is still an explicit placeholder
+  (`vm/ubuntu-2404/user-data.yaml.in`: "NOT IMPLEMENTED YET"). Wiring
+  `k8s/bootstrap/install-k3s.sh` (Slice 5) into `runcmd` is unstarted.
 
-- Pin the K3s release (version + checksum) — resolves OQ-6 part 2. Upstream
-  installs K3s unpinned from `get.k3s.io`; we do not.
-- Install/start single-node K3s in the VM.
+### Slice 4b — per-install appliance CA (built 2026-09-25)
 
-## Slice 6 — Mijn Bureau
+- ✅ `hosts/appliance/appliance-ca.nix`: `dawo-appliance-ca.service` generates
+  a per-install EC P-256 CA once (never in Git or on the ISO); Firefox trust
+  via `Certificates.Install`; Chromium/NSS import per login;
+  `/etc/dawo-appliance/ca.env` for scripts.
+- ❌ Boot-test assertions are written (`nix/tests/appliance-ca-assertions.py`,
+  requirements R20–R22 in `docs/testing.md`) but **not yet pasted into
+  `test-appliance-boot`** — the module evaluates and builds as part of the
+  appliance host, but nothing has asserted it boots and behaves correctly yet.
 
-- Resolve local DNS + self-signed TLS (OQ-3).
-- Drive mijn-bureau-infra Helmfile at the pinned rev `b2ae545…` with the
-  sub-scripts taken from that revision (never from a live raw URL); generate
-  the master password at install time (never stored in Git).
-- Digest-pin images (OQ-5).
+## Slice 5 — single-node K3s (installer written and offline-tested 2026-09-25; never run)
 
-## Slice 7 — health + browser
+- ✅ K3s release pinned (`v1.36.4+k3s1`, binary + `install.sh` SHA-256) —
+  resolves OQ-6 part 2 (`docs/upstream/pins-vm-k3s.md`). Upstream installs K3s
+  unpinned from `get.k3s.io`; we do not.
+- ✅ `k8s/bootstrap/install-k3s.sh`: self-contained, idempotent installer —
+  downloads (or takes from `K3S_OFFLINE_DIR`) the pinned `k3s` binary and
+  `install.sh`, verifies both by SHA-256, installs with
+  `INSTALL_K3S_SKIP_DOWNLOAD` and upstream's exec flags plus `--tls-san`, and
+  waits for the node to report Ready.
+- ✅ `tests/test-k3s-install.sh`: 13 offline checks (pins equal the manifest,
+  tampered binary/`install.sh` rejected, dry run writes nothing, flag
+  content) — no network, no root, no Nix required.
+- ❌ **Not wired into the guest**: cloud-init still ships the Slice-5
+  placeholder (see Slice 4a). The script has never actually run inside a VM;
+  no K3s node has ever come up.
 
-- Health check: wait until certificates Ready and the dashboard responds.
-- Open `https://bureaublad.<domain>` in the browser at desktop login.
+## Slice 6 — Mijn Bureau (deploy driver written 2026-09-25; never run)
+
+- ✅ OQ-3 resolved: local DNS + a per-install appliance CA instead of
+  self-signed TLS (`docs/adr/0004-local-dns-and-tls.md`).
+- ✅ `apps/mijn-bureau/deploy.sh`: a 14-phase driver — obtains
+  mijn-bureau-infra at the pinned rev `b2ae545…` (git, hash-verified),
+  installs Helm/Helmfile/helm-diff and cert-manager from pinned,
+  checksum-verified release artifacts, creates the CA `ClusterIssuer`,
+  generates the master password once, runs `helmfile -e demo apply`, drives
+  upstream's networking/OIDC-restart/post-fix scripts from the pinned
+  checkout, waits for every Certificate to be Ready (stable count), and
+  patches in-cluster CA trust into Grist/Docs/Meet/Element. `--dry-run`
+  prints every action and changes nothing.
+- ⚠️ Partial: in-cluster CA trust for Keycloak (back-channel), Collabora
+  (WOPI) and the Docs celery/y-provider and Bureaublad backend runtimes are
+  explicit `TODO`s inside `phase_trust`, not yet implemented.
+- ❌ Digest-pinning images (OQ-5) is **recorded but not consumed**: 33/34
+  images are resolved to a `sha256:` digest in `manifest/image-digests.json`
+  (`docs/upstream/image-digests.md`), but this driver still deploys by tag;
+  feeding the digests into the Helmfile values is unstarted follow-up work.
+- ❌ **Never run.** No offline test exists yet for this script — its header
+  comment claims pin equality is "checked by `tests/test-mijnbureau-driver.sh`",
+  but that file does not exist in the repository; only `shellcheck` lint
+  covers it today. No cluster has ever executed it, and Mijn Bureau has never
+  been observed deployed or reachable.
+
+## Slice 7 — health + browser (written and offline-tested 2026-09-25; never run against a real deployment)
+
+- ✅ `health/dawo-appliance-health.sh`: nine checks per ADR 0004 (DNS, guest
+  reachable, K3s node Ready, `ClusterIssuer` Ready, every Certificate Ready
+  with a stable count, every Certificate issued by our issuer, HTTPS 200 on
+  the dashboard and on Keycloak's OIDC discovery document with the right
+  issuer, Firefox CA trust); `--once`, `--wait --timeout`, `--json`.
+- ✅ `health/dawo-appliance-open-dashboard.sh`: waits for health, then opens
+  `https://bureaublad.<domain>`; shows a `kdialog` with the failing checks on
+  timeout instead of opening a browser that would just error.
+- ✅ `tests/test-health-check.sh`: fully offline (fake `ssh`/`curl`/
+  `resolvectl`/`ping`/`xdg-open`/`kdialog`), 10 assertions covering the
+  all-OK, pending-certificates, issuer-mismatch, DNS-wrong and timeout paths,
+  plus the opener in both outcomes.
+- ❌ **Not wired into the host**: no NixOS module packages these scripts or
+  adds the XDG autostart entry yet (`health/README.md` lists the integration
+  work — autostart `.desktop` entry, SSH key readability for the `dawo` user,
+  welcome-dialog text, Makefile wiring — as "not done here").
+- ❌ Never exercised against a real cluster: since Slices 4–6 have never
+  produced a running guest/K3s/Mijn Bureau, this health check has never
+  actually observed a real dashboard becoming healthy.
 
 ## Hardening (cross-cutting, after MVP)
 
@@ -141,9 +214,12 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
 
 ## Decisions needed (see open-questions.md)
 
-- **OQ-3** local DNS/TLS (blocks slices 6–7). — still open.
-- OQ-2 large host for the full end-to-end run (slices 5–7). — still open.
+- **OQ-2** large host for the full end-to-end run (slices 4–7). — still open;
+  this machine cannot run the full stack, so none of Slices 4–7 has been
+  exercised end-to-end regardless of code/test state.
 
-Resolved: OQ-1 (WSL `metadata` enabled, git/Nix work here), OQ-4 (license =
-EUPL-1.2). Decided 2026-09-25: own installer kept (ADR 0002), workplace parity
+Resolved: OQ-1 (WSL `metadata` enabled, git/Nix work here), OQ-3 (local DNS +
+TLS, ADR 0004), OQ-4 (license = EUPL-1.2), OQ-6 (K3s + Ubuntu image pins).
+OQ-5 (image digests) is resolved as tooling but not yet wired into Slice 6.
+Decided 2026-09-25: own installer kept (ADR 0002), workplace parity
 (ADR 0003).
