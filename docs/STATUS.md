@@ -11,6 +11,35 @@ Bureau / BZK distribution (`AGENTS.md`).
 
 ## Now
 
+**Handoff 2026-09-26 (evening, Claude session on the KVM laptop):**
+
+- **K3s runs in the guest** (air-gap install, #7, PR #77): node Ready about
+  145 s after the guest starts; `test-guest-boot` asserts it.
+- **Live USB first** (maintainer's direction; ADR 0006 *Proposed* in PR #94,
+  not merged): PR #96 (open, awaiting ADR review) adds
+  `.#appliance-live-iso`. It boots an existing machine, never writes the
+  internal disk, and writes debug logs to a `DAWO_LOGS` USB filesystem.
+  `test-live-iso-boot` is green on KVM (desktop 19 s, guest 93 s, K3s 145 s).
+  User guide: `docs/live-usb.md`.
+- **The maintainer's SanDisk stick** was written with the live image and
+  verified by hash; `DAWO_LOGS` (exFAT, MBR entry 3) sits after the image.
+  Windows Disk Management must never touch it (#97). The stick holds the
+  image **before** #98/#100; the ISO in the Downloads folder is newer.
+- **VirtualBox VM "DAWO appliance live"** (VirtualBox 7.2, default VM
+  folder): the desktop works. The guest cannot run there because Hyper-V
+  (WSL2) blocks VT-x passthrough, so there is no `/dev/kvm`.
+- **Fixed today via that VM:** #98 (health check exited 127, PR #99) and
+  #100 (`ca.env` unquoted, PR #101); the new check `health-selfcontained`
+  covers both.
+- **Mijn Bureau (#8):** phases 1–7 of `deploy.sh` work on a real cluster.
+  Phase 8 could not be judged in a triple-nested WSL VM. Next: real hardware,
+  or the live USB with a data partition and the laptop profile (ADR 0006
+  follow-ups).
+- **Open for the maintainer:** review ADR 0006 (#94). The main checkout has
+  leftover conflicts from an old stash pop (branch `feat/93-live-image`, all
+  work pushed): run `git reset --hard HEAD` there.
+
+
 - **Slices 0–2 done and verified** (2026-06-22): live ISO, non-destructive
   bootstrap (`plan`/`verify`), gated `install` (disko, explicit `--target-disk`
   + `--confirm-destroy`, `--dry-run`), Btrfs + swap, no LUKS.
