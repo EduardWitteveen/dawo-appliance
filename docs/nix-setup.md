@@ -4,7 +4,7 @@ How to install Nix on a Windows + WSL2 development machine and make KVM
 usable inside the Nix sandbox, so `nix flake check`, the ISO build and the VM
 boot tests work (`development.md`).
 
-> **This installs system software (a host change).** Per `CLAUDE.md`, the
+> **This installs system software (a host change).** Per `AGENTS.md`, the
 > maintainer runs these commands; an assistant prepares and verifies them but
 > does not execute them. The installer needs a real TTY for its `sudo`
 > prompt: run it in an actual terminal window, not piped through a

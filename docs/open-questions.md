@@ -19,7 +19,7 @@ So the working tree on `/mnt/c/git/dawo-appliance` is a real git repo (branch
 **Nix** was installed afterwards (2.34.7, daemon) in the WSL distro
 `Ubuntu-24.04`, store on ext4 (`docs/nix-setup.md`). Since 2026-09-25 the
 editing session runs on the Windows side; Nix is invoked through
-`wsl -d Ubuntu-24.04` (see `CLAUDE.md`, Environment notes).
+`wsl -d Ubuntu-24.04` (see `AGENTS.md`, Environment notes).
 
 Historical context — the original blocker:
 
