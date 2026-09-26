@@ -78,10 +78,10 @@ pkgs.testers.runNixOSTest {
 
     # The CA cert and private key are transported into the guest at
     # deploy.sh's APPLIANCE_CA_DIR contract, root-only (ADR 0004, issue #6).
-    machine.succeed(f"${ssh} sudo test -s /etc/dawo-appliance/ca.crt")
-    machine.succeed(f"${ssh} sudo test -s /etc/dawo-appliance/ca.key")
+    machine.succeed("${ssh} sudo test -s /etc/dawo-appliance/ca.crt")
+    machine.succeed("${ssh} sudo test -s /etc/dawo-appliance/ca.key")
     key_perms = machine.succeed(
-        f"${ssh} sudo stat -c '%a:%U:%G' /etc/dawo-appliance/ca.key").strip()
+        "${ssh} sudo stat -c '%a:%U:%G' /etc/dawo-appliance/ca.key").strip()
     assert key_perms == "600:root:root", f"guest ca.key perms: {key_perms!r}"
 
     # The host status helper agrees.

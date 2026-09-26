@@ -325,7 +325,9 @@
             machine.succeed("test -s /var/lib/dawo-appliance/guest/seed.iso")
             # The guest key is readable by group libvirtd so the health check
             # (running as dawo, a libvirtd member) can SSH into the guest (#49).
-            machine.succeed("test \"$(stat -c %a:%U:%G /var/lib/dawo-appliance/ssh/id_ed25519)\" = 640:root:libvirtd")
+            # Owned by dawo, 0600: OpenSSH accepts it for dawo (owner) and for
+            # root (owner check does not apply); group-readable broke root SSH (#75).
+            machine.succeed("test \"$(stat -c %a:%U /var/lib/dawo-appliance/ssh/id_ed25519)\" = 600:dawo")
             machine.succeed("su -s /bin/sh dawo -c 'test -r /var/lib/dawo-appliance/ssh/id_ed25519'")
             machine.succeed("grep -q 'ssh-ed25519' /var/lib/dawo-appliance/guest/user-data")
             machine.succeed("grep -q 'BEGIN CERTIFICATE' /var/lib/dawo-appliance/guest/user-data")  # CA injected

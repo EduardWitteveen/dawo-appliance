@@ -26,7 +26,7 @@
 #    `appliance.guest.imageOverride` skips the download (tests, development).
 #
 # 4. dawo-appliance-guest.service — generates the operator SSH key pair ON THE
-#    HOST once (0640 root:libvirtd — demo posture, ADR 0003: group-readable so
+#    HOST once (0600, owned by dawo — demo posture, ADR 0003; see #75 — so
 #    the Slice 7 health check, running as `dawo`, can SSH into the guest;
 #    never world-readable, never in Git), renders cloud-init user-data (template in
 #    vm/ubuntu-2404/) with that public key and the appliance CA if present,
@@ -158,8 +158,8 @@ let
     runtimeInputs = with pkgs; [ config.virtualisation.libvirtd.package openssh systemd gawk gnugrep coreutils ];
     text = ''
       # Health helper for the appliance guest (Slice 4a). Exit 0 when the guest
-      # answers over SSH, 1 otherwise. Run as root or a member of libvirtd (the
-      # key is group-readable, demo posture, see the sshKey chown above).
+      # answers over SSH, 1 otherwise. Run as root or as dawo (the key is owned
+      # by dawo, 0600; demo posture, see the sshKey chown below).
       export LIBVIRT_DEFAULT_URI=qemu:///system
       name=${lib.escapeShellArg vmSpec.name}
       netname=${lib.escapeShellArg net.name}
@@ -468,13 +468,22 @@ in
           ssh-keygen -q -t ed25519 -N "" -C "ops@dawo-appliance" -f ${sshKey}
         fi
         # Demo posture, not production (ADR 0003, like the generated install
-        # password): group-readable by libvirtd instead of root-only, because
-        # the Slice 7 health check (health/README.md) runs as `dawo` — already
-        # a member of libvirtd (hosts/appliance/virtualisation.nix) — and must
-        # read this key to SSH into the guest. Never world-readable, never in
-        # Git; enforced on every run in case a restore changed it.
-        chown root:libvirtd ${sshKey}
-        chmod 0640 ${sshKey}
+        # password): the Slice 7 health check (health/README.md) runs as
+        # `dawo` and must read this key to SSH into the guest; root (status
+        # helper, host services, tests) must too. OpenSSH refuses a private
+        # key with group/other bits when the invoking user owns it, so a
+        # group-readable root-owned key breaks every root SSH (#75). Owned by
+        # `dawo` with 0600 both work: dawo is the owner of a 0600 key, and the
+        # owner check does not apply to root. The directory stays 0750
+        # root:libvirtd (dawo is a member). Without the bootstrap user the key
+        # stays root-only. Never in Git; enforced on every run.
+        if id -u dawo >/dev/null 2>&1; then
+          chown dawo ${sshKey}
+        else
+          chown root ${sshKey}
+        fi
+        chgrp root ${sshKey}
+        chmod 0600 ${sshKey}
         chmod 0644 ${sshKey}.pub
         pubkey="$(cut -d' ' -f1,2 ${sshKey}.pub)"
 

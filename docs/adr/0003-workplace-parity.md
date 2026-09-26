@@ -57,7 +57,7 @@ default) and `dawo.secureboot.enable = false`.
    | Microcode updates enabled for both CPU vendors | generic hardware; upstream picks one per laptop model | no |
    | Desktop fixed to Plasma | pilot default; `desktop-select` demands exactly one | no |
    | Extra software and services (libvirt, VM, browser autostart) | the appliance's purpose | yes, as additions |
-   | **Guest operator SSH key** (`/var/lib/dawo-appliance/ssh/id_ed25519`, Slice 4a) is `0640 root:libvirtd`, not root-only | Slice 7's health check (`health/README.md`) runs as `dawo` and must SSH into the guest to poll K3s/cert-manager; `dawo` already joins `libvirtd` (`hosts/appliance/virtualisation.nix`), so no new group was introduced. **Demo posture, not production**, exactly like the generated install password: never world-readable, never leaves the host except via cloud-init at install time (Slice 4a) | no (background service reads it) |
+   | **Guest operator SSH key** (`/var/lib/dawo-appliance/ssh/id_ed25519`, Slice 4a) is `0600`, owned by `dawo` (#75; `0600 owned by dawo (#75)` broke root SSH), not root-only | Slice 7's health check (`health/README.md`) runs as `dawo` and must SSH into the guest to poll K3s/cert-manager; `dawo` already joins `libvirtd` (`hosts/appliance/virtualisation.nix`), so no new group was introduced. **Demo posture, not production**, exactly like the generated install password: never world-readable, never leaves the host except via cloud-init at install time (Slice 4a) | no (background service reads it) |
 
 4. **Parity check.** `nix flake check` runs `checks.workplace-parity`
    (`nix/parity.nix`): an evaluation-time comparison of the option values that

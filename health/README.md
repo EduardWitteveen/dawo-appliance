@@ -151,8 +151,9 @@ themselves are untouched.
    `hosts/appliance/appliance-services.nix`.
 3. **SSH key contract.** ✅ Done: the key
    (`/var/lib/dawo-appliance/ssh/id_ed25519` — see
-   `hosts/appliance/guest-vm.nix`) is now `0640 root:libvirtd` instead of
-   `0600 root:root`; its directory is `0750 root:libvirtd` instead of `0700
+   `hosts/appliance/guest-vm.nix`) is now `0600` owned by `dawo` instead of
+   `0600 root:root` (an earlier `0640 root:libvirtd` made OpenSSH refuse the
+   key for root, #75); its directory is `0750 root:libvirtd` instead of `0700
    root:root`. `dawo` already joins `libvirtd`
    (`hosts/appliance/virtualisation.nix`), so no new group was introduced —
    **demo posture, not production**, recorded as a deviation in
