@@ -38,8 +38,10 @@
 # Contract with hosts/appliance/appliance-ca.nix (Slice 4b): the CA certificate
 # at `appliance.guest.caCertFile` is injected as cloud-init `ca_certs` when the
 # file exists; the guest unit orders After=/Wants= dawo-appliance-ca.service and
-# tolerates its absence. The K3s stage inside the guest is a marked placeholder
-# (Slice 5). No secrets in Git: key pair and CA are generated per installation.
+# tolerates its absence. The K3s stage inside the guest runs the pinned
+# installer at k8s/bootstrap/install-k3s.sh, embedded verbatim into cloud-init
+# (Slice 5) — wired, but never boot-tested (no VM has actually run it). No
+# secrets in Git: key pair and CA are generated per installation.
 { config, lib, pkgs, ... }:
 
 let
@@ -121,6 +123,13 @@ let
   # Runtime templates (rendered by the guest service, not by Nix).
   userDataTemplate = ../../vm/ubuntu-2404/user-data.yaml.in;
   metaDataTemplate = ../../vm/ubuntu-2404/meta-data.in;
+
+  # Slice 5: the pinned, offline-tested K3s installer (its own defaults ARE
+  # the manifest kubernetes.version pins; tests/test-k3s-install.sh keeps that
+  # in sync). Referenced by path, like the templates above, so the guest
+  # service always embeds the one canonical copy verbatim — never hand-copied
+  # or re-pinned here.
+  k3sInstallScript = ../../k8s/bootstrap/install-k3s.sh;
 
   # Tools the services need on PATH.
   servicePath = with pkgs; [
@@ -447,7 +456,16 @@ in
           -e "s|@HOSTNAME@|${guestHostname}|g" \
           -e "s|@FQDN@|${guestFqdn}|g" \
           -e "s|@APPLIANCE_VERSION@|${manifest.appliance.version}|g" \
-          ${userDataTemplate} > "$tmp/user-data.in"
+          ${userDataTemplate} > "$tmp/user-data.pre"
+
+        # Slice 5: splice in the pinned K3s installer verbatim (the one
+        # canonical copy at k8s/bootstrap/install-k3s.sh, indented to match
+        # the surrounding write_files "content: |" block); same technique as
+        # the CA block below.
+        sed 's/^/      /' ${k3sInstallScript} > "$tmp/k3s-install-block"
+        awk -v f="$tmp/k3s-install-block" '/^#@K3S_INSTALL_SCRIPT@$/ { while ((getline l < f) > 0) print l; next } { print }' \
+          "$tmp/user-data.pre" > "$tmp/user-data.in"
+
         ca=${lib.escapeShellArg cfg.caCertFile}
         if [ -s "$ca" ] && grep -q 'BEGIN CERTIFICATE' "$ca"; then
           {
@@ -464,9 +482,26 @@ in
           grep -v '^#@CA_CERTS@$' "$tmp/user-data.in" > "$tmp/user-data"
           echo "dawo-appliance-guest: no appliance CA at $ca (yet); user-data without ca_certs"
         fi
-        if grep -Eq '@[A-Z_]+@' "$tmp/user-data"; then
+        # Comment lines are excluded: the file's own header documents the
+        # @CA_CERTS@/@K3S_INSTALL_SCRIPT@ marker syntax in prose (e.g.
+        # `"#@CA_CERTS@"`), which would otherwise false-positive here even
+        # though those markers are consumed above and no real placeholder
+        # (hostname:/fqdn:/ssh_authorized_keys:/content: values) is a comment.
+        if grep -Ev '^[[:space:]]*#' "$tmp/user-data" | grep -Eq '@[A-Z_]+@'; then
           echo "dawo-appliance-guest: unrendered placeholder in user-data:" >&2
-          grep -En '@[A-Z_]+@' "$tmp/user-data" >&2
+          grep -Ev '^[[:space:]]*#' "$tmp/user-data" | grep -En '@[A-Z_]+@' >&2
+          exit 1
+        fi
+        # The comment exclusion above (needed so the header's own prose,
+        # e.g. `"#@CA_CERTS@"`, doesn't false-positive) would also hide a
+        # genuine awk-splice failure: on a no-match, the marker line itself
+        # (which starts with "#") is left behind verbatim. Catch that
+        # specifically and exactly, which the header prose can't trigger
+        # (it never has the marker as the WHOLE line, always with leading
+        # text before it).
+        if grep -Eq '^#@(CA_CERTS|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data"; then
+          echo "dawo-appliance-guest: a splice marker was not substituted (awk pattern out of sync with the template?):" >&2
+          grep -En '^#@(CA_CERTS|K3S_INSTALL_SCRIPT)@$' "$tmp/user-data" >&2
           exit 1
         fi
         # The instance-id follows the user-data: a changed key or CA re-runs
