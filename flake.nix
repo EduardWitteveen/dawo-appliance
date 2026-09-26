@@ -469,6 +469,37 @@
         # Workplace parity (ADR 0003): the appliance host must make the same
         # user-facing choices as upstream's pilot client at the pinned tag.
         # Evaluation only; fails with a report when they drift.
+        # The health check and the dashboard opener are self-contained: run as
+        # packaged with an EMPTY PATH (as a minimal XDG autostart environment
+        # could), they must not hit "command not found" / exit 127, and the
+        # opener must report a timeout, not a crash (issue #98).
+        health-selfcontained =
+          let
+            sysPkgs = self.nixosConfigurations.appliance.config.environment.systemPackages;
+            pick = n: builtins.head (builtins.filter (p: (p.name or "") == n) sysPkgs);
+            health = pick "dawo-appliance-health";
+            opener = pick "dawo-appliance-open-dashboard";
+          in
+          pkgs.runCommand "health-selfcontained" { } ''
+            set -u
+            rc=0
+            env -i HOME=$TMPDIR PATH= ${health}/bin/dawo-appliance-health --once > h.out 2> h.err || rc=$?
+            cat h.out h.err
+            if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || grep -q "command not found" h.err; then
+              echo "FAIL: dawo-appliance-health is not self-contained (exit $rc)"; exit 1
+            fi
+            rc=0
+            env -i HOME=$TMPDIR PATH= DASHBOARD_TIMEOUT=2 DASHBOARD_KDIALOG=true               DASHBOARD_XDG_OPEN=true DASHBOARD_LOG=$TMPDIR/opener.log               ${opener}/bin/dawo-appliance-open-dashboard > o.out 2> o.err || rc=$?
+            cat o.out o.err
+            if [ "$rc" -ne 1 ] || ! grep -q "did not pass within" o.err; then
+              echo "FAIL: the opener did not report a plain timeout (exit $rc)"; exit 1
+            fi
+            if grep -q "command not found" o.err "$TMPDIR/opener.log"; then
+              echo "FAIL: the opener hit a missing command"; exit 1
+            fi
+            echo "health and opener are self-contained" > $out
+          '';
+
         workplace-parity = import ./nix/parity.nix {
           inherit lib pkgs;
           appliance = self.nixosConfigurations.appliance.config;
