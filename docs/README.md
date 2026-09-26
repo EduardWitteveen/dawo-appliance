@@ -23,6 +23,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`testing.md`](testing.md) | Which check covers which requirement; how to read a failure; the "a bug becomes a check first" rule. |
 | [`releasing.md`](releasing.md) | How a release is cut: tag, ISO, manifest, draft GitHub release; how the bootstrap finds the release manifest. |
 | [`nix-setup.md`](nix-setup.md) | Runbook for installing Nix in WSL2 and making KVM usable inside the Nix sandbox. |
+| [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
 | [`verification-latest.md`](verification-latest.md) | **Generated** by `REPORT=1 bash scripts/verify.sh`: result and timings of the latest real run. |
 | `verification-history.csv` | **Generated**: every recorded check duration, feeds the mean/range columns above. |
 | [`screenshots/README.md`](screenshots/README.md) | Rules for the screenshots in the README; [`screenshots/PROVENANCE.md`](screenshots/PROVENANCE.md) is **generated** by `scripts/screenshots.sh`. |
