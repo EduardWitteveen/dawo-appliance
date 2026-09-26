@@ -1,7 +1,7 @@
 # Documentation index
 
 > Experimental and unofficial. Not an official DAWO, Mijn Bureau or BZK
-> distribution. Front door: [`../README.md`](../README.md).
+> distribution. Front door: [`../README.md`](../README.md) ([Nederlands](../README.nl.md)).
 
 One line per document. Generated files are marked; never edit those by hand.
 
