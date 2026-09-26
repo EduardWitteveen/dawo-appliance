@@ -195,6 +195,14 @@
           inherit pkgs lib self disko liveInstallerExtras;
         };
 
+        # Nested boot of the real Ubuntu guest (issue #41): the pinned cloud
+        # image boots inside the appliance test VM; cloud-init, SSH, CA trust.
+        # Needs KVM with nested virtualisation.
+        #   nix build .#test-guest-boot -L
+        test-guest-boot = import ./nix/tests/guest-boot.nix {
+          inherit pkgs lib dawoHostWiring dawoSpecialArgs;
+        };
+
         test-appliance-boot = pkgs.testers.runNixOSTest {
           name = "appliance-boot";
           node.specialArgs = dawoSpecialArgs;
