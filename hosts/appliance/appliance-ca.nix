@@ -206,11 +206,12 @@ in
     environment.etc."dawo-appliance/ca.env".text = ''
       # DAWO appliance CA (hosts/appliance/appliance-ca.nix, ADR 0004).
       # Source this file; the files exist after dawo-appliance-ca.service ran.
-      DAWO_APPLIANCE_CA_DIR=${cfg.dir}
-      DAWO_APPLIANCE_CA_CERT=${cfg.certFile}
-      DAWO_APPLIANCE_CA_KEY=${cfg.keyFile}
-      DAWO_APPLIANCE_CA_SHA256=${cfg.certFile}.sha256
-      DAWO_APPLIANCE_CA_NICKNAME=${nick}
+      # Values are shell-quoted: the nickname contains spaces (issue #100).
+      DAWO_APPLIANCE_CA_DIR=${lib.escapeShellArg cfg.dir}
+      DAWO_APPLIANCE_CA_CERT=${lib.escapeShellArg cfg.certFile}
+      DAWO_APPLIANCE_CA_KEY=${lib.escapeShellArg cfg.keyFile}
+      DAWO_APPLIANCE_CA_SHA256=${lib.escapeShellArg "${cfg.certFile}.sha256"}
+      DAWO_APPLIANCE_CA_NICKNAME=${lib.escapeShellArg nick}
     '';
 
     # `certutil` on the PATH for operators and the boot test (small).
