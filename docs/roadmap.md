@@ -157,7 +157,7 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   placeholder (see Slice 4a). The script has never actually run inside a VM;
   no K3s node has ever come up.
 
-## Slice 6 — Mijn Bureau (deploy driver written 2026-09-25; never run)
+## Slice 6 — Mijn Bureau (deploy driver written and offline-tested 2026-09-25; never run)
 
 - ✅ OQ-3 resolved: local DNS + a per-install appliance CA instead of
   self-signed TLS (`docs/adr/0004-local-dns-and-tls.md`).
@@ -177,11 +177,22 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   images are resolved to a `sha256:` digest in `manifest/image-digests.json`
   (`docs/upstream/image-digests.md`), but this driver still deploys by tag;
   feeding the digests into the Helmfile values is unstarted follow-up work.
-- ❌ **Never run.** No offline test exists yet for this script — its header
-  comment claims pin equality is "checked by `tests/test-mijnbureau-driver.sh`",
-  but that file does not exist in the repository; only `shellcheck` lint
-  covers it today. No cluster has ever executed it, and Mijn Bureau has never
-  been observed deployed or reachable.
+- ✅ `tests/test-mijnbureau-driver.sh`: 19 offline checks — full `--dry-run`
+  touches no real files/state and calls no real kubectl/curl/git/tar/install/
+  sha256sum/python3 (kubectl/curl/etc. are logging fakes on `PATH`, helm/
+  helmfile are faked through `MB_BIN_DIR`); `run_phase()` rejects a malformed
+  `MB_DOMAIN` before dispatch for all 14 phases, not just `phase_preflight`
+  (the gap the 2026-09-25 security fix closed); `phase_password` generates a
+  32-char password once and reuses it unchanged; `MB_REV`, `HELMFILE_VERSION`
+  and `CERT_MANAGER_VERSION` equal the appliance manifest; `phase_tools` only
+  downloads a tool whose detected version does not match the pin;
+  `phase_issuer`'s dry-run output matches the ADR 0004 ClusterIssuer/CA-secret
+  commands. `HELM_VERSION`, `HELM_DIFF_VERSION` and every `*_SHA256` constant
+  have no second recorded copy in this repository, so those are checked for
+  well-formedness only.
+- ❌ **Never run.** No cluster has ever executed this driver, and Mijn Bureau
+  has never been observed deployed or reachable; the offline test above
+  covers the driver's own logic, not a real deployment.
 
 ## Slice 7 — health + browser (written and offline-tested 2026-09-25; never run against a real deployment)
 
