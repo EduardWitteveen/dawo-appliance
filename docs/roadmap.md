@@ -209,7 +209,7 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   has never been observed deployed or reachable; the offline test above
   covers the driver's own logic, not a real deployment.
 
-## Slice 7 — health + browser (written and offline-tested 2026-09-25; never run against a real deployment)
+## Slice 7 — health + browser (offline-tested 2026-09-25; wired into the host 2026-09-25; never run against a real deployment)
 
 - ✅ `health/dawo-appliance-health.sh`: nine checks per ADR 0004 (DNS, guest
   reachable, K3s node Ready, `ClusterIssuer` Ready, every Certificate Ready
@@ -223,10 +223,22 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
   `resolvectl`/`ping`/`xdg-open`/`kdialog`), 10 assertions covering the
   all-OK, pending-certificates, issuer-mismatch, DNS-wrong and timeout paths,
   plus the opener in both outcomes.
-- ❌ **Not wired into the host**: no NixOS module packages these scripts or
-  adds the XDG autostart entry yet (`health/README.md` lists the integration
-  work — autostart `.desktop` entry, SSH key readability for the `dawo` user,
-  welcome-dialog text, Makefile wiring — as "not done here").
+- ✅ **Wired into the host** (`hosts/appliance/appliance-services.nix`,
+  `hosts/appliance/guest-vm.nix`): both scripts packaged with
+  `pkgs.writeShellApplication` (read by path, untouched); a second XDG
+  autostart entry one phase after the welcome dialog
+  (`X-KDE-autostart-phase=2`) runs the opener; the guest operator SSH key
+  (`hosts/appliance/guest-vm.nix`) is now `0640 root:libvirtd` (was `0600
+  root:root`) so the health check, running as `dawo` (already in `libvirtd`),
+  can read it — a demo-posture deviation recorded in
+  `docs/adr/0003-workplace-parity.md`, like the generated install password.
+  The welcome dialog text no longer says Mijn Bureau "follows in a later
+  version". `docs/testing.md` R27 maps "opens the dashboard only when healthy"
+  to `tests/test-health-check.sh` (already in `make test`/`SHELL_SCRIPTS`).
+  `nix flake check` passes with this wired in (evaluates
+  `nixosConfigurations.appliance`, which imports `appliance-services.nix`).
+  **Still not boot-tested**: no NixOS assertion exercises the autostart entry
+  or a real health poll yet.
 - ❌ Never exercised against a real cluster: since Slices 4–6 have never
   produced a running guest/K3s/Mijn Bureau, this health check has never
   actually observed a real dashboard becoming healthy.

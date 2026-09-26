@@ -52,7 +52,7 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`) | Built 2026-09-25; boot-test assertions written, not yet wired into `test-appliance-boot` |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Written 2026-09-25; wired into the guest's cloud-init 2026-09-25, never boot-tested |
 | 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Written and offline-tested 2026-09-25 (`tests/test-mijnbureau-driver.sh`); never run against a cluster |
-| 7 | Health check + auto-open browser, offline-tested | Written 2026-09-25; not wired into the host, never observed a real deployment |
+| 7 | Health check + auto-open browser, offline-tested | Wired into the host 2026-09-25 (autostart, packaged scripts, group-readable guest SSH key); `nix flake check` passes; not boot-tested, never observed a real deployment |
 
 **What works today:** `dawo-appliance-installer.iso` boots, brings up
 networking, downloads and checksum-verifies the pinned manifest, prints the

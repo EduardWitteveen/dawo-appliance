@@ -122,40 +122,52 @@ two polls (`--wait --timeout 3` succeeds only after the count is stable),
 `curl` call carried `--cacert`. Passes on Windows Git Bash and on WSL/Linux.
 Lint: `shellcheck health/*.sh tests/test-health-check.sh`.
 
-## Integration points for Slice 7 (not done here)
+## Integration points for Slice 7
 
-1. **Autostart.** Same pattern as the welcome dialog in
-   `hosts/appliance/appliance-services.nix`, one phase later so the welcome
-   dialog shows first:
+Wired 2026-09-25 (`hosts/appliance/appliance-services.nix`,
+`hosts/appliance/guest-vm.nix`); **unverified — no Nix on the machine that did
+this wiring, so none of it has run through `nix flake check` or a boot test
+yet.** `dawo-appliance-health.sh` and `dawo-appliance-open-dashboard.sh`
+themselves are untouched.
 
-   ```ini
-   [Desktop Entry]
-   Type=Application
-   Name=DAWO appliance: open Mijn Bureau
-   Comment=Waits until Mijn Bureau is healthy, then opens the dashboard
-   Exec=/run/current-system/sw/bin/dawo-appliance-open-dashboard
-   OnlyShowIn=KDE;
-   X-KDE-autostart-phase=2
-   ```
-
-   Package both scripts (e.g. `pkgs.writeShellApplication` with `runtimeInputs
-   = [ openssh curl systemd glibc iputils jq xdg-utils kdePackages.kdialog ]`)
-   and point `Exec` at the opener; `DASHBOARD_LOG` can go to
-   `$XDG_STATE_HOME/dawo-appliance/health.log`. A first boot spends most of
-   its time deploying Mijn Bureau, so `DASHBOARD_TIMEOUT` should cover the
-   deployment (30 minutes default; make it larger on first boot or restart
-   the opener from a systemd user timer).
-2. **SSH key contract.** The check runs as `dawo` and reads
-   `/var/lib/dawo-appliance/ssh/id_ed25519`. Either make that key readable
-   by `dawo` (demo posture, like the password file) or run the guest-side
-   checks through a small root service and let the user-side script read its
-   result. The guest must have the matching public key for `ops` in its
-   cloud-init user-data, `k3s kubectl` usable by `ops` (`--write-kubeconfig-mode
-   644` is already in the manifest), and its host key should be pre-seeded in
-   a known_hosts file (the script uses `StrictHostKeyChecking=accept-new`
-   until then).
-3. **Welcome dialog text.** Replace "Mijn Bureau follows in a later version"
-   with the actual state; the health `--json` output can feed it.
-4. **Makefile / verify.** Add `tests/test-health-check.sh` to `make test` and
-   `health/*.sh` to `SHELL_SCRIPTS` for `make lint`; `docs/testing.md` maps
-   requirement "opens the dashboard only when healthy" to this test.
+1. **Autostart.** ✅ Done. Same pattern as the welcome dialog in
+   `hosts/appliance/appliance-services.nix`, one phase later
+   (`X-KDE-autostart-phase=2`) so the welcome dialog shows first: a second
+   `environment.etc."xdg/autostart/dawo-appliance-open-dashboard.desktop"`
+   entry, `Exec` pointing at the packaged opener below. Both scripts are
+   packaged with `pkgs.writeShellApplication` (`runtimeInputs = [ openssh curl
+   systemd glibc iputils jq xdg-utils kdePackages.kdialog ]`), read by path
+   (`builtins.readFile`) so the tested `.sh` files stay the single source of
+   truth — never hand-copied into the Nix module. The opener defaults
+   `DASHBOARD_HEALTH` to the packaged health binary (its own store path differs
+   from the health script's, so the opener's "next to this file" default would
+   otherwise miss it) and `DASHBOARD_LOG` to
+   `$XDG_STATE_HOME/dawo-appliance/health.log`. Both binaries are also on
+   `$PATH` via `environment.systemPackages` for manual/debugging use.
+   `DASHBOARD_TIMEOUT` is still the script's own default (1800 s); making it
+   larger on first boot, or restarting the opener from a systemd user timer, is
+   still open follow-up work, not done in this pass.
+2. **Package both scripts.** ✅ Done as above, in
+   `hosts/appliance/appliance-services.nix`.
+3. **SSH key contract.** ✅ Done: the key
+   (`/var/lib/dawo-appliance/ssh/id_ed25519` — see
+   `hosts/appliance/guest-vm.nix`) is now `0640 root:libvirtd` instead of
+   `0600 root:root`; its directory is `0750 root:libvirtd` instead of `0700
+   root:root`. `dawo` already joins `libvirtd`
+   (`hosts/appliance/virtualisation.nix`), so no new group was introduced —
+   **demo posture, not production**, recorded as a deviation in
+   `docs/adr/0003-workplace-parity.md`, the same way the generated install
+   password is. The guest must still have the matching public key for `ops` in
+   its cloud-init user-data, `k3s kubectl` usable by `ops`
+   (`--write-kubeconfig-mode 644` is already in the manifest), and its host key
+   should be pre-seeded in a known_hosts file (the script uses
+   `StrictHostKeyChecking=accept-new` until then) — unchanged, still true.
+4. **Welcome dialog text.** ✅ Done: "Mijn Bureau follows in a later version"
+   (and its Dutch equivalent) replaced with a static message that Mijn Bureau
+   deploys automatically and the dashboard opens once healthy. Wiring the live
+   health `--json` output into the dialog text is still out of scope for this
+   pass (a static message is enough for a demo).
+5. **Makefile / verify.** Still open: add `tests/test-health-check.sh` to
+   `make test` and `health/*.sh` to `SHELL_SCRIPTS` for `make lint`.
+   `docs/testing.md` now maps requirement R23 ("opens the dashboard only when
+   healthy") to this test.
