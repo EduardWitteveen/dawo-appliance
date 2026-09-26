@@ -39,6 +39,11 @@ All AI agents working on `dawo-appliance` must observe the following principles:
    - Provide a root `AGENTS.md` specifying these rules and operational procedures as the universal standard recognized across diverse AI tools.
    - `AGENTS.md` serves as the sole canonical standard; tool-specific files (such as `CLAUDE.md`) are retired to eliminate duplication.
 
+6. **Periodic Self-Evaluation & Invariant Checking (Specifically for Gemini / non-Claude agents):**
+   - Claude naturally exercises deliberation, architectural discipline, and restraint. To bring non-Claude assistants (such as Gemini / Antigravity) up to this standard, they must periodically perform a self-evaluation:
+     *"Is this action in line with how Eduard or Claude would approach it? Does it preserve standards, architectural boundaries, and conventions?"*
+   - Any doubt, tension, or contradiction with repository invariants must trigger an explicit clarifying question to the maintainer rather than hasty unilateral code generation.
+
 ## Consequences
 
 - AI agents will take an extra moment to investigate, check existing issues, and verify tests, but changes will be deliberate, robust, and aligned with repository standards.
