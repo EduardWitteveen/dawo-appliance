@@ -1,12 +1,30 @@
 # Nix setup (WSL2 runbook)
 
-How to install Nix on the Windows + WSL2 development machine and make KVM
+How to install Nix on a Windows + WSL2 development machine and make KVM
 usable inside the Nix sandbox, so `nix flake check`, the ISO build and the VM
 boot tests work (`development.md`).
 
 > **This installs system software (a host change).** Per `CLAUDE.md`, the
 > maintainer runs these commands; an assistant prepares and verifies them but
-> does not execute them.
+> does not execute them. The installer needs a real TTY for its `sudo`
+> prompt: run it in an actual terminal window, not piped through a
+> non-interactive assistant shell.
+
+Two machines have used this runbook so far, with different WSL distro names —
+check `wsl -l -v` before assuming which one has Nix:
+
+| Machine (as noted in `CLAUDE.md`) | WSL distro | Nix installed |
+| --- | --- | --- |
+| Laptop, 12 vCPU / 24 GB WSL | `Ubuntu-24.04` | yes, 2.34.7 |
+| This machine, 4 vCPU / 8 GB WSL, 6 CPU / 16 GB host | `Ubuntu` (plain, 24.04.1) | pending — see below |
+
+Pin the exact same Nix version (**2.34.7**) on every machine so "it works
+here" means the same installer ran everywhere, not whatever was newest that
+day:
+
+```bash
+sh <(curl -L https://releases.nixos.org/nix/nix-2.34.7/install) --daemon
+```
 
 ## Where the store goes
 
@@ -22,10 +40,11 @@ and `xz` are present.
 ## Install Nix (multi-user)
 
 Run in a real interactive WSL terminal (the installer calls `sudo` and needs a
-TTY; without one it aborts on the first `sudo` and rolls back cleanly).
+TTY; without one it aborts on the first `sudo` and rolls back cleanly). Use
+the pinned command above (repeated here for the copy-paste path):
 
 ```bash
-sh <(curl -L https://nixos.org/nix/install) --daemon
+sh <(curl -L https://releases.nixos.org/nix/nix-2.34.7/install) --daemon
 ```
 
 Then open a new shell (`exec bash -l`) and enable flakes per user:
