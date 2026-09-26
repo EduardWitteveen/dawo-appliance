@@ -46,18 +46,23 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 2 | Host install to disk (disko, gated by `--target-disk` + `--confirm-destroy`); no LUKS in v0.1 | Done, verified |
 | 2c | Upstream refresh: DAWO-Core 0.1.3, nixpkgs 26.05, mijn-bureau-infra 2026-07-27, ADR 0002/0003 | Done 2026-09-25 |
 | 3 | DAWO workplace (`profiles-dawo-generic`, Plasma) + KVM/libvirt, parity check, `nix run .#appliance-vm` | Built 2026-09-25, boot-tested; visual review pending |
-| 4 | Ubuntu 24.04 VM (libvirt + cloud-init) | Scaffolding |
-| 5 | Single-node K3s in the VM | Scaffolding |
-| 6 | Mijn Bureau (Helmfile) | Scaffolding, needs OQ-3 |
-| 7 | Health check + auto-open browser | Scaffolding, needs OQ-3 |
+| 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Written 2026-09-25; not boot-tested, guest never actually started |
+| 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`) | Built 2026-09-25; boot-test assertions written, not yet wired into `test-appliance-boot` |
+| 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Written 2026-09-25; not wired into the guest's cloud-init, never run |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Written 2026-09-25; no offline test yet, never run against a cluster |
+| 7 | Health check + auto-open browser, offline-tested | Written 2026-09-25; not wired into the host, never observed a real deployment |
 
 **What works today:** `dawo-appliance-installer.iso` boots, brings up
 networking, downloads and checksum-verifies the pinned manifest, prints the
 install plan, and installs the host to an explicitly confirmed disk. That host
 is the DAWO workplace (SDDM + KDE Plasma 6, the pilot app set, nl_NL, mandatory
 hardening) with KVM/libvirt and an optional install-time generated password.
-The VM, K3s, Mijn Bureau and the browser step (slices 4–7) are **not built
-yet**, and running them end-to-end needs a large host (see below).
+The VM, K3s, Mijn Bureau and the browser step (slices 4–7) have code and (for
+5 and 7) offline tests written, but **none of it has been boot-tested or run
+end-to-end**: no guest VM has ever been started, no K3s node has ever come up,
+Mijn Bureau has never been deployed, and the health check has never observed a
+real dashboard. Details and what's missing per slice: `docs/roadmap.md`.
+Running the full stack end-to-end also needs a large host (see below).
 
 ## Verification
 
@@ -154,7 +159,7 @@ pilot workplace, unchanged, plus additions ([ADR 0003](docs/adr/0003-workplace-p
 | `installer/` | Live installer ISO and the `dawo-appliance-bootstrap` command |
 | `hosts/appliance/` | The installed host: DAWO workplace + additions |
 | `hosts/profiles/disko/` | Explicit-target storage layout |
-| `vm/`, `k8s/`, `apps/`, `health/` | Scaffolding for slices 4–7 (VM, K3s, Mijn Bureau, health check) |
+| `vm/`, `k8s/`, `apps/`, `health/` | Slices 4–7 (VM, K3s, Mijn Bureau, health check): written and (for K3s and health) offline-tested, not yet boot-tested or run end-to-end |
 | `manifest/` | Pinned release manifest + checksum |
 | `scripts/` | `status.sh`, `verify.sh`, `speed-check.sh`, `screenshots.sh` |
 | `tests/` | Local dry-run test suite (no Nix, no root, no network) |
