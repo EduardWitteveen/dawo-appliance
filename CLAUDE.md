@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-Guidance for AI assistants (and humans) working in this repository.
+Guidance for Claude (and human operators) working in this repository.
+Universal standards for all AI coding agents are codified in [AGENTS.md](AGENTS.md) and ADR 0005 (`docs/adr/0005-ai-agent-conduct.md`).
 
 ## What this is
 
