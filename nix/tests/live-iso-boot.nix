@@ -35,7 +35,7 @@ pkgs.runCommand "live-iso-boot"
 
     SECONDS=0
     qemu-system-x86_64 \
-      -enable-kvm -cpu host -machine q35 -m 14336 -smp 6 \
+      -enable-kvm -cpu host -machine q35 -m 12288 -smp 6 \
       -drive if=pflash,format=raw,readonly=on,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd \
       -drive if=pflash,format=raw,file=vars.fd \
       -device qemu-xhci -drive if=none,id=stick,format=raw,readonly=on,file="$isofile" \
@@ -88,6 +88,10 @@ pkgs.runCommand "live-iso-boot"
     if [ "$result" != ok ]; then
       echo "FAIL: live boot result: $result; last console lines:"
       tail -n 60 serial.log | tr -d '\r' || true
+      if [ -n "$run" ]; then
+        echo "=== guest.txt from the DAWO_LOGS stick ==="
+        mtype -i logs.raw "$run/guest.txt" 2>/dev/null | tail -n 150 || true
+      fi
       exit 1
     fi
 

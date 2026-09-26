@@ -17,7 +17,8 @@
 #   DAWO_LOGS/dawo-appliance/<UTC boot time>_<boot id>/
 #     progress.txt   DAWO-LIVE stage lines with seconds since boot
 #     journal.txt    journalctl -b (the whole boot so far)
-#     guest.txt      guest status + the guest's cloud-init and K3s logs
+#     guest.txt      guest status, the guest's serial console, and its
+#                    cloud-init and K3s logs
 #     hardware.txt   model, firmware, CPU, memory, disks (once per boot)
 #
 # Experimental and unofficial. Not for production.
@@ -69,6 +70,10 @@ let
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
         /run/current-system/sw/bin/dawo-appliance-guest-status 2>&1 || true
+        echo "== guest serial console (tail)"
+        tail -n 200 /var/log/libvirt/qemu/dawo-appliance-mb-console.log 2>&1 || true
+        echo "== guest qemu log (tail)"
+        tail -n 40 /var/log/libvirt/qemu/dawo-appliance-mb.log 2>&1 || true
         key=/var/lib/dawo-appliance/ssh/id_ed25519
         if [ -r "$key" ]; then
           g() { timeout 20 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 "$@"; }
