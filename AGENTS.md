@@ -3,7 +3,7 @@
 Guidance and standards for AI coding assistants and agents working in this repository.
 
 > **Human maintainer note:** Conversation with the maintainer may be in Dutch.
-> All repository content—docs, code, comments, commit messages, and PRs—is strictly in **English** (except for a short Dutch preamble in the root `README.md`).
+> All technical repository content (code, architecture docs, PRs) is strictly in **English**. Documents explicitly for the target audience (municipal civil servants) are in **Dutch**.
 
 ---
 
@@ -21,7 +21,7 @@ It is **not** an official DAWO / Mijn Bureau / BZK distribution. Never imply it 
    - Issues, task backlogs, discussions, and decision tracking live exclusively on GitHub (`github.com/EduardWitteveen/dawo-appliance`).
    - Never create local scratch, todo, or issue markdown files in the repository for items that belong in GitHub issue tracker.
    - Never push directly to `main`, never force-push, never rewrite published history without maintainer approval.
-2. **Language:** All repository content is in **English**, with the sole exception of a targeted Dutch preamble for municipal civil servants at the top of the root `README.md`. (Conversations with the maintainer may be in Dutch.)
+2. **Language:** All technical repository content (code, Nix modules, tests, architecture ADRs) is strictly in **English**. The **sole exceptions** are documents explicitly written for the non-technical target audience (municipal civil servants, policy advisors, CISOs), which **must be in Dutch** (e.g., the `README.md` preamble, `docs/demo-script.md`, `docs/demo-hardware.md`). (Conversations with the maintainer may also be in Dutch.)
 3. **Keep upstream separate:** Consume DAWO-Core (`codeberg.org/DAWO/DAWO-Core`, flake input) and mijn-bureau-infra (`code.overheid.nl/MinBZK/mijn-bureau-infra`, documented install path) by pinned revision. Do **not** copy upstream source unless strictly necessary and license-permitted. Do not create a fork or submodule without first explaining why it is needed.
 4. **Pin everything:** Exact revisions, Nix inputs, K3s version, Helm chart versions, and container image digests live in version-controlled files (`manifest/appliance-manifest.json`, `flake.lock`). Never use `main`, `latest`, or floating tags in reproducible builds.
 5. **Never commit secrets:** No passwords, tokens, private keys, or generated secrets in Git. Secrets are generated at install time.
