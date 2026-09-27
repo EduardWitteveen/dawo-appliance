@@ -80,7 +80,16 @@ geïnstalleerd en kan Mijn Bureau niet worden uitgerold. Verbind met de wifi <b>
 fi
 
 if [ -s "${GUEST_SKIPPED}" ]; then
-  row "${warn}" "Virtuele machine" "niet gestart: $(esc "$(cat "${GUEST_SKIPPED}")")"
+  reason="$(cat "${GUEST_SKIPPED}")"
+  case "${reason}" in
+    "no /dev/kvm"*)
+      nl="hardwarevirtualisatie (VT-x/AMD-V) staat uit in de BIOS, of deze machine is zelf een virtuele machine" ;;
+    "not enough memory"*)
+      mib="$(printf '%s' "${reason}" | sed -n 's/.*has \([0-9]*\) MiB.*/\1/p')"
+      nl="te weinig geheugen (${mib:-?} MiB); nodig is ongeveer 9 GB of meer" ;;
+    *) nl="$(esc "${reason}")" ;;
+  esac
+  row "${warn}" "Virtuele machine" "niet gestart: ${nl}. De werkplek zelf werkt gewoon."
 else
   result="$("${SYSTEMCTL_BIN}" show -p Result --value "${GUEST_UNIT}" 2>/dev/null || echo unknown)"
   state="$("${SYSTEMCTL_BIN}" show -p ActiveState --value "${GUEST_UNIT}" 2>/dev/null || echo unknown)"
@@ -97,10 +106,9 @@ row "${warn}" "Mijn Bureau" "wordt in deze versie nog niet automatisch uitgerold
 
 debug_html=""
 if [ -e "${LIVE_MARKER}" ] && ! grep -qw 'dawo.debug=0' "${CMDLINE}" 2>/dev/null; then
-  row "${warn}" "Debug-modus" "aan (voorlopig standaard): elke 30 seconden een schermafbeelding en
-de systeemlogs gaan naar een USB-stick <tt>DAWO_LOGS</tt>, zodat de ontwikkelaars (ook Claude,
-de AI-assistent van dit project) kunnen debuggen. Alles op het scherm, ook wachtwoorden, komt op
-die stick. Niet voor definitief gebruik."
+  row "${warn}" "Debug-modus" "aan: schermafbeeldingen en logs gaan naar de USB-stick
+<tt>DAWO_LOGS</tt>, voor de ontwikkelaars (ook Claude, de AI-assistent). Ook wachtwoorden op het
+scherm. Alleen voor testen."
   debug_html=" Debug mode is on: screenshots and logs go to a DAWO_LOGS USB stick."
 fi
 

@@ -25,6 +25,11 @@ while IFS= read -r -d '' f; do
   if [ "$(tr -d '\000' <"$f" | wc -c)" -ne "$size" ]; then
     echo "FAIL: $f contains NUL bytes (UTF-16 or binary?)"; fail=1; continue
   fi
+  # Stray control characters (not tab, LF or ESC), e.g. a "\1" that a script
+  # turned into byte 0x01 inside a sed expression.
+  if LC_ALL=C grep -q $'[\x01-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f]' "$f"; then
+    echo "FAIL: $f contains control characters"; fail=1
+  fi
   if grep -q $'\r' "$f"; then
     echo "FAIL: $f has CRLF line endings"; fail=1
   fi

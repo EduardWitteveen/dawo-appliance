@@ -82,12 +82,25 @@ SECONDS=0
 FAKE_NET=down run 2
 d="${tmp}/dialog.2"
 if [ "$(grep -c -- '--msgbox' "$d")" = 1 ] && grep -q 'geen verbinding' "$d" \
-   && grep -q 'DawoDawo' "$d" && grep -q 'niet gestart: no /dev/kvm' "$d" \
+   && grep -q 'DawoDawo' "$d" && grep -q 'niet gestart: hardwarevirtualisatie' "$d" \
    && grep -q 'Debug-modus' "$d" && [ "${SECONDS}" -lt 20 ]; then
   ok "offline + guest skipped + live debug: internet warning with demo Wi-Fi, skip reason, debug line"
 else
   bad "offline + guest skipped + live debug (${SECONDS}s)"; cat "$d"
 fi
+
+# 2b. too little memory: Dutch reason with the amount.
+printf 'not enough memory: this machine has 7803 MiB; the guest needs at least 3 GiB next to 6144 MiB for the desktop
+' >"${tmp}/skip"
+FAKE_NET=up run 2b
+d="${tmp}/dialog.2b"
+if grep -q 'te weinig geheugen (7803 MiB)' "$d"; then
+  ok "guest skipped for memory: Dutch reason with the amount"
+else
+  bad "guest skipped for memory"; cat "$d"
+fi
+printf 'no /dev/kvm: virtualisation is off
+' >"${tmp}/skip"
 
 # 3. live USB booted with dawo.debug=0.
 printf 'quiet dawo.debug=0\n' >"${tmp}/cmdline"
