@@ -66,15 +66,15 @@ desktop keeps working.
 
 ## Data that survives a reboot
 
-With a `DAWO_LOGS` stick that has at least 12 GB free, the first live boot
-creates one file on it, `dawo-data.ext4` (up to 40 GB), and keeps the
-appliance's data there: the guest disk, its SSH key and the appliance CA. That
-first boot takes about two minutes longer; later boots reuse the file, so the
-guest starts faster and nothing is set up again (#109). The status window
-shows "Opslag: op de USB-stick". Without such a stick, or with too little
-room, everything stays in RAM and is gone after power-off, as before. The
-file is only ever created inside the `DAWO_LOGS` filesystem you prepared;
-nothing is partitioned or formatted.
+With a `DAWO_LOGS` stick that has at least 12 GB free, the appliance keeps its
+data there: a small file `dawo-data.ext4` (1 GB: the guest's SSH key, the
+appliance CA, the cloud-init seed) and a folder `dawo-images/` with the
+guest disk, which grows only as the guest writes to it. Later boots reuse
+both, so the guest starts faster and nothing is set up again (#109, #113).
+The status window shows "Opslag: op de USB-stick". Without such a stick, or
+with too little room, everything stays in RAM and is gone after power-off, as
+before. Nothing is ever partitioned or formatted: only files are created
+inside the `DAWO_LOGS` filesystem you prepared.
 
 ## Debug mode (default for now)
 

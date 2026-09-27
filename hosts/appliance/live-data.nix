@@ -3,12 +3,18 @@
 # Mijn Bureau needs ~15-20 GB of guest disk that survives a reboot, and the
 # guest SSH key and the appliance CA need Unix permissions that exFAT cannot
 # store. So, when a USB filesystem labelled DAWO_LOGS exists (the stick the
-# user prepared, docs/live-usb.md), this creates ONE FILE on it,
-# `dawo-data.ext4`, formats THAT FILE as ext4 and loop-mounts it at
-# /var/lib/dawo-appliance before any appliance service starts. Later boots
-# reuse the file (after an fsck). It never partitions or formats a disk
-# (AGENTS rule 7); it only writes a file into a filesystem the user created
-# for this appliance.
+# user prepared, docs/live-usb.md), this uses two things on it:
+#   - `dawo-data.ext4`, a SMALL file (1 GiB) formatted as ext4 and
+#     loop-mounted at /var/lib/dawo-appliance: SSH key, CA, seed;
+#   - the directory `dawo-images/`, bind-mounted at
+#     /var/lib/dawo-appliance/images: the guest's qcow2 disk, a plain file on
+#     exFAT that grows with actual use.
+# No large preallocated file (issue #113): on exFAT every write beyond the
+# valid data length zero-fills the gap, so a 40 GiB ext4 file meant ~40 GB of
+# zeros on the very stick the system runs from, which starved the Dell for
+# 15-20 minutes. Later boots reuse both (after an fsck of the small file). It
+# never partitions or formats a disk (AGENTS rule 7); it only writes files
+# into a filesystem the user created for this appliance.
 #
 # Without a DAWO_LOGS filesystem, or with too little room on it, nothing
 # changes: /var/lib/dawo-appliance stays on the RAM root, as before. The
@@ -24,7 +30,7 @@ let
 
   setup = pkgs.writeShellApplication {
     name = "dawo-appliance-data-setup";
-    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep e2fsprogs exfatprogs systemd ];
+    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep e2fsprogs exfatprogs systemd getent ];
     text = ''
       status=/run/dawo-appliance/data
       mkdir -p /run/dawo-appliance
@@ -46,23 +52,25 @@ let
 
       if ! mountpoint -q ${logsMnt}; then
         mkdir -p ${logsMnt}
-        mount "$dev" ${logsMnt} || ram "cannot mount DAWO_LOGS ($dev)"
+        # exFAT has no per-file owners or modes: owner root, group
+        # qemu-libvirtd, so libvirt's QEMU (uid qemu-libvirtd) can open the
+        # guest disk in dawo-images/, and nobody else can read the stick here.
+        qgid="$(getent group qemu-libvirtd | cut -d: -f3)"
+        mount -o "uid=0,gid=''${qgid:-0},fmask=0117,dmask=0007" "$dev" ${logsMnt} || ram "cannot mount DAWO_LOGS ($dev)"
       fi
+      freeg="$(( $(df --output=avail -B1 ${logsMnt} | tail -n1) / 1073741824 ))"
 
       file=${logsMnt}/dawo-data.ext4
+      rm -f "$file.new"   # left over from an interrupted first boot
       if [ ! -f "$file" ]; then
-        freeg="$(( $(df --output=avail -B1 ${logsMnt} | tail -n1) / 1073741824 ))"
-        size=${toString cfg.sizeGiB}
-        if [ "$((freeg - 2))" -lt "$size" ]; then size="$((freeg - 2))"; fi
-        if [ "$size" -lt ${toString cfg.minGiB} ]; then
-          ram "only ''${freeg} GiB free on DAWO_LOGS (need ${toString cfg.minGiB} GiB for dawo-data.ext4)"
+        if [ "$freeg" -lt ${toString cfg.minGiB} ]; then
+          ram "only ''${freeg} GiB free on DAWO_LOGS (need ${toString cfg.minGiB} GiB for the guest disk)"
         fi
-        say "creating $file (''${size} GiB) on DAWO_LOGS"
-        truncate -s "''${size}G" "$file.new"
-        say "file allocated; formatting"
-        mkfs.ext4 -q -F -L DAWO_DATA -m 0 -E lazy_itable_init=1,lazy_journal_init=1 "$file.new"
-        say "formatted"
+        say "creating $file (${toString cfg.stateMiB} MiB) on DAWO_LOGS"
+        truncate -s ${toString cfg.stateMiB}M "$file.new"
+        mkfs.ext4 -q -F -L DAWO_DATA -m 0 "$file.new"
         mv "$file.new" "$file"
+        say "formatted"
         created=yes
       else
         created=no
@@ -73,20 +81,24 @@ let
       loop="$(losetup -f --show "$file")"
       mkdir -p ${stateDir}
       mount -o noatime "$loop" ${stateDir}
+      # The guest disk: a plain, growing qcow2 file in dawo-images/ on the stick.
+      mkdir -p ${logsMnt}/dawo-images ${stateDir}/images
+      mount --bind ${logsMnt}/dawo-images ${stateDir}/images
       # Directories and modes the appliance's tmpfiles rules create under it.
       systemd-tmpfiles --create --prefix=${stateDir} || true
-      used="$(df --output=used -B1G ${stateDir} | tail -n1 | tr -d ' ')"
-      sizeg="$(df --output=size -B1G ${stateDir} | tail -n1 | tr -d ' ')"
+      imgg="$(du -s -BG ${logsMnt}/dawo-images 2>/dev/null | cut -f1 | tr -d G)"
       if [ "$created" = yes ]; then
-        echo "stick: created dawo-data.ext4 (''${sizeg} GiB)" > "$status"
+        echo "stick: created dawo-data.ext4 + dawo-images (''${freeg} GiB free)" > "$status"
       else
-        echo "stick: reused dawo-data.ext4 (''${used} of ''${sizeg} GiB used)" > "$status"
+        echo "stick: reused dawo-data.ext4 + dawo-images (guest disk ''${imgg:-0} GiB, ''${freeg} GiB free)" > "$status"
       fi
       say "$(cat "$status")"
     '';
   };
 
   teardown = pkgs.writeShellScript "dawo-appliance-data-teardown" ''
+    ${pkgs.coreutils}/bin/sync
+    ${pkgs.util-linux}/bin/mountpoint -q ${stateDir}/images && { ${pkgs.util-linux}/bin/umount ${stateDir}/images || ${pkgs.util-linux}/bin/umount -l ${stateDir}/images; }
     ${pkgs.util-linux}/bin/mountpoint -q ${stateDir} || exit 0
     dev="$(${pkgs.util-linux}/bin/findmnt -no SOURCE ${stateDir})"
     ${pkgs.coreutils}/bin/sync
@@ -108,15 +120,15 @@ let
 in
 {
   options.appliance.live.data = {
-    sizeGiB = lib.mkOption {
+    stateMiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 40;
-      description = "Size of dawo-data.ext4 on the DAWO_LOGS stick (smaller if the stick has less room).";
+      default = 1024;
+      description = "Size of dawo-data.ext4 (SSH key, CA, seed). Kept small: exFAT zero-fills a new file as it is written (#113).";
     };
     minGiB = lib.mkOption {
       type = lib.types.ints.positive;
       default = 12;
-      description = "Below this much room the data stays in RAM instead.";
+      description = "Free space on DAWO_LOGS needed for the guest disk to grow into; below it the data stays in RAM.";
     };
     waitSeconds = lib.mkOption {
       type = lib.types.ints.positive;
