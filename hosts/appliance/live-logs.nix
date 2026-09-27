@@ -72,6 +72,7 @@ let
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt" 2>&1 || true
+      if [ -z "''${DAWO_LOGS_FINAL:-}" ]; then
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
         echo "== nmcli connections"; nmcli -f NAME,TYPE,DEVICE,AUTOCONNECT,AUTOCONNECT-PRIORITY connection show 2>&1 || true
@@ -82,12 +83,14 @@ let
         echo "== internet (flathub)"; curl -sS -o /dev/null -w "%{http_code} %{time_total}s
 " --max-time 10 https://dl.flathub.org/repo/flathub.flatpakrepo 2>&1 || true
       } > "$dir/network.txt" 2>&1
+      fi
       # Desktop screenshots (each copied once; see `shots` above).
       for d in /run/user/*/dawo-shots; do
         [ -d "$d" ] || continue
         mkdir -p "$dir/screens"
         cp -n "$d"/*.png "$dir/screens/" 2>/dev/null || true
       done
+      if [ -z "''${DAWO_LOGS_FINAL:-}" ]; then
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
         /run/current-system/sw/bin/dawo-appliance-guest-status 2>&1 || true
@@ -104,6 +107,7 @@ let
           echo "== cloud-init-output.log (tail)"; g sudo tail -n 300 /var/log/cloud-init-output.log 2>&1 || true
         fi
       } > "$dir/guest.txt" 2>&1
+      fi
       sync
     '';
   };
@@ -163,6 +167,10 @@ in
       RemainAfterExit = true;
       ExecStart = "${pkgs.coreutils}/bin/true";
       ExecStop = "${collect}/bin/dawo-appliance-logs-collect";
+      # At shutdown the network and the guest are already going down: keep the
+      # last real network.txt/guest.txt instead of overwriting them with a
+      # "NetworkManager is not running" snapshot (seen on the Dynabook).
+      Environment = [ "DAWO_LOGS_FINAL=1" ];
     };
   };
   environment.systemPackages = [ collect ];

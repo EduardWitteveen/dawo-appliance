@@ -81,7 +81,7 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
 | 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Phases 1–7 ran on a real cluster 2026-09-26 (#8); phase 8 (`helmfile apply`) not yet judged: the only test machine nested the guest three levels deep. Mijn Bureau has not run yet |
 | 7 | Health check + auto-open browser, offline-tested | Runs on the desktop (seen in VirtualBox 2026-09-27); two start-up bugs fixed (#98, #100) and guarded by `checks.health-selfcontained`; never observed a real Mijn Bureau deployment |
-| Live | Live USB: boot an existing laptop, disk untouched, debug logs + screenshots on a `DAWO_LOGS` stick (ADR 0006, proposed; PR #96) | `test-live-iso-boot` green on KVM (desktop 19 s, guest 93 s, K3s 145 s); desktop verified in VirtualBox; guest sized to the machine or skipped with a reason (`docs/live-usb.md`) |
+| Live | Live USB: boot an existing laptop, disk untouched, debug logs + screenshots on a `DAWO_LOGS` stick (ADR 0006, proposed; PR #96) | `test-live-iso-boot` green on KVM (desktop 19 s, guest 93 s, K3s 145 s); desktop verified in VirtualBox; guest sized to the machine or skipped with a reason (`docs/live-usb.md`); real hardware 2026-09-27: Dell Latitude 5550 desktop 20 s, guest 30 s, K3s Ready 48 s on the demo Wi-Fi; Dynabook (8 GB) desktop 21 s, guest skipped as designed |
 
 **What works today:** `dawo-appliance-installer.iso` boots, brings up
 networking, downloads and checksum-verifies the pinned manifest, prints the
