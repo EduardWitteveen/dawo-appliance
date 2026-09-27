@@ -30,6 +30,7 @@ GUEST_SKIPPED="${WELCOME_GUEST_SKIPPED:-/run/dawo-appliance/guest-skipped}"
 GUEST_UNIT="${WELCOME_GUEST_UNIT:-dawo-appliance-guest.service}"
 CMDLINE="${WELCOME_CMDLINE:-/proc/cmdline}"
 LIVE_MARKER="${WELCOME_LIVE_MARKER:-/etc/dawo-appliance/live}"
+DATA_STATUS="${WELCOME_DATA_STATUS:-/run/dawo-appliance/data}"
 NET_URL="${WELCOME_NET_URL:-https://dl.flathub.org/repo/flathub.flatpakrepo}"
 CURL_BIN="${WELCOME_CURL:-curl}"
 SYSTEMCTL_BIN="${WELCOME_SYSTEMCTL:-systemctl}"
@@ -100,6 +101,14 @@ else
   else
     row "${warn}" "Virtuele machine" "kon niet starten (${result}); zie het systeemlogboek"
   fi
+fi
+
+if [ -e "${LIVE_MARKER}" ] && [ -s "${DATA_STATUS}" ]; then
+  data="$(cat "${DATA_STATUS}")"
+  case "${data}" in
+    stick:*) row "${ok}" "Opslag" "op de USB-stick, blijft bewaard (${data#stick: })" ;;
+    *) row "${warn}" "Opslag" "alleen in het werkgeheugen, weg na afsluiten: ${data#ram: }" ;;
+  esac
 fi
 
 row "${warn}" "Mijn Bureau" "wordt in deze versie nog niet automatisch uitgerold (in ontwikkeling)"

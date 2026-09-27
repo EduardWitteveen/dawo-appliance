@@ -109,6 +109,14 @@
         # "internal disk"; passes on the image's own DAWO-LIVE report and an
         # untouched disk (ADR 0006, #93). Needs KVM; ~10-20 min.
         #   nix build .#test-live-iso-boot -L
+        # The live stick keeps its data across boots (#109): two boots with
+        # the same 48 GiB exFAT DAWO_LOGS stick. Needs KVM; ~20-25 min.
+        #   nix build .#test-live-iso-persist -L
+        test-live-iso-persist = import ./nix/tests/live-iso-persist.nix {
+          inherit pkgs;
+          iso = self.packages.${system}.appliance-live-iso;
+        };
+
         test-live-iso-boot = import ./nix/tests/live-iso-boot.nix {
           inherit pkgs;
           iso = self.packages.${system}.appliance-live-iso;

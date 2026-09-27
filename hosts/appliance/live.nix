@@ -50,6 +50,9 @@ let
         if [ -w /dev/ttyS0 ]; then echo "$line" > /dev/ttyS0 2>/dev/null || true; fi
       }
       say "report started"
+      # Where the appliance data lives (live-data.nix, #109).
+      for _ in $(seq 1 60); do [ -s /run/dawo-appliance/data ] && break; sleep 1; done
+      say "data: $(cat /run/dawo-appliance/data 2>/dev/null || echo unknown)"
       if [ ! -e /dev/kvm ]; then
         # Real laptops often ship with VT-x/AMD-V disabled; a VM host may not
         # pass virtualisation through (VirtualBox on a Hyper-V host).
@@ -95,6 +98,7 @@ in
     "${modulesPath}/installer/cd-dvd/iso-image.nix"
     ../../installer/live-payload.nix
     ./live-logs.nix
+    ./live-data.nix
   ];
 
   image.baseName = lib.mkForce "dawo-appliance-live";
