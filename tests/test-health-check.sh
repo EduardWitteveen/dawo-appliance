@@ -26,6 +26,7 @@
 #   7. dns-wrong: FAIL on the dns line
 #   8. open-dashboard (ok): opens the dashboard URL with the fake xdg-open, no dialog
 #   9. open-dashboard (certs-pending, timeout 1): no browser, kdialog names the check
+#  11. open-dashboard (guest skipped): immediate dialog with the reason, no browser
 #  10. curl was always called with --cacert <CA>
 
 set -euo pipefail
@@ -280,6 +281,8 @@ export FAKE_SCENARIO=ok
 export DASHBOARD_XDG_OPEN="${fakes}/xdg-open"
 export DASHBOARD_KDIALOG="${fakes}/kdialog"
 export DASHBOARD_LOG="${tmp}/dashboard.log"
+export DASHBOARD_GUEST_SKIPPED="${tmp}/no-such-guest-skipped"
+export DASHBOARD_GUEST_UNIT="dawo-test-no-such-unit.service"
 rc=0
 out="$(bash "${OPENER}" 2>&1)" || rc=$?
 if [ "${rc}" -eq 0 ] \
@@ -304,6 +307,22 @@ else
   bad "open-dashboard unhealthy (rc=${rc})"; show "${out}"; show "$(cat "${state}/kdialog.log" 2>/dev/null)"
 fi
 unset DASHBOARD_TIMEOUT
+
+# --- 11. open-dashboard: guest deliberately skipped -> immediate dialog ------
+reset_state
+export FAKE_SCENARIO=ok
+printf '%s
+' "no /dev/kvm: hardware virtualisation is off" > "${tmp}/guest-skipped"
+export DASHBOARD_GUEST_SKIPPED="${tmp}/guest-skipped"
+rc=0
+SECONDS=0
+out="$(bash "${OPENER}" 2>&1)" || rc=$?
+if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] && [ "${SECONDS}" -lt 30 ]    && grep -q 'no /dev/kvm' "${state}/kdialog.log" 2>/dev/null; then
+  ok "open-dashboard: guest skipped -> immediate dialog with the reason, no browser"
+else
+  bad "open-dashboard guest skipped (rc=${rc}, ${SECONDS}s)"; show "${out}"; show "$(cat "${state}/kdialog.log" 2>/dev/null)"
+fi
+export DASHBOARD_GUEST_SKIPPED="${tmp}/no-such-guest-skipped"
 
 # --- 10. curl always got the CA ------------------------------------------------
 reset_state
