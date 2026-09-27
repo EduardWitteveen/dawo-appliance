@@ -98,6 +98,10 @@ in
   ];
 
   image.baseName = lib.mkForce "dawo-appliance-live";
+  # Boot menu: "DAWO appliance live — NixOS <version>", and the debug entry
+  # (specialisation below) says what it does.
+  isoImage.prependToMenuLabel = "DAWO appliance live — ";
+  isoImage.appendToMenuLabel = " — DEBUG (default for now): logs + screenshots to USB";
   isoImage.volumeID = lib.mkForce "DAWO_LIVE";
   # Boot from USB sticks and DVDs on both UEFI and legacy BIOS machines.
   isoImage.makeEfiBootable = true;
@@ -154,6 +158,17 @@ in
     ""
     "${pkgs.bash}/bin/bash -c 'umask 0077 && mkdir -p /var/lib/libvirt/secrets && (${pkgs.coreutils}/bin/dd if=/dev/random status=none bs=32 count=1 | ${config.systemd.package}/bin/systemd-creds encrypt --with-key=host --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key)'"
   ];
+
+  # Debug is the DEFAULT for now (maintainer, 2026-09-27: not stable enough
+  # yet): desktop screenshots every 30 s plus the logs go to a DAWO_LOGS
+  # stick (live-logs.nix), announced by a dialog at login. The second boot
+  # menu entry turns the screenshots off (dawo.debug=0); the text logs still
+  # go to a DAWO_LOGS stick when one is present.
+  specialisation.nodebug.configuration = {
+    boot.kernelParams = [ "dawo.debug=0" ];
+    isoImage.appendToMenuLabel = lib.mkForce "";
+    isoImage.configurationName = "— without debug screenshots";
+  };
 
   system.stateVersion = lib.mkDefault "26.05";
 }
