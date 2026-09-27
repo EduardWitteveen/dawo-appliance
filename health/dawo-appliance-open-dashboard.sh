@@ -34,10 +34,37 @@ TIMEOUT="${DASHBOARD_TIMEOUT:-1800}"
 OPEN_BIN="${DASHBOARD_XDG_OPEN:-xdg-open}"
 KDIALOG_BIN="${DASHBOARD_KDIALOG:-kdialog}"
 LOG="${DASHBOARD_LOG:-/dev/null}"
+# Written by dawo-appliance-guest.service when it deliberately does not start
+# the guest (appliance.guest.fitToHost: no /dev/kvm, too little RAM).
+GUEST_SKIPPED="${DASHBOARD_GUEST_SKIPPED:-/run/dawo-appliance/guest-skipped}"
+GUEST_UNIT="${DASHBOARD_GUEST_UNIT:-dawo-appliance-guest.service}"
 
 html_escape() {
   printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
 }
+
+# Wait (bounded) until the guest unit has finished, so a deliberate skip is
+# known before the long health wait; then say so at once instead of after
+# ${TIMEOUT} seconds.
+for _ in $(seq 1 60); do
+  st="$(systemctl show -p ActiveState --value "${GUEST_UNIT}" 2>/dev/null || echo unknown)"
+  [ "${st}" = activating ] || break
+  sleep 5
+done
+if [ -s "${GUEST_SKIPPED}" ]; then
+  reason="$(cat "${GUEST_SKIPPED}")"
+  echo "dawo-appliance: the Mijn Bureau guest was not started: ${reason}" >&2
+  "${KDIALOG_BIN}"     --title "DAWO appliance (experimenteel / experimental)"     --icon dialog-information     --sorry "<h3>Mijn Bureau kan op deze machine niet starten</h3>
+<p>De virtuele machine voor Mijn Bureau is niet gestart:</p>
+<pre>$(html_escape "${reason}")</pre>
+<p>De DAWO-werkplek zelf werkt gewoon. Voor Mijn Bureau is een machine nodig
+met hardwarevirtualisatie (VT-x/AMD-V aan in de BIOS) en genoeg geheugen.</p>
+<hr/>
+<p><small>English: the Mijn Bureau VM was not started (see above). The DAWO
+workplace itself works; Mijn Bureau needs hardware virtualisation and enough
+memory.</small></p>"     >/dev/null 2>&1 || true
+  exit 1
+fi
 
 report=""
 rc=0

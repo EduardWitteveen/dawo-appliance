@@ -272,6 +272,32 @@ in
       description = "Flag the domain for libvirt autostart and start it from dawo-appliance-guest.service.";
     };
 
+    fitToHost = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Size the guest to the machine at boot (the live USB, ADR 0006, runs on
+        whatever laptop it is plugged into): at most `memoryGiB`, but never
+        more than the RAM left after `hostReserveMiB` for the desktop, and at
+        most one vCPU less than the host has. When there is no /dev/kvm or
+        less than `minMemoryGiB` would be left, the guest is not started and
+        the reason is written to /run/dawo-appliance/guest-skipped instead of
+        failing the unit.
+      '';
+    };
+
+    hostReserveMiB = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 6144;
+      description = "With fitToHost: RAM kept for the host (desktop, browser, tmpfs root).";
+    };
+
+    minMemoryGiB = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 3;
+      description = "With fitToHost: smallest guest worth starting (Ubuntu plus single-node K3s).";
+    };
+
     caCertFile = lib.mkOption {
       type = lib.types.str;
       default = "${stateDir}/ca/ca.crt";
@@ -624,6 +650,36 @@ in
         # 4. The libvirt domain, redefined only when its XML changes (keeping
         #    the UUID libvirt assigned the first time).
         xml=${domainXml}
+        ${lib.optionalString cfg.fitToHost ''
+          # fitToHost (live USB, ADR 0006): size the guest to this machine,
+          # or skip it with a reason the report and the opener can show.
+          mkdir -p /run/dawo-appliance
+          rm -f /run/dawo-appliance/guest-skipped
+          skip() {
+            echo "$1" > /run/dawo-appliance/guest-skipped
+            echo "dawo-appliance-guest: not starting $name: $1" >&2
+            exit 0
+          }
+          if [ ! -e /dev/kvm ]; then
+            skip "no /dev/kvm: hardware virtualisation (VT-x/AMD-V) is off in the firmware, or this machine is itself a VM that does not pass it through"
+          fi
+          memMiB="$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+          fitGiB="$(( (memMiB - ${toString cfg.hostReserveMiB}) / 1024 ))"
+          mem=${toString cfg.memoryGiB}
+          if [ "$fitGiB" -lt "$mem" ]; then mem="$fitGiB"; fi
+          if [ "$mem" -lt ${toString cfg.minMemoryGiB} ]; then
+            skip "not enough memory: this machine has $memMiB MiB; the guest needs at least ${toString cfg.minMemoryGiB} GiB next to ${toString cfg.hostReserveMiB} MiB for the desktop"
+          fi
+          ncpu="$(nproc)"
+          vcpu=${toString cfg.vcpus}
+          if [ "$((ncpu - 1))" -lt "$vcpu" ]; then vcpu="$((ncpu - 1))"; fi
+          if [ "$vcpu" -lt 1 ]; then vcpu=1; fi
+          sed -e "s|<memory unit='GiB'>[0-9]*</memory>|<memory unit='GiB'>$mem</memory>|" \
+              -e "s|<vcpu placement='static'>[0-9]*</vcpu>|<vcpu placement='static'>$vcpu</vcpu>|" \
+              ${domainXml} > "$tmp/domain-fit.xml"
+          xml="$tmp/domain-fit.xml"
+          echo "dawo-appliance-guest: fitted to this machine: $vcpu vCPU, $mem GiB (host: $ncpu CPUs, $memMiB MiB)"
+        ''}
         dstamp=${guestDir}/domain.xml.sha256
         dwant="$(sha256sum "$xml" | cut -d' ' -f1)"
         if virsh dominfo "$name" >/dev/null 2>&1; then

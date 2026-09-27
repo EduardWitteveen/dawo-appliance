@@ -59,7 +59,16 @@ let
       g() { ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 "$@"; }
       deadline=$(( $(up) + ''${DAWO_LIVE_REPORT_TIMEOUT:-1800} ))
       desktop=no; guest=no; k3s=no
+      skipped=""
       while [ "$(up)" -lt "$deadline" ]; do
+        if [ -z "$skipped" ] && [ -s /run/dawo-appliance/guest-skipped ]; then
+          skipped="$(cat /run/dawo-appliance/guest-skipped)"
+          say "guest skipped: $skipped"
+        fi
+        if [ -n "$skipped" ] && [ "$desktop" = yes ]; then
+          say "DONE ok (desktop only; guest skipped)"
+          exit 0
+        fi
         if [ "$desktop" = no ] && pgrep -u dawo -f plasmashell >/dev/null; then
           desktop=yes; say "desktop ready (plasma session for dawo)"
         fi
@@ -112,6 +121,9 @@ in
     memoryGiB = lib.mkForce 8;
     autostart = lib.mkForce true;
     imageOverride = pinnedImage;
+    # Whatever laptop the stick is plugged into: size the guest to it, or
+    # skip it with a reason (no VT-x, too little RAM) instead of failing.
+    fitToHost = true;
   };
 
   # Messages on the laptop screen (tty0, last = the primary console) and on a
