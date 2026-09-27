@@ -73,6 +73,14 @@ pkgs.runCommand "live-iso-persist"
       || { echo "FAIL: boot 1 did not create dawo-data.ext4 on the stick"; exit 1; }
     grep -a -q "DAWO-LIVE: k3s node ready" serial1.log \
       || { echo "FAIL: boot 1: no K3s"; exit 1; }
+    # The data setup must be quick: a large preallocated file on exFAT meant
+    # ~40 GB of zero-fill on the boot stick (issue #113). The report prints
+    # the data line as soon as the setup is done.
+    t_data="$(grep -a "DAWO-LIVE: data: stick: created" serial1.log | head -n1 | grep -o 't=[0-9]*s' | tr -dc '0-9')"
+    echo "boot 1: data setup finished at t=''${t_data}s"
+    if [ -z "$t_data" ] || [ "$t_data" -gt 60 ]; then
+      echo "FAIL: boot 1: the data setup took too long (t=''${t_data}s > 60s)"; exit 1
+    fi
 
     boot 2
     grep -a -q "DAWO-LIVE: data: stick: reused" serial2.log \
