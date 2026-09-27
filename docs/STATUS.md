@@ -11,11 +11,35 @@ Bureau / BZK distribution (`AGENTS.md`).
 
 ## Now
 
+**Handoff 2026-09-27 (Claude session on the KVM laptop):**
+
+- **ADR 0006 accepted; the live USB is the default medium** (PRs #94, #96
+  merged by the maintainer). `.#appliance-live-iso` boots an existing
+  laptop, never writes its disk, and writes logs to a `DAWO_LOGS` USB
+  filesystem. User guide: `docs/live-usb.md`.
+- **Debug mode is the default boot entry for now**: a login dialog says so;
+  a desktop screenshot every 30 s goes to `DAWO_LOGS`; each boot gets its
+  own folder (verified with three VirtualBox boots). The second entry turns
+  the screenshots off.
+- **The guest adapts to the machine** (`appliance.guest.fitToHost`): sized
+  to the RAM and CPUs, or skipped with a reason when there is no `/dev/kvm`
+  or too little memory. The report and a login dialog say why.
+- **Verified:** KVM `test-live-iso-boot` (desktop 19 s, guest 107 s, K3s
+  Ready 174 s, internal disk unchanged, logs on the stick); VirtualBox
+  8 GB / 2 CPUs (desktop about 45 s, guest skipped because Hyper-V blocks
+  VT-x there); `test-appliance-boot`; `checks.health-selfcontained`;
+  `tests/test-health-check.sh` 11/11.
+- **The maintainer's SanDisk stick** holds this build (sha256 `6345b3f0…`)
+  with `DAWO_LOGS` after the image. Next: an older, lighter laptop boots
+  from it; read `DAWO_LOGS/dawo-appliance/*` afterwards.
+- **Next:** Mijn Bureau needs a data partition on the stick and the laptop
+  profile (ADR 0006 follow-ups; #8). A tool to write the stick safely (#97).
+
 **Handoff 2026-09-26 (evening, Claude session on the KVM laptop):**
 
 - **K3s runs in the guest** (air-gap install, #7, PR #77): node Ready about
   145 s after the guest starts; `test-guest-boot` asserts it.
-- **Live USB first** (maintainer's direction; ADR 0006 *Proposed* in PR #94,
+- **Live USB first** (superseded by the 2026-09-27 handoff above; ADR 0006 was *Proposed* in PR #94,
   not merged): PR #96 (open, awaiting ADR review) adds
   `.#appliance-live-iso`. It boots an existing machine, never writes the
   internal disk, and writes debug logs to a `DAWO_LOGS` USB filesystem.
