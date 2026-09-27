@@ -21,6 +21,7 @@
 #                    cloud-init and K3s logs
 #     health.log     the desktop's health check and dashboard opener log
 #     hardware.txt   model, firmware, CPU, memory, disks (once per boot)
+#     screens/       debug mode (default for now): a screenshot every 30 s
 #
 # Experimental and unofficial. Not for production.
 { pkgs, ... }:
@@ -70,6 +71,12 @@ let
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt" 2>&1 || true
+      # Desktop screenshots (each copied once; see `shots` above).
+      for d in /run/user/*/dawo-shots; do
+        [ -d "$d" ] || continue
+        mkdir -p "$dir/screens"
+        cp -n "$d"/*.png "$dir/screens/" 2>/dev/null || true
+      done
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
         /run/current-system/sw/bin/dawo-appliance-guest-status 2>&1 || true
@@ -89,8 +96,52 @@ let
       sync
     '';
   };
+  # Debug mode (the default boot entry for now; off with dawo.debug=0): a
+  # screenshot of the desktop every 30 s (Spectacle, part of the DAWO
+  # workplace), kept in RAM (last 60) and copied to the stick by the collector
+  # below, for debugging and for documentation. Demo posture: anything on
+  # screen, including the welcome dialog's password, ends up on the stick.
+  shots = pkgs.writeShellScript "dawo-appliance-screenshots" ''
+    set -u
+    # Debug is on unless the boot entry says dawo.debug=0 (see live.nix).
+    if grep -qw dawo.debug=0 /proc/cmdline; then exit 0; fi
+    # Say clearly that this is a debug session (maintainer's requirement).
+    ${pkgs.kdePackages.kdialog}/bin/kdialog       --title "DAWO appliance — DEBUG-modus / debug mode"       --icon dialog-warning       --msgbox "<h3>Debug-modus</h3>
+    <p>Deze sessie draait in <b>debug-modus</b> (voorlopig standaard). Voor debuggen en
+    regressietests worden elke 30 seconden een <b>schermafbeelding</b> en
+    de <b>systeemlogs</b> naar de USB-stick <tt>DAWO_LOGS</tt> geschreven,
+    zodat de ontwikkelaar (ook Claude, de AI-assistent van dit project) kan
+    zien wat er gebeurde.</p>
+    <p><b>Niet bedoeld voor definitief gebruik.</b> Alles wat op het scherm
+    staat, ook wachtwoorden, komt op de stick. Kies in het opstartmenu
+    "without debug screenshots" als je dat niet wilt.</p>
+    <hr/>
+    <p><small>English: debug mode. A screenshot every 30 s and the system
+    logs are written to the DAWO_LOGS USB stick so the developers (including
+    Claude, the project's AI assistant) can debug. Not for real use: anything
+    on screen, passwords included, ends up on the stick.</small></p>"       >/dev/null 2>&1 &
+    dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dawo-shots"
+    mkdir -p "$dir"
+    sleep 20
+    while true; do
+      ${pkgs.kdePackages.spectacle}/bin/spectacle --background --nonotify --fullscreen         --output "$dir/$(date +%Y%m%dT%H%M%S).png" >/dev/null 2>&1 || true
+      ls -1t "$dir"/*.png 2>/dev/null | tail -n +61 | xargs -r rm -f
+      sleep 30
+    done
+  '';
 in
 {
+  environment.etc."xdg/autostart/dawo-appliance-screenshots.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=DAWO appliance debug screenshots
+    Comment=Debug mode (default for now): screenshot every 30 s for the DAWO_LOGS stick
+    Exec=${shots}
+    OnlyShowIn=KDE;
+    X-KDE-autostart-phase=2
+    NoDisplay=true
+  '';
+
   systemd.services.dawo-appliance-logs = {
     description = "Copy DAWO appliance debug logs to a DAWO_LOGS USB filesystem";
     serviceConfig = {

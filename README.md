@@ -79,8 +79,9 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Written 2026-09-25; not boot-tested, guest never actually started |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
-| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Written and offline-tested 2026-09-25 (`tests/test-mijnbureau-driver.sh`); never run against a cluster |
-| 7 | Health check + auto-open browser, offline-tested | Wired into the host 2026-09-25 (autostart, packaged scripts, group-readable guest SSH key); `nix flake check` passes; not boot-tested, never observed a real deployment |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Phases 1–7 ran on a real cluster 2026-09-26 (#8); phase 8 (`helmfile apply`) not yet judged: the only test machine nested the guest three levels deep. Mijn Bureau has not run yet |
+| 7 | Health check + auto-open browser, offline-tested | Runs on the desktop (seen in VirtualBox 2026-09-27); two start-up bugs fixed (#98, #100) and guarded by `checks.health-selfcontained`; never observed a real Mijn Bureau deployment |
+| Live | Live USB: boot an existing laptop, disk untouched, debug logs + screenshots on a `DAWO_LOGS` stick (ADR 0006, proposed; PR #96) | `test-live-iso-boot` green on KVM (desktop 19 s, guest 93 s, K3s 145 s); desktop verified in VirtualBox; guest sized to the machine or skipped with a reason (`docs/live-usb.md`) |
 
 **What works today:** `dawo-appliance-installer.iso` boots, brings up
 networking, downloads and checksum-verifies the pinned manifest, prints the
