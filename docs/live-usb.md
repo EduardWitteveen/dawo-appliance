@@ -106,14 +106,24 @@ Hand the stick (or that folder) back for debugging.
 1. **Have your BitLocker recovery key at hand** before changing anything:
    changing Secure Boot or the boot order can make Windows ask for it on its
    next start.
-2. Enter the firmware setup (Dell: press **F2** at power-on). Turn **Secure
-   Boot off** (the image is not signed) and make sure virtualisation is on.
+2. Enter the firmware setup (Dell: press **F2** at power-on; Toshiba /
+   Dynabook: **F2**). Turn **Secure Boot off** (the image is not signed) and
+   make sure virtualisation is on. On newer Dells the Secure Boot setting is
+   only visible after switching the setup to its **Advanced** / expert view.
    A work laptop may have a BIOS password set by IT; then you need IT.
-3. Insert both sticks, power on and press the one-time boot menu key
-   (Dell: **F12**). Choose the boot stick (UEFI).
-4. The desktop appears after about a minute; the welcome dialog shows the
-   password. The guest and K3s follow within a few minutes (in the test VM:
-   desktop after 19 s, guest after 92 s, K3s Ready after 143 s).
+3. Insert the stick, power on and press the one-time boot menu key (Dell and
+   Toshiba / Dynabook: **F12**). Choose the stick under UEFI. From a running
+   Windows you can also use *Settings → System → Recovery → Advanced startup
+   → Use a device*.
+4. The one status window appears at login: login details, internet, virtual
+   machine, Mijn Bureau and debug mode. Measured on real hardware
+   (2026-09-27): a Dell Latitude 5550 (32 GB) showed the desktop after 20 s,
+   the guest after 30 s and K3s Ready after 48 s, and joined the demo Wi-Fi
+   by itself; a Dynabook Satellite Pro L50-G (8 GB) showed the desktop after
+   21 s and skipped the guest for lack of memory, as designed.
+5. **Take the stick out before you start Windows again.** Windows booting
+   with the stick inserted can end in its recovery screen (#104); remove the
+   stick and restart, nothing on the internal disk is changed.
 
 Afterwards: power off, remove the sticks, and turn Secure Boot back on.
 
