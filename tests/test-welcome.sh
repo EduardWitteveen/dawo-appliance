@@ -102,6 +102,21 @@ fi
 printf 'no /dev/kvm: virtualisation is off
 ' >"${tmp}/skip"
 
+# 2c. live USB storage line: on the stick vs RAM only.
+printf 'stick: reused dawo-data.ext4 (5 of 40 GiB used)
+' >"${tmp}/data"
+export WELCOME_DATA_STATUS="${tmp}/data"
+FAKE_NET=up run 2c
+d="${tmp}/dialog.2c"
+printf 'ram: no DAWO_LOGS stick found
+' >"${tmp}/data"
+FAKE_NET=up run 2d
+if grep -q 'op de USB-stick, blijft bewaard' "$d" && grep -q 'alleen in het werkgeheugen' "${tmp}/dialog.2d"; then
+  ok "live USB storage line: on the stick vs RAM only"
+else
+  bad "live USB storage line"; cat "$d" "${tmp}/dialog.2d"
+fi
+
 # 3. live USB booted with dawo.debug=0.
 printf 'quiet dawo.debug=0\n' >"${tmp}/cmdline"
 FAKE_NET=up run 3

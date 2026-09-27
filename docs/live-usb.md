@@ -64,6 +64,18 @@ left, the guest is **not started**: the report says why
 (`DAWO-LIVE: guest skipped: ...`) and a dialog explains it at login. The
 desktop keeps working.
 
+## Data that survives a reboot
+
+With a `DAWO_LOGS` stick that has at least 12 GB free, the first live boot
+creates one file on it, `dawo-data.ext4` (up to 40 GB), and keeps the
+appliance's data there: the guest disk, its SSH key and the appliance CA. That
+first boot takes about two minutes longer; later boots reuse the file, so the
+guest starts faster and nothing is set up again (#109). The status window
+shows "Opslag: op de USB-stick". Without such a stick, or with too little
+room, everything stays in RAM and is gone after power-off, as before. The
+file is only ever created inside the `DAWO_LOGS` filesystem you prepared;
+nothing is partitioned or formatted.
+
 ## Debug mode (default for now)
 
 The first boot menu entry, **"DAWO appliance live — … — DEBUG (default for
@@ -126,6 +138,17 @@ Hand the stick (or that folder) back for debugging.
    stick and restart, nothing on the internal disk is changed.
 
 Afterwards: power off, remove the sticks, and turn Secure Boot back on.
+
+### Per model (tested by the maintainer, 2026-09-27)
+
+| Machine | Firmware setup | Secure Boot off | Boot the stick |
+|---|---|---|---|
+| **Dell Latitude 5550** (current Dell BIOS UI) | power on, tap **F2** | Switch the setup to its **Advanced** view first (without it the change was refused: *"The changes to the Secure Boot configuration were not accepted"* and the old setting came back). Then **Boot Configuration → Secure Boot**: the blue toggle at the top, under *"For Secure Boot to be enabled…"*, from **ON** to **OFF** (not *Enable Microsoft UEFI CA*). **Apply Changes**, confirm, **Exit**. No admin password was needed | tap **F12** at the Dell logo → *One-Time Boot Menu* → the USB stick under **UEFI** |
+| **Toshiba / Dynabook Satellite Pro L50-G** | power on, hold **F2** | **Security → Secure Boot → Disabled**, **F10** to save. Without it: *"EFI USB device has been blocked by the current security policy"* | hold **F12** at power on → the USB stick |
+
+Windows asks for the BitLocker recovery key after a Secure Boot change only
+when BitLocker is on; check with `manage-bde -status C:` in an administrator
+command prompt (the maintainer's Dell: *Protection Off*).
 
 ## How this is tested
 
