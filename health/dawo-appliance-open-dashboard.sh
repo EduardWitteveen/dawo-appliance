@@ -6,9 +6,10 @@
 # Waits (bounded) for dawo-appliance-health.sh --wait, then opens the Mijn
 # Bureau dashboard in the user's default browser (xdg-open; Firefox on the
 # DAWO workplace, which trusts the appliance CA through its policy file). If
-# the deployment is not healthy within the timeout, a kdialog message lists
-# the checks that are still WAIT/FAIL instead of opening a browser that would
-# only show an error page.
+# the deployment is not healthy within the timeout, a desktop notification
+# names the checks that are still WAIT/FAIL instead of opening a browser that
+# would only show an error page. Notifications stack in the notification area;
+# the one status window at login is health/dawo-appliance-welcome.sh (#106).
 #
 # Meant to run as an XDG autostart entry of the `dawo` Plasma session (Slice 7;
 # see health/README.md for the .desktop entry). Runs as the logged-in user;
@@ -19,11 +20,12 @@
 #   DASHBOARD_TIMEOUT   seconds to wait for health (default 1800)
 #   DASHBOARD_HEALTH    path of the health script (default: next to this file)
 #   DASHBOARD_XDG_OPEN  browser opener (default xdg-open)
-#   DASHBOARD_KDIALOG   dialog command (default kdialog)
+#   DASHBOARD_NOTIFY    notification command (default notify-send)
 #   DASHBOARD_LOG       append the health progress to this file (default: none)
 #   HEALTH_*            passed through to the health script
 #
-# Exit codes: 0 dashboard opened, 1 not healthy in time (dialog shown),
+# Exit codes: 0 dashboard opened, 1 not healthy in time (notification sent)
+#             or the guest was deliberately skipped (the welcome window says why),
 #             2 the browser could not be started.
 set -euo pipefail
 
@@ -32,16 +34,12 @@ HEALTH="${DASHBOARD_HEALTH:-${here}/dawo-appliance-health.sh}"
 URL="${DASHBOARD_URL:-https://bureaublad.dawo.internal}"
 TIMEOUT="${DASHBOARD_TIMEOUT:-1800}"
 OPEN_BIN="${DASHBOARD_XDG_OPEN:-xdg-open}"
-KDIALOG_BIN="${DASHBOARD_KDIALOG:-kdialog}"
+NOTIFY_BIN="${DASHBOARD_NOTIFY:-notify-send}"
 LOG="${DASHBOARD_LOG:-/dev/null}"
 # Written by dawo-appliance-guest.service when it deliberately does not start
 # the guest (appliance.guest.fitToHost: no /dev/kvm, too little RAM).
 GUEST_SKIPPED="${DASHBOARD_GUEST_SKIPPED:-/run/dawo-appliance/guest-skipped}"
 GUEST_UNIT="${DASHBOARD_GUEST_UNIT:-dawo-appliance-guest.service}"
-
-html_escape() {
-  printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
-}
 
 # Wait (bounded) until the guest unit has finished, so a deliberate skip is
 # known before the long health wait; then say so at once instead of after
@@ -52,17 +50,8 @@ for _ in $(seq 1 60); do
   sleep 5
 done
 if [ -s "${GUEST_SKIPPED}" ]; then
-  reason="$(cat "${GUEST_SKIPPED}")"
-  echo "dawo-appliance: the Mijn Bureau guest was not started: ${reason}" >&2
-  "${KDIALOG_BIN}"     --title "DAWO appliance (experimenteel / experimental)"     --icon dialog-information     --sorry "<h3>Mijn Bureau kan op deze machine niet starten</h3>
-<p>De virtuele machine voor Mijn Bureau is niet gestart:</p>
-<pre>$(html_escape "${reason}")</pre>
-<p>De DAWO-werkplek zelf werkt gewoon. Voor Mijn Bureau is een machine nodig
-met hardwarevirtualisatie (VT-x/AMD-V aan in de BIOS) en genoeg geheugen.</p>
-<hr/>
-<p><small>English: the Mijn Bureau VM was not started (see above). The DAWO
-workplace itself works; Mijn Bureau needs hardware virtualisation and enough
-memory.</small></p>"     >/dev/null 2>&1 || true
+  # No window: the welcome/status window already shows the reason (#106).
+  echo "dawo-appliance: the Mijn Bureau guest was not started: $(cat "${GUEST_SKIPPED}")" >&2
   exit 1
 fi
 
@@ -95,16 +84,12 @@ fi
 echo "dawo-appliance: Mijn Bureau not healthy: ${why_en}:" >&2
 printf '%s\n' "${failing}" >&2
 
-"${KDIALOG_BIN}" \
-  --title "DAWO appliance (experimenteel / experimental)" \
-  --icon dialog-warning \
-  --sorry "<h3>Mijn Bureau is nog niet bereikbaar</h3>
-<p>${why_nl} De browser is daarom niet geopend. Nog niet in orde:</p>
-<pre>$(html_escape "${failing}")</pre>
-<p>Opnieuw controleren: <tt>dawo-appliance-health --once</tt>; daarna
-<tt>${URL}</tt> openen.</p>
-<hr/>
-<p><small>English: ${why_en}, so the dashboard was not opened. Re-check with <tt>dawo-appliance-health --once</tt>,
-then open <tt>${URL}</tt>.</small></p>" \
+summary="$(printf '%s\n' "${failing}" | head -n 3)"
+"${NOTIFY_BIN}" --app-name "DAWO appliance" --icon dialog-warning \
+  "Mijn Bureau is nog niet bereikbaar" \
+  "${why_nl} De browser is niet geopend. Nog niet in orde:
+${summary}
+Opnieuw controleren: dawo-appliance-health --once
+(English: ${why_en}; the dashboard was not opened.)" \
   >/dev/null 2>&1 || true
 exit 1

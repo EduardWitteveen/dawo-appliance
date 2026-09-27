@@ -148,6 +148,11 @@ in
   };
   environment.systemPackages = [ report ];
 
+  # Marker for the welcome/status window: this is the live USB, so it
+  # mentions debug mode (health/dawo-appliance-welcome.sh).
+  environment.etc."dawo-appliance/live".text = "live USB (ADR 0006)
+";
+
   # libvirt encrypts its secrets key with systemd-creds in "auto" mode, which
   # refuses on a live system: no TPM2 (or none usable) and the host key lives
   # on the tmpfs root ("TPM2 not available and host key located on temporary
@@ -168,6 +173,32 @@ in
     boot.kernelParams = [ "dawo.debug=0" ];
     isoImage.appendToMenuLabel = lib.mkForce "";
     isoImage.configurationName = "— without debug screenshots";
+  };
+
+  # Demo Wi-Fi (issue #105, maintainer 2026-09-27): every live boot starts
+  # without network, so DAWO's online app installs fail until someone types a
+  # Wi-Fi password. The image knows one demo network, e.g. a phone hotspot
+  # named "Dawo" with WPA2 password "DawoDawo". This is a deliberate, PUBLIC
+  # demo credential, not a secret (docs/deviations.md D27). Low priority: any
+  # network the user picks wins; anyone can offer a "Dawo" network, so this is
+  # for demos only (traffic to Mijn Bureau is TLS).
+  networking.networkmanager.ensureProfiles.profiles.dawo-demo = {
+    connection = {
+      id = "Dawo (demo)";
+      type = "wifi";
+      autoconnect = true;
+      autoconnect-priority = -10;
+    };
+    wifi = {
+      ssid = "Dawo";
+      mode = "infrastructure";
+    };
+    wifi-security = {
+      key-mgmt = "wpa-psk";
+      psk = "DawoDawo";
+    };
+    ipv4.method = "auto";
+    ipv6.method = "auto";
   };
 
   system.stateVersion = lib.mkDefault "26.05";
