@@ -1,6 +1,6 @@
 # ADR 0006: Live USB first, installing is optional
 
-- Status: Proposed (2026-09-26; maintainer chose the direction "live first, install if you want", details below await review)
+- Status: Accepted (2026-09-27, maintainer: live USB is the default medium, disk stays untouched; decision 4 — installing stays available on the live medium — is confirmed as sufficient for now, a more integrated install-from-live-USB flow is a later nice-to-have, not a blocker)
 - Date: 2026-09-26
 - Deciders: maintainer (eywitteveen)
 - Amends: ADR 0001 (decision 1, "online install") and ADR 0002 (the ISO is an installer)
@@ -31,7 +31,7 @@ Constraints measured or documented so far:
 - K3s' datastore and the application databases are sensitive to slow storage.
   A cheap USB 2/3 flash stick is too slow; a USB SSD is not.
 
-## Decision (proposed)
+## Decision
 
 1. **The default medium is a live USB with two partitions**, written once
    from a single image:
