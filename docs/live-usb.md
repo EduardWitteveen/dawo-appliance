@@ -42,6 +42,16 @@ On Windows, use [Rufus](https://rufus.ie): select the stick, select the ISO,
 and choose **"DD image"** mode when Rufus asks. Double-check the selected
 drive: Rufus erases it.
 
+## Internet: the demo Wi-Fi "Dawo"
+
+Every live boot starts without a known network. The image therefore knows
+one demo network: make a Wi-Fi hotspot (for example on your phone) named
+**`Dawo`** with password **`DawoDawo`** and security **WPA2** (older laptops
+may not support WPA3-only), and the laptop connects by itself. Any network
+you choose yourself takes precedence. This password is public (it is in this
+repository); use it for demos only (`docs/deviations.md` D27). A network
+cable works too.
+
 ## The guest adapts to the machine
 
 The stick runs on whatever laptop it is plugged into, so the guest is sized
@@ -86,6 +96,7 @@ Every 30 seconds, and once more at shutdown, it writes to
 | `guest.txt` | guest status, the guest's serial console, cloud-init and K3s logs |
 | `hardware.txt` | model, firmware, CPU, memory, disks |
 | `health.log` | the desktop health check and dashboard opener log |
+| `network.txt` | Wi-Fi/network connections, addresses, DNS, and whether flathub is reachable |
 | `screens/` | debug mode: a desktop screenshot every 30 seconds |
 
 Hand the stick (or that folder) back for debugging.

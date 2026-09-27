@@ -410,6 +410,9 @@
             timing["welcome dialog"] = time.time() - t_start
             # Give the software-rendered compositor time to actually paint.
             machine.sleep(60)
+            # One status window at login, not several (issue #106).
+            n_dialogs = int(machine.succeed("pgrep -u dawo -c -f 'kdialog' || true").strip() or "0")
+            assert n_dialogs == 1, f"expected exactly one kdialog window after login, found {n_dialogs}"
             machine.screenshot("desktop")
 
             # Timing report for docs (scripts/verify.sh and screenshots.sh read
@@ -496,7 +499,7 @@
               echo "FAIL: dawo-appliance-health is not self-contained (exit $rc)"; exit 1
             fi
             rc=0
-            env -i HOME=$TMPDIR PATH= DASHBOARD_TIMEOUT=2 DASHBOARD_KDIALOG=true               DASHBOARD_XDG_OPEN=true DASHBOARD_LOG=$TMPDIR/opener.log               ${opener}/bin/dawo-appliance-open-dashboard > o.out 2> o.err || rc=$?
+            env -i HOME=$TMPDIR PATH= DASHBOARD_TIMEOUT=2 DASHBOARD_NOTIFY=true               DASHBOARD_XDG_OPEN=true DASHBOARD_LOG=$TMPDIR/opener.log               ${opener}/bin/dawo-appliance-open-dashboard > o.out 2> o.err || rc=$?
             cat o.out o.err
             if [ "$rc" -ne 1 ] || ! grep -q "did not pass within" o.err; then
               echo "FAIL: the opener did not report a plain timeout (exit $rc)"; exit 1

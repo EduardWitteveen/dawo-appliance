@@ -63,6 +63,7 @@ let
     jq
     xdg-utils
     kdePackages.kdialog
+    libnotify
   ];
 
   health = pkgs.writeShellApplication {
@@ -89,33 +90,14 @@ let
     '' + builtins.readFile ../../health/dawo-appliance-open-dashboard.sh;
   };
 
-  welcome = pkgs.writeShellScript "dawo-appliance-welcome" ''
-    set -u
-    if [ -r ${passwordFile} ]; then
-      pw="$(tr -d '\n' < ${passwordFile})"
-    else
-      pw="dawo"
-    fi
-    ${pkgs.kdePackages.kdialog}/bin/kdialog \
-      --title "DAWO appliance (experimenteel / experimental)" \
-      --icon computer \
-      --msgbox "<h3>Welkom bij de DAWO appliance</h3>
-<p>Dit is een <b>experimentele, onofficiële demo-machine</b>: de DAWO-werkplek
-(zoals in de pilots) met daarnaast een virtuele machine voor Mijn Bureau.</p>
-<p><b>Ingelogd als:</b> dawo<br/>
-<b>Wachtwoord</b> (voor het schermslot en beheertaken): <tt>$pw</tt></p>
-<p>Mijn Bureau wordt na installatie automatisch uitgerold op de virtuele machine;
-zodra dat gereed is opent deze appliance het dashboard vanzelf in de browser.</p>
-<p><b>Niet voor productie.</b> Wachtwoorden staan leesbaar op deze machine en op
-het scherm; er is geen schijfversleuteling. Alleen voor demonstratie en
-evaluatie.</p>
-<hr/>
-<p><small>English: experimental, unofficial demo; logged in as <b>dawo</b>,
-password <tt>$pw</tt>; <b>not for production</b> (passwords readable, no disk
-encryption). Mijn Bureau is deployed automatically on the VM; this appliance
-opens the dashboard in the browser once it is healthy.</small></p>" \
-      >/dev/null 2>&1 || true
-  '';
+  # One welcome + status window at login (health/dawo-appliance-welcome.sh,
+  # issue #106): login details and a checklist (internet, virtual machine,
+  # Mijn Bureau, debug mode) instead of several separate dialogs.
+  welcome = pkgs.writeShellApplication {
+    name = "dawo-appliance-welcome";
+    runtimeInputs = with pkgs; [ coreutils gnused gnugrep curl systemd kdePackages.kdialog ];
+    text = builtins.readFile ../../health/dawo-appliance-welcome.sh;
+  };
 in
 {
   systemd.services.dawo-appliance-set-password = {
@@ -156,7 +138,7 @@ in
     Type=Application
     Name=DAWO appliance welcome
     Comment=Shows login details and the state of this demo appliance
-    Exec=${welcome}
+    Exec=${welcome}/bin/dawo-appliance-welcome
     OnlyShowIn=KDE;
     X-KDE-autostart-phase=2
   '';

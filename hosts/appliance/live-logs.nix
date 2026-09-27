@@ -20,6 +20,7 @@
 #     guest.txt      guest status, the guest's serial console, and its
 #                    cloud-init and K3s logs
 #     health.log     the desktop's health check and dashboard opener log
+#     network.txt    NetworkManager connections/devices, addresses, DNS, internet check
 #     hardware.txt   model, firmware, CPU, memory, disks (once per boot)
 #     screens/       debug mode (default for now): a screenshot every 30 s
 #
@@ -31,7 +32,7 @@ let
 
   collect = pkgs.writeShellApplication {
     name = "dawo-appliance-logs-collect";
-    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep procps systemd openssh dmidecode pciutils ];
+    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep procps systemd openssh dmidecode pciutils networkmanager iproute2 curl ];
     text = ''
       if ! mountpoint -q ${mnt}; then
         dev="$(blkid -L DAWO_LOGS 2>/dev/null || true)"
@@ -71,6 +72,16 @@ let
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt" 2>&1 || true
+      {
+        echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
+        echo "== nmcli connections"; nmcli -f NAME,TYPE,DEVICE,AUTOCONNECT,AUTOCONNECT-PRIORITY connection show 2>&1 || true
+        echo "== nmcli devices"; nmcli device status 2>&1 || true
+        echo "== addresses"; ip -brief address 2>&1 || true
+        echo "== routes"; ip route 2>&1 || true
+        echo "== dns"; resolvectl status 2>&1 | head -40 || true
+        echo "== internet (flathub)"; curl -sS -o /dev/null -w "%{http_code} %{time_total}s
+" --max-time 10 https://dl.flathub.org/repo/flathub.flatpakrepo 2>&1 || true
+      } > "$dir/network.txt" 2>&1
       # Desktop screenshots (each copied once; see `shots` above).
       for d in /run/user/*/dawo-shots; do
         [ -d "$d" ] || continue
@@ -105,21 +116,7 @@ let
     set -u
     # Debug is on unless the boot entry says dawo.debug=0 (see live.nix).
     if grep -qw dawo.debug=0 /proc/cmdline; then exit 0; fi
-    # Say clearly that this is a debug session (maintainer's requirement).
-    ${pkgs.kdePackages.kdialog}/bin/kdialog       --title "DAWO appliance — DEBUG-modus / debug mode"       --icon dialog-warning       --msgbox "<h3>Debug-modus</h3>
-    <p>Deze sessie draait in <b>debug-modus</b> (voorlopig standaard). Voor debuggen en
-    regressietests worden elke 30 seconden een <b>schermafbeelding</b> en
-    de <b>systeemlogs</b> naar de USB-stick <tt>DAWO_LOGS</tt> geschreven,
-    zodat de ontwikkelaar (ook Claude, de AI-assistent van dit project) kan
-    zien wat er gebeurde.</p>
-    <p><b>Niet bedoeld voor definitief gebruik.</b> Alles wat op het scherm
-    staat, ook wachtwoorden, komt op de stick. Kies in het opstartmenu
-    "without debug screenshots" als je dat niet wilt.</p>
-    <hr/>
-    <p><small>English: debug mode. A screenshot every 30 s and the system
-    logs are written to the DAWO_LOGS USB stick so the developers (including
-    Claude, the project's AI assistant) can debug. Not for real use: anything
-    on screen, passwords included, ends up on the stick.</small></p>"       >/dev/null 2>&1 &
+    # The welcome/status window says that debug mode is on (#106).
     dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dawo-shots"
     mkdir -p "$dir"
     sleep 20

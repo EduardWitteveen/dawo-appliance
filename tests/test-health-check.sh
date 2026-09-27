@@ -25,8 +25,8 @@
 #   6. certs-pending: --wait --timeout 1 exits 1 and reports the WAIT line
 #   7. dns-wrong: FAIL on the dns line
 #   8. open-dashboard (ok): opens the dashboard URL with the fake xdg-open, no dialog
-#   9. open-dashboard (certs-pending, timeout 1): no browser, kdialog names the check
-#  11. open-dashboard (guest skipped): immediate dialog with the reason, no browser
+#   9. open-dashboard (certs-pending, timeout 1): no browser, a notification names the check
+#  11. open-dashboard (guest skipped): exits at once, no window (the welcome window says why)
 #  10. curl was always called with --cacert <CA>
 
 set -euo pipefail
@@ -150,6 +150,11 @@ EOF
 cat >"${fakes}/kdialog" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${FAKE_STATE:?}/kdialog.log"
+EOF
+
+cat >"${fakes}/notify-send" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${FAKE_STATE:?}/notify.log"
 EOF
 
 chmod +x "${fakes}"/*
@@ -279,7 +284,7 @@ fi
 reset_state
 export FAKE_SCENARIO=ok
 export DASHBOARD_XDG_OPEN="${fakes}/xdg-open"
-export DASHBOARD_KDIALOG="${fakes}/kdialog"
+export DASHBOARD_NOTIFY="${fakes}/notify-send"
 export DASHBOARD_LOG="${tmp}/dashboard.log"
 export DASHBOARD_GUEST_SKIPPED="${tmp}/no-such-guest-skipped"
 export DASHBOARD_GUEST_UNIT="dawo-test-no-such-unit.service"
@@ -287,40 +292,43 @@ rc=0
 out="$(bash "${OPENER}" 2>&1)" || rc=$?
 if [ "${rc}" -eq 0 ] \
    && [ "$(cat "${state}/xdg-open.log" 2>/dev/null)" = "https://bureaublad.dawo.internal" ] \
-   && [ ! -e "${state}/kdialog.log" ]; then
-  ok "open-dashboard: healthy -> xdg-open https://bureaublad.dawo.internal, no dialog"
+   && [ ! -e "${state}/kdialog.log" ] && [ ! -e "${state}/notify.log" ]; then
+  ok "open-dashboard: healthy -> xdg-open https://bureaublad.dawo.internal, no dialog, no notification"
 else
   bad "open-dashboard healthy (rc=${rc})"; show "${out}"
 fi
 
-# --- 9. open-dashboard: unhealthy -> dialog, no browser ----------------------
+# --- 9. open-dashboard: unhealthy -> notification, no window, no browser -----
 reset_state
 export FAKE_SCENARIO=certs-pending
 export DASHBOARD_TIMEOUT=1
 rc=0
 out="$(bash "${OPENER}" 2>&1)" || rc=$?
-if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] \
-   && grep -q -- '--sorry' "${state}/kdialog.log" 2>/dev/null \
-   && grep -q 'WAIT certificates' "${state}/kdialog.log"; then
-  ok "open-dashboard: unhealthy -> kdialog names the WAIT check, browser not opened"
+if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] && [ ! -e "${state}/kdialog.log" ] \
+   && grep -q 'Mijn Bureau is nog niet bereikbaar' "${state}/notify.log" 2>/dev/null \
+   && grep -q 'WAIT certificates' "${state}/notify.log"; then
+  ok "open-dashboard: unhealthy -> notification names the WAIT check, no window, browser not opened"
 else
-  bad "open-dashboard unhealthy (rc=${rc})"; show "${out}"; show "$(cat "${state}/kdialog.log" 2>/dev/null)"
+  bad "open-dashboard unhealthy (rc=${rc})"; show "${out}"; show "$(cat "${state}/notify.log" 2>/dev/null)"
 fi
 unset DASHBOARD_TIMEOUT
 
-# --- 11. open-dashboard: guest deliberately skipped -> immediate dialog ------
+# --- 11. open-dashboard: guest deliberately skipped -> quiet, immediate exit --
+# The welcome/status window shows the reason (#106); the opener adds no
+# window and no notification of its own.
 reset_state
 export FAKE_SCENARIO=ok
-printf '%s
-' "no /dev/kvm: hardware virtualisation is off" > "${tmp}/guest-skipped"
+printf '%s\n' "no /dev/kvm: hardware virtualisation is off" > "${tmp}/guest-skipped"
 export DASHBOARD_GUEST_SKIPPED="${tmp}/guest-skipped"
 rc=0
 SECONDS=0
 out="$(bash "${OPENER}" 2>&1)" || rc=$?
-if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] && [ "${SECONDS}" -lt 30 ]    && grep -q 'no /dev/kvm' "${state}/kdialog.log" 2>/dev/null; then
-  ok "open-dashboard: guest skipped -> immediate dialog with the reason, no browser"
+if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] && [ "${SECONDS}" -lt 30 ] \
+   && [ ! -e "${state}/kdialog.log" ] && [ ! -e "${state}/notify.log" ] \
+   && printf '%s' "${out}" | grep -q 'no /dev/kvm'; then
+  ok "open-dashboard: guest skipped -> exits at once, logs the reason, no window, no browser"
 else
-  bad "open-dashboard guest skipped (rc=${rc}, ${SECONDS}s)"; show "${out}"; show "$(cat "${state}/kdialog.log" 2>/dev/null)"
+  bad "open-dashboard guest skipped (rc=${rc}, ${SECONDS}s)"; show "${out}"
 fi
 export DASHBOARD_GUEST_SKIPPED="${tmp}/no-such-guest-skipped"
 
