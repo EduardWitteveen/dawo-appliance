@@ -445,6 +445,7 @@
         packages = with pkgs; [
           git jq curl coreutils gnused gawk
           shellcheck shfmt gnumake
+          exfatprogs # scripts/make-dawo-logs-head.sh, tests/test-live-stick-tool.sh
           qemu_kvm
           nixpkgs-fmt
         ];
