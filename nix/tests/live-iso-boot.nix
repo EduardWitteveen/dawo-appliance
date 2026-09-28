@@ -33,9 +33,16 @@ pkgs.runCommand "live-iso-boot"
     cp ${pkgs.OVMF.fd}/FV/OVMF_VARS.fd vars.fd
     chmod u+w vars.fd
 
+    # The RTC in Dutch local time, as a laptop that also runs Windows keeps
+    # it (D28). There is no network time here, so the system clock must be
+    # right from the local-time warp alone (#124).
+    start_epoch="$(date -u +%s)"
+    rtc_local="$(TZDIR=${pkgs.tzdata}/share/zoneinfo TZ=Europe/Amsterdam date -d "@$start_epoch" +%Y-%m-%dT%H:%M:%S)"
+    echo "RTC set to $rtc_local (Europe/Amsterdam) for UTC epoch $start_epoch"
     SECONDS=0
     qemu-system-x86_64 \
       -enable-kvm -cpu host -machine q35 -m 12288 -smp 6 \
+      -rtc base="$rtc_local" \
       -drive if=pflash,format=raw,readonly=on,file=${pkgs.OVMF.fd}/FV/OVMF_CODE.fd \
       -drive if=pflash,format=raw,file=vars.fd \
       -device qemu-xhci -drive if=none,id=stick,format=raw,readonly=on,file="$isofile" \
@@ -66,6 +73,20 @@ pkgs.runCommand "live-iso-boot"
 
     echo "=== DAWO-LIVE lines (result: $result after ''${SECONDS}s) ==="
     grep -a "DAWO-LIVE:" serial.log || true
+
+    # The system clock at the report's start must match real UTC time (within
+    # 3 minutes); a 2 h error means the RTC local-time warp was undone (#124).
+    clk_line="$(grep -a -o "report started (clock [0-9]*) t=[0-9]*s" serial.log | head -n1 || true)"
+    clk="$(echo "$clk_line" | sed -n 's/.*clock \([0-9]*\)).*/\1/p')"
+    clk_t="$(echo "$clk_line" | sed -n 's/.*t=\([0-9]*\)s/\1/p')"
+    if [ -z "$clk" ] || [ -z "$clk_t" ]; then
+      echo "FAIL: no clock in the report line: '$clk_line'"; exit 1
+    fi
+    drift=$(( clk - (start_epoch + clk_t) )); [ "$drift" -lt 0 ] && drift=$(( -drift ))
+    echo "system clock off by ''${drift}s at t=''${clk_t}s (RTC in local time)"
+    if [ "$drift" -gt 180 ]; then
+      echo "FAIL: the system clock is ''${drift}s off; the RTC local-time warp did not hold (#124)"; exit 1
+    fi
 
     after="$(sha256sum < internal.raw)"
     if [ "$before" != "$after" ]; then
