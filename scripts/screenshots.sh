@@ -18,8 +18,9 @@
 # debug screenshot from the extracted DAWO_LOGS stick into the README:
 #   bash scripts/screenshots.sh --stick <session-dir> <screenshot.png> <dest.png> "<what it shows>"
 # <session-dir> is DAWO_LOGS/dawo-appliance/<UTC boot time>_<boot id>/ as
-# copied off the stick. The image is only cropped to its centre (16:9, full
-# height) and scaled to 1280 px wide, never retouched; a row with the
+# copied off the stick. The image is only cropped to 16:9 at full height (its
+# centre, or CROP_GRAVITY=west|east) and scaled to 1280 px wide, never
+# retouched; a row with the
 # session, machine model, capture time and the original's SHA-256 goes into
 # docs/screenshots/HARDWARE.md (generated; one row per dest image).
 set -euo pipefail
@@ -36,7 +37,11 @@ if [[ "${1:-}" == "--stick" ]]; then
   magick_bin="$(nix build --inputs-from "path:${PWD}" nixpkgs#imagemagick --no-link --print-out-paths --no-warn-dirty | tail -n1)/bin/magick"
   read -r w h < <("${magick_bin}" identify -format '%w %h\n' "${src}")
   cw=$(( h * 16 / 9 )); (( cw > w )) && cw="${w}"
-  "${magick_bin}" "${src}" -gravity center -crop "${cw}x${h}+0+0" +repage -resize 1280x -strip "${out_dir}/${dest}"
+  # CROP_GRAVITY=west|east keeps a window that is not in the middle of a
+  # wide screen (ImageMagick gravity; default center).
+  gravity="${CROP_GRAVITY:-center}"
+  [[ "${gravity}" =~ ^(center|west|east)$ ]] || { echo "CROP_GRAVITY must be center, west or east" >&2; exit 1; }
+  "${magick_bin}" "${src}" -gravity "${gravity}" -crop "${cw}x${h}+0+0" +repage -resize 1280x -strip "${out_dir}/${dest}"
   chmod 644 "${out_dir}/${dest}"
   echo "==> ${src} (${w}x${h}) → ${out_dir}/${dest} ($(stat -c %s "${out_dir}/${dest}") bytes)"
   hw="${out_dir}/HARDWARE.md"
