@@ -17,8 +17,8 @@ RAM, so nothing survives a reboot.
 | Item | Requirement |
 |---|---|
 | Laptop | x86-64 with virtualisation (VT-x / AMD-V) enabled in the firmware. The desktop runs on 8 GB; the guest needs at least 9 GB in total (6 GB stays for the desktop, 3 GB minimum for the guest); 16–32 GB recommended |
-| Boot stick | USB 3, at least 16 GB (the image is about 6.5 GB). Everything on it is erased |
-| Log stick (optional, recommended) | Any USB stick, formatted FAT32 or exFAT with the name `DAWO_LOGS`. Files on it are kept |
+| Boot stick | USB 3, at least 16 GB; 32 GB or more to keep the guest on it. The image takes about 7 GB; the rest becomes the `DAWO_LOGS` partition for logs, screenshots and data ("Writing the stick" below). Everything on it is erased the first time |
+| Second stick (optional) | Only when `DAWO_LOGS` is not on the boot stick: any USB stick formatted FAT32 or exFAT with the name `DAWO_LOGS`. Files on it are kept |
 
 ## 1. Build the image
 
@@ -36,11 +36,111 @@ You see one file, `dawo-appliance-live.iso`. To copy it to Windows:
 cp ~/live-iso/iso/dawo-appliance-live.iso /mnt/c/Users/$USER/Downloads/
 ```
 
-## 2. Write the boot stick
+## 2. Writing the stick
 
-On Windows, use [Rufus](https://rufus.ie): select the stick, select the ISO,
-and choose **"DD image"** mode when Rufus asks. Double-check the selected
-drive: Rufus erases it.
+The stick holds two things: the image at the start, and after it a partition
+`DAWO_LOGS` (exFAT) for the logs, the screenshots and the data that survives a
+reboot. Writing a newer image later keeps `DAWO_LOGS` and its files. Two
+tools do this, with the same result (#97):
+
+- Windows: `scripts\windows\dawo-stick.ps1`
+- Linux: `scripts/write-live-stick.sh`
+
+Both only show what they would do (`plan`) unless you add the confirmation
+flag, and both refuse a disk that is not USB or is too small. The layout: the
+ISO as is from byte 0; partition entry 3 of the MBR, type 0x07, starting 1 MiB
+after the end of the image (rounded up to a whole MiB), up to the end of the
+stick. Afterwards the tool checks the image area byte for byte against the
+ISO.
+
+**Never use Windows Disk Management (or `New-Partition`, or a "format this
+drive" prompt) on this stick.** Windows ignores the image's own partition
+entry and may create a partition over the image, which breaks it. If Windows
+offers to format a drive on the stick, choose *Cancel*. Windows does not show
+`DAWO_LOGS` at all; use the tool's `read` action to get the logs.
+
+### On Windows
+
+Open an **Administrator PowerShell window**: Start menu, type `PowerShell`,
+right-click *Windows PowerShell*, *Run as administrator*. The window title
+starts with *Administrator*. Type the commands there:
+
+```powershell
+cd C:\git\dawo-appliance
+Get-Disk        # find the stick: BusType USB, the right size; note its Number
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\dawo-stick.ps1 -DiskNumber 2
+```
+
+(`2` is an example: use the stick's number.) This is `plan`: it shows the
+disk, its partition entries, whether `DAWO_LOGS` is there and what `write` and
+`create` would do. It writes nothing. The ISO is taken from
+`Downloads\dawo-appliance-live.iso` (`-Iso <path>` for another one); when a
+`dawo-appliance-live.iso.sha256` file lies next to it, the ISO is checked
+against it first.
+
+**A new stick (or one without `DAWO_LOGS`): `create`.** Windows cannot format
+the partition, so its exFAT metadata is made in WSL first. `plan` prints the
+exact command with the partition size in bytes; in a WSL shell
+(`wsl -d Ubuntu-24.04`, the prompt ends in `$`):
+
+```bash
+cd /mnt/c/git/dawo-appliance
+nix develop -c bash scripts/make-dawo-logs-head.sh <size-from-plan> /mnt/c/Users/$USER/Downloads/dawo-logs-head.bin
+```
+
+Then, back in the Administrator PowerShell window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\dawo-stick.ps1 -Action create -DiskNumber 2 -ExfatHead $env:USERPROFILE\Downloads\dawo-logs-head.bin -ConfirmDestroy
+```
+
+This erases the whole stick, `DAWO_LOGS` included.
+
+**A newer image on a stick that has `DAWO_LOGS`: `write`.** The logs and data
+stay:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\dawo-stick.ps1 -Action write -DiskNumber 2 -ConfirmDestroy
+```
+
+**Get the logs and screenshots: `read`.** Read-only; copies
+`DAWO_LOGS\dawo-appliance\` to `Downloads\dawo-stick-logs\` (`-OutDir <path>`
+for another folder). The large data files (`dawo-data.ext4`, `dawo-images\`)
+are not copied.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\dawo-stick.ps1 -Action read -DiskNumber 2
+```
+
+How it gets past Windows: Windows silently drops raw writes to a region it
+treats as a volume. The tool therefore first sets the type of all four MBR
+entries to 0x00 (Windows then sees no partitions), writes the image from
+4 MiB on (and, for `create`, the exFAT metadata), and writes the first 4 MiB,
+with the real partition entries, last.
+
+### On Linux
+
+In a terminal on a Linux machine with the stick plugged in (WSL does not see
+USB sticks by default; use the Windows tool there). `create` needs
+`mkfs.exfat`: install `exfatprogs`, or use `nix develop` in this repository.
+
+```bash
+cd dawo-appliance
+lsblk -o NAME,SIZE,TRAN,MODEL      # find the stick: TRAN usb, e.g. /dev/sdb
+bash scripts/write-live-stick.sh --target /dev/sdb --iso ~/live-iso/iso/dawo-appliance-live.iso
+sudo bash scripts/write-live-stick.sh --action create --target /dev/sdb --iso ~/live-iso/iso/dawo-appliance-live.iso --confirm-destroy
+sudo bash scripts/write-live-stick.sh --action write --target /dev/sdb --iso ~/live-iso/iso/dawo-appliance-live.iso --confirm-destroy
+```
+
+The first line is `plan` (it may need `sudo` to read the stick), the second
+creates the stick with an empty `DAWO_LOGS`, the third writes a newer image
+and keeps `DAWO_LOGS`. Inside `nix develop`, use
+`sudo env "PATH=$PATH" bash scripts/write-live-stick.sh ...` so that `sudo`
+finds `mkfs.exfat`. Unmount the stick first; the tool refuses a mounted one.
+Linux reads `DAWO_LOGS` like any exFAT stick, so no `read` action is needed.
+
+Both tools also accept a disk image file instead of a disk (`-ImagePath` /
+`--target <file>`), which is how `tests/test-live-stick-tool.sh` tests them.
 
 ## Internet: the demo Wi-Fi "Dawo"
 
@@ -66,7 +166,8 @@ desktop keeps working.
 
 ## Data that survives a reboot
 
-With a `DAWO_LOGS` stick that has at least 12 GB free, the appliance keeps its
+With a `DAWO_LOGS` partition (on the boot stick) or stick that has at least
+12 GB free, the appliance keeps its
 data there: a small file `dawo-data.ext4` (1 GB: the guest's SSH key, the
 appliance CA, the cloud-init seed) and a folder `dawo-images/` with the
 guest disk, which grows only as the guest writes to it. Later boots reuse
@@ -74,7 +175,7 @@ both, so the guest starts faster and nothing is set up again (#109, #113).
 The status window shows "Opslag: op de USB-stick". Without such a stick, or
 with too little room, everything stays in RAM and is gone after power-off, as
 before. Nothing is ever partitioned or formatted: only files are created
-inside the `DAWO_LOGS` filesystem you prepared.
+inside the `DAWO_LOGS` filesystem you prepared (section 2).
 
 ## Debug mode (default for now)
 
@@ -91,10 +192,12 @@ go to a `DAWO_LOGS` stick when one is present.
 
 Every boot gets its own folder, so repeated boots can be compared.
 
-## 3. Prepare the log stick (for debugging)
+## 3. The logs on `DAWO_LOGS` (for debugging)
 
-In Windows Explorer, right-click the second stick, choose *Format*, file
-system FAT32 or exFAT, volume label `DAWO_LOGS`. The appliance only writes
+`DAWO_LOGS` is normally the partition on the boot stick (section 2). Without
+it, a second stick works too: in Windows Explorer, right-click that stick,
+choose *Format*, file system FAT32 or exFAT, volume label `DAWO_LOGS` (only
+for that second stick, never for the boot stick). The appliance only writes
 files into that existing filesystem; it never partitions or formats anything
 itself.
 
@@ -111,7 +214,8 @@ Every 30 seconds, and once more at shutdown, it writes to
 | `network.txt` | Wi-Fi/network connections, addresses, DNS, and whether flathub is reachable |
 | `screens/` | debug mode: a desktop screenshot every 30 seconds |
 
-Hand the stick (or that folder) back for debugging.
+Hand the stick (or that folder) back for debugging. On Windows, copy the
+folder off the boot stick with `dawo-stick.ps1 -Action read` (section 2).
 
 ## 4. Firmware settings and booting
 
@@ -167,4 +271,5 @@ report, the logs and the screenshots. On a Windows host with Hyper-V active
 is skipped there by design. Use bare metal or the KVM test for the guest.
 
 Never use Windows Disk Management on the live stick: Windows ignores the
-image's partition entry and may create a partition over the image (#97).
+image's partition entry and may create a partition over the image (#97). Use
+the tools in section 2.
