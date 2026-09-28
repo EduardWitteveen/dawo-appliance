@@ -597,6 +597,14 @@ application:
   docs:        { enabled: $(app_enabled docs), namespace: mb-docs }
   bureaublad:  { enabled: true, namespace: mb-bureaublad }
 
+# Upstream defaults backup.enabled to true (environments/default/backup.yaml),
+# which installs openproject-backups even with OpenProject disabled; it needs
+# the Velero operator and S3 storage, which the appliance does not have (and
+# v0.1 has no backups). Without Velero's CRDs, helmfile apply fails (#127, U-row
+# in docs/deviations.md).
+backup:
+  enabled: false
+
 authentication:
   oidc:
     issuer: "https://id.${MB_DOMAIN}/realms/mijnbureau"
