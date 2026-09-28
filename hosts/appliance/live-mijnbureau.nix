@@ -67,9 +67,11 @@ let
       # powered off (#119). Make it reboot itself instead (persistent, and
       # now); wait_guest below then waits for it to come back.
       # One string: ssh joins its arguments, the guest's shell parses them.
-      g "sudo sh -c 'printf \"kernel.panic_on_oops = 1\nkernel.panic = 10\n\" > /etc/sysctl.d/90-dawo-appliance-panic.conf && sysctl -q -p /etc/sysctl.d/90-dawo-appliance-panic.conf'" \
-        && log "guest: reboots itself after a kernel oops (panic_on_oops=1, panic=10)" \
-        || log "guest: could not set panic_on_oops"
+      if g "sudo sh -c 'printf \"kernel.panic_on_oops = 1\nkernel.panic = 10\n\" > /etc/sysctl.d/90-dawo-appliance-panic.conf && sysctl -q -p /etc/sysctl.d/90-dawo-appliance-panic.conf'"; then
+        log "guest: reboots itself after a kernel oops (panic_on_oops=1, panic=10)"
+      else
+        log "guest: could not set panic_on_oops"
+      fi
 
       # Before a retry: the guest may have dropped off the network or
       # rebooted (#119). Wait up to 15 minutes for SSH and K3s Ready again.
