@@ -235,15 +235,24 @@ in
   # root) and do not wait 5 minutes for it (#115).
   virtualisation.libvirtd.shutdownTimeout = lib.mkForce 60;
 
-  # The power button shuts the live system down cleanly, also while the
-  # Plasma session holds the power-key inhibitor (it would only show the
-  # logout screen). A live stick is often left with just that button; the
-  # persistence test presses it (ACPI power-down) and asserts a clean
-  # power-off (#115).
-  services.logind.settings.Login = {
-    HandlePowerKey = "poweroff";
-    PowerKeyIgnoreInhibited = true;
-  };
+  # The power button shuts the live system down cleanly (D30). A live stick
+  # is often left with just that button; the persistence test presses it
+  # (ACPI power-down) and asserts a clean power-off (#115). In a Plasma
+  # session PowerDevil holds logind's low-level handle-power-key lock (which
+  # logind always honours) and by default only shows the logout screen, so
+  # the action is set in PowerDevil's system-wide defaults (8 = shut down);
+  # logind's own setting covers the time before and after the session.
+  services.logind.settings.Login.HandlePowerKey = "poweroff";
+  environment.etc."xdg/powerdevilrc".text = ''
+    [AC][SuspendAndShutdown]
+    PowerButtonAction=8
+
+    [Battery][SuspendAndShutdown]
+    PowerButtonAction=8
+
+    [LowBattery][SuspendAndShutdown]
+    PowerButtonAction=8
+  '';
 
   # One live status page instead of the static welcome window (#116): it
   # opens in the browser at login and updates itself (internet, storage,
