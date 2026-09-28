@@ -42,6 +42,7 @@ bad() { echo "  FAIL $*"; fail=$((fail + 1)); }
 export STATUS_ONCE=1 STATUS_CURL="${fakes}/curl" STATUS_SYSTEMCTL="${fakes}/systemctl"
 export STATUS_PASSWORD_FILE="${tmp}/no-password" STATUS_GUEST_SKIPPED="${tmp}/no-skip"
 export STATUS_DATA="${tmp}/data" STATUS_MB="${tmp}/mb" STATUS_MB_START="${tmp}/mb-start"
+export STATUS_MB_LOG="${tmp}/mb.log"
 printf 'quiet\n' >"${tmp}/cmdline"
 export STATUS_CMDLINE="${tmp}/cmdline"
 printf 'stick: reused dawo-data.ext4 + dawo-images\n' >"${tmp}/data"
@@ -59,6 +60,24 @@ if grep -q 'http-equiv="refresh"' <<<"$p" && grep -q 'DawoDawo' <<<"$p" \
   ok "offline + step 8/14: Wi-Fi hint, 50 % bar, 12 min elapsed, debug line, storage, auto refresh"
 else
   bad "offline + step 8/14"; echo "$p"
+fi
+
+# 1b. signs of life while deploying (#132): moving indicator, attempt, time
+#     since the last log write, the last log line (colour codes removed).
+printf '%s\n' '2026-09-29T01:00:00Z t=85s phase 8/14 deploy: attempt 1' \
+  '2026-09-29T01:05:00Z t=385s phase 8/14 deploy: FAILED after 300s' \
+  '2026-09-29T01:05:30Z t=415s phase 8/14 deploy: attempt 2' \
+  "$(printf 'Upgrading release=keycloak, chart=\033[1mcharts/keycloak\033[0m')" '' >"${tmp}/mb.log"
+touch -d '-20 seconds' "${tmp}/mb.log"
+p="$(FAKE_NET=up render 1b)"
+if grep -q "class='spin'" <<<"$p" && grep -q 'poging 2 van 3' <<<"$p" \
+   && grep -qE 'laatste activiteit: (19|2[0-9]) s geleden' <<<"$p" \
+   && grep -q 'Upgrading release=keycloak, chart=charts/keycloak' <<<"$p" \
+   && ! grep -q $'\033' <<<"$p" && grep -q '<title>DAWO appliance &mdash; bezig</title>' <<<"$p" \
+   && grep -q 'Bezig: Mijn Bureau wordt uitgerold' <<<"$p"; then
+  ok "deploying: spinner, 'poging 2 van 3', last activity ~20 s ago, last log line without colour codes, title says bezig"
+else
+  bad "deploying: signs of life"; echo "$p"
 fi
 
 # 2. done.
@@ -88,8 +107,10 @@ if ! grep -q 'Debug-modus' <<<"$p"; then ok "dawo.debug=0: no debug line"; else 
 # 5. failed.
 printf 'mislukt bij stap 8 van 14 (deploy); zie mijnbureau.txt op de USB-stick\n' >"${tmp}/mb"
 p="$(FAKE_NET=up render 5)"
-if grep -q 'mislukt bij stap 8 van 14' <<<"$p" && grep -q 'details staan op de USB-stick' <<<"$p"; then
-  ok "failed: the failure and where the details are"
+if grep -q 'mislukt bij stap 8 van 14' <<<"$p" && grep -q 'details staan op de USB-stick' <<<"$p" \
+   && grep -q 'banner-fail' <<<"$p" && grep -q 'Start de laptop' <<<"$p" \
+   && grep -q '<title>DAWO appliance &mdash; mislukt</title>' <<<"$p"; then
+  ok "failed: red banner, the failure, what to do next and where the details are"
 else
   bad "failed"; echo "$p"
 fi

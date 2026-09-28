@@ -250,16 +250,34 @@ in
   # the action is set in PowerDevil's system-wide defaults (8 = shut down);
   # logind's own setting covers the time before and after the session.
   services.logind.settings.Login.HandlePowerKey = "poweroff";
+  # While Mijn Bureau deploys (30-60 minutes) the status page must stay in
+  # view and the machine awake (D32, #132): no dimming, no display-off and no
+  # automatic suspend (a suspend pauses the deployment); on mains power
+  # closing the lid does nothing either. The screen lock itself stays as DAWO
+  # sets it (mandatory hardening: kscreenlockerrc [Daemon][$i] Autolock=true,
+  # Timeout=5); relaxing it is the maintainer's call (#132).
   environment.etc."xdg/powerdevilrc".text = ''
+    [AC][Display]
+    DimDisplayWhenIdle=false
+    TurnOffDisplayWhenIdle=false
+
     [AC][SuspendAndShutdown]
+    AutoSuspendAction=0
+    LidAction=0
     PowerButtonAction=8
 
+    [Battery][Display]
+    DimDisplayWhenIdle=false
+    TurnOffDisplayWhenIdle=false
+
     [Battery][SuspendAndShutdown]
+    AutoSuspendAction=0
     PowerButtonAction=8
 
     [LowBattery][SuspendAndShutdown]
     PowerButtonAction=8
   '';
+  services.logind.settings.Login.HandleLidSwitchExternalPower = "ignore";
 
   # No KWallet on the live USB (D31, #128): the session logs in automatically,
   # so pam_kwallet has no password to open a wallet with, and the first app
