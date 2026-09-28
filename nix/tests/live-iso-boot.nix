@@ -89,6 +89,12 @@ pkgs.runCommand "live-iso-boot"
       if ! grep -aqE "login:|[Cc]loud-init" guest-console.txt 2>/dev/null; then
         echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
       fi
+      # After K3s Ready the Mijn Bureau runner makes the guest reboot itself
+      # after a kernel Oops instead of hanging (#119).
+      mcopy -n -i logs.raw "$run/mijnbureau.txt" mijnbureau.txt 2>/dev/null || true
+      if ! grep -aq "panic_on_oops=1" mijnbureau.txt 2>/dev/null; then
+        echo "mijnbureau.txt on the stick does not show panic_on_oops=1 in the guest"; logs_ok=no
+      fi
     fi
     echo "logs on stick: $logs_ok"
 

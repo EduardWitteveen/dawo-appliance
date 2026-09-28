@@ -493,35 +493,42 @@ in
       '';
     };
 
-    # The guest's UEFI firmware (OVMF) now and then dies with a General
-    # Protection fault before Linux starts, seen under nested KVM (#24): the
-    # domain stays "running" but never boots. Watch the serial console for
-    # the first two minutes and reset the guest (at most twice) when that
-    # happens; a reset reruns the firmware, which then boots normally.
+    # The guest now and then dies while booting under nested KVM: its UEFI
+    # firmware (OVMF) with a General Protection fault before Linux starts
+    # (#24), or its kernel with an Oops early in boot (#119). The domain stays
+    # "running" but never comes up. Watch the serial console until the guest's
+    # login prompt (at most 10 minutes) and reset the guest, at most twice,
+    # when either happens; a reset boots it again. Not a oneshot: it must not
+    # hold up multi-user.target (the desktop) while it watches.
     systemd.services.dawo-appliance-guest-fwwatch = lib.mkIf cfg.autostart {
-      description = "Reset the ${vmSpec.name} guest if its firmware crashes at boot";
+      description = "Reset the ${vmSpec.name} guest if its firmware or kernel crashes at boot";
       wantedBy = [ "multi-user.target" ];
       after = [ "dawo-appliance-guest.service" ];
       requisite = [ "dawo-appliance-guest.service" ];
-      serviceConfig.Type = "oneshot";
+      serviceConfig.Type = "simple";
       environment.LIBVIRT_DEFAULT_URI = "qemu:///system";
       path = servicePath;
       script = ''
         name=${lib.escapeShellArg vmSpec.name}
         log=/var/log/libvirt/qemu/$name-console.log
         resets=0
-        for _ in $(seq 1 60); do
+        for _ in $(seq 1 300); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
-          if grep -aq 'Linux version' "$log" 2>/dev/null; then exit 0; fi
-          crashes="$(grep -ac 'X64 Exception Type' "$log" 2>/dev/null || true)"
+          # The console log spans resets (same QEMU process): count crashes.
+          crashes="$(grep -acE 'X64 Exception Type|Oops: |Kernel panic' "$log" 2>/dev/null || true)"
           if [ "''${crashes:-0}" -gt "$resets" ]; then
             if [ "$resets" -ge 2 ]; then
-              echo "dawo-appliance-guest-fwwatch: $name firmware crashed again after $resets resets; giving up" >&2
+              echo "dawo-appliance-guest-fwwatch: $name crashed again after $resets resets; giving up" >&2
               exit 1
             fi
             resets=$((resets + 1))
-            echo "dawo-appliance-guest-fwwatch: $name firmware crashed (General Protection fault, #24); reset $resets of 2"
+            echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of 2"
+            grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: ' "$log" | tail -n 3 || true
             virsh reset "$name"
+          else
+            # Booted to the login prompt after the last crash, if any: done.
+            last="$(grep -aE 'X64 Exception Type|Oops: |Kernel panic| login:' "$log" 2>/dev/null | tail -n 1 || true)"
+            case "$last" in *" login:"*) exit 0 ;; esac
           fi
           sleep 2
         done
