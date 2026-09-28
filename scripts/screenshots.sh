@@ -13,11 +13,55 @@
 #
 # When: on every slice completion and every upstream pin bump, before updating
 # the README. Needs Linux + Nix + KVM (on this machine: WSL Ubuntu-24.04).
+#
+# Stick mode (#118): after a live-USB session on real hardware, take ONE
+# debug screenshot from the extracted DAWO_LOGS stick into the README:
+#   bash scripts/screenshots.sh --stick <session-dir> <screenshot.png> <dest.png> "<what it shows>"
+# <session-dir> is DAWO_LOGS/dawo-appliance/<UTC boot time>_<boot id>/ as
+# copied off the stick. The image is only cropped to its centre (16:9, full
+# height) and scaled to 1280 px wide, never retouched; a row with the
+# session, machine model, capture time and the original's SHA-256 goes into
+# docs/screenshots/HARDWARE.md (generated; one row per dest image).
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 out_dir="docs/screenshots"
 mkdir -p "${out_dir}"
+
+if [[ "${1:-}" == "--stick" ]]; then
+  session="${2:?session dir}"; shot="${3:?screenshot file name}"; dest="${4:?dest name}"; what="${5:?what it shows}"
+  src="${session%/}/screens/${shot}"
+  [[ -f "${src}" ]] || { echo "no such screenshot: ${src}" >&2; exit 1; }
+  model="$(sed -n '/^== model/{n;N;s/\n/ /;p;q}' "${session%/}/hardware.txt" 2>/dev/null || true)"
+  magick_bin="$(nix build --inputs-from "path:${PWD}" nixpkgs#imagemagick --no-link --print-out-paths --no-warn-dirty | tail -n1)/bin/magick"
+  read -r w h < <("${magick_bin}" identify -format '%w %h\n' "${src}")
+  cw=$(( h * 16 / 9 )); (( cw > w )) && cw="${w}"
+  "${magick_bin}" "${src}" -gravity center -crop "${cw}x${h}+0+0" +repage -resize 1280x -strip "${out_dir}/${dest}"
+  chmod 644 "${out_dir}/${dest}"
+  echo "==> ${src} (${w}x${h}) → ${out_dir}/${dest} ($(stat -c %s "${out_dir}/${dest}") bytes)"
+  hw="${out_dir}/HARDWARE.md"
+  if [[ ! -f "${hw}" ]]; then
+    cat >"${hw}" <<'EOF'
+# Real-hardware screenshots
+
+Written by `bash scripts/screenshots.sh --stick ...`; do not edit or replace
+the images by hand. Each image is a debug-mode screenshot that the live USB
+saved on its `DAWO_LOGS` stick while running on one of the maintainer's own
+test laptops (`docs/live-usb.md`), cropped to its centre and scaled down,
+nothing else. Rules: [`README.md`](README.md).
+
+| Image | Machine | Session (UTC boot time_boot id) | Captured (local time) | Original SHA-256 | What it shows |
+| --- | --- | --- | --- | --- | --- |
+EOF
+  fi
+  sha="$(sha256sum "${src}" | cut -c1-16)"
+  taken="$(basename "${shot}" .png | sed -E 's/^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})$/\1-\2-\3 \4:\5:\6/')"
+  row="| \`${dest}\` | ${model:-unknown} | \`$(basename "${session%/}")\` | ${taken} | \`${sha}…\` | ${what} |"
+  grep -v "^| \`${dest}\` |" "${hw}" > "${hw}.new" || true
+  printf '%s\n' "${row}" >> "${hw}.new"
+  mv "${hw}.new" "${hw}"
+  exit 0
+fi
 
 copy() {
   # copy TEST-ATTR SOURCE-NAME DEST-NAME

@@ -61,7 +61,7 @@ It is **not** an official DAWO / Mijn Bureau / BZK distribution. Never imply it 
 - Decisions: `docs/adr/`.
 - Unknowns: `docs/open-questions.md`.
 - Deviations: `docs/deviations.md`.
-- Generated files (never edit by hand): `docs/verification-latest.md`, `docs/verification-history.csv`, `docs/screenshots/PROVENANCE.md` and the PNGs next to it.
+- Generated files (never edit by hand): `docs/verification-latest.md`, `docs/verification-history.csv`, `docs/screenshots/PROVENANCE.md`, `docs/screenshots/HARDWARE.md` and the PNGs next to them.
 
 ---
 
