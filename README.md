@@ -28,12 +28,31 @@ Deze demonstrator installeert een compleet ecosysteem op **één enkele test-lap
 - *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) gebaseerd op de officiële broncode van de Rijksoverheid.
 - *Kan dit morgen in productie?* Nee, dit is bedoeld voor evaluatie en bestuurlijke demo's. 
 
-**Stand van zaken (28 september 2026):** de USB-stick start op een gewone laptop
-(Dell Latitude 5550) zonder iets op de harde schijf te veranderen. Na 20 seconden
-staat de DAWO-werkplek klaar; binnen een minuut draaien de virtuele machine en
-Kubernetes (K3s). Een statuspagina laat zien waar we op wachten. Mijn Bureau
-rolt zichzelf uit; de laatste sessie kwam tot stap 3 van 14. Daarna viel de
-virtuele machine weg, wat we nu onderzoeken ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
+**Stand van zaken (28 september 2026)**
+
+*Wat al werkt, op een gewone laptop (Dell Latitude 5550):*
+- De USB-stick start de laptop zonder iets op de harde schijf te veranderen. Na
+  20 seconden staat de DAWO-werkplek klaar; binnen een minuut draaien de
+  virtuele machine en Kubernetes (K3s).
+- Een statuspagina in de browser laat zien wat werkt en waar we op wachten, met
+  een voortgangsbalk voor Mijn Bureau.
+- Gegevens blijven op de stick bewaard: de volgende keer gaat hij verder waar hij
+  was.
+- Afsluiten gaat netjes (ook met de aan/uit-knop), en Windows heeft daarna de
+  juiste tijd.
+- Mijn Bureau rolt zichzelf uit zodra er internet is. De laatste sessie kwam tot
+  stap 3 van 14.
+
+*Waar we nu mee bezig zijn:*
+- Bij stap 3 viel de virtuele machine weg. In de testomgeving zagen we dat de
+  Linux-kernel van de virtuele machine soms crasht en daarna blijft hangen. De
+  virtuele machine start zichzelf voortaan opnieuw op en de uitrol wacht tot hij
+  terug is ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
+- Een eenvoudig hulpmiddel om de stick te maken en de logboeken uit te lezen, op
+  Windows en Linux ([#97](https://github.com/EduardWitteveen/dawo-appliance/issues/97)).
+
+*Volgende stap:* Mijn Bureau volledig uitgerold op de laptop en het dashboard
+open in de browser.
 
 ![De statuspagina van de live-USB op een Dell Latitude 5550: internet, opslag op de stick, virtuele machine, Mijn Bureau bij stap 3 van 14](docs/screenshots/live-status-page-dell.png)
 
