@@ -205,5 +205,15 @@ in
     ipv6.method = "auto";
   };
 
+  # The stick boots laptops that also run Windows, which keeps the hardware
+  # clock in local time; NixOS keeps UTC. After a DAWO session Windows showed
+  # the time 2 h off (CEST) until it synced (#115). Keep local time, as
+  # Windows does.
+  time.hardwareClockInLocalTime = lib.mkForce true;
+
+  # Shut the guest down (never suspend: that writes its RAM to the tmpfs
+  # root) and do not wait 5 minutes for it (#115).
+  virtualisation.libvirtd.shutdownTimeout = lib.mkForce 60;
+
   system.stateVersion = lib.mkDefault "26.05";
 }
