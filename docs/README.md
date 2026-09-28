@@ -50,6 +50,7 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | [`adr/0004-local-dns-and-tls.md`](adr/0004-local-dns-and-tls.md) | **Accepted:** local DNS + TLS for the demo: base domain `dawo.internal`, per-install appliance CA, cert-manager CA issuer, browser trust (resolves OQ-3). |
 | [`adr/0005-ai-agent-conduct.md`](adr/0005-ai-agent-conduct.md) | **Accepted:** AI agent conduct and multi-agent workflow: GitHub as SSOT, thoughtful investigation, English conventions, safety. |
 | [`adr/0006-live-usb-first.md`](adr/0006-live-usb-first.md) | **Accepted:** live USB first (boot an existing machine, internal disk untouched, data partition with per-boot reports); installing stays optional. |
+| [`adr/0007-mijn-bureau-laptop-profile.md`](adr/0007-mijn-bureau-laptop-profile.md) | **Accepted:** a `laptop-demo` profile for Mijn Bureau (five core apps, micro preset) so it fits a 32 GB laptop from the live USB. |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream

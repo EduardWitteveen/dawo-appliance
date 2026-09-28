@@ -141,6 +141,11 @@ readonly MB_KNOWN_DIGESTS=(
 # Environment (all overridable; defaults are the guest paths).
 # ---------------------------------------------------------------------------
 MB_DOMAIN="${MB_DOMAIN:-${MB_DOMAIN_DEFAULT}}"
+# Which apps and resource preset (issue #110, docs/upstream/mijn-bureau-sizing.md):
+#   full         upstream's single-VPS set (nine apps, resourcesPreset none)
+#   laptop-demo  Keycloak, Bureaublad, Nextcloud, Collabora, Element/Synapse on
+#                the micro preset (~7.3 GiB requests); fits a 16 GiB guest
+MB_PROFILE="${MB_PROFILE:-full}"
 APPLIANCE_CA_DIR="${APPLIANCE_CA_DIR:-/etc/dawo-appliance}"
 MB_STATE_DIR="${MB_STATE_DIR:-/var/lib/mijnbureau}"
 MB_MASTER_PASSWORD_FILE="${MB_MASTER_PASSWORD_FILE:-${MB_STATE_DIR}/master-password}"
@@ -270,6 +275,20 @@ require_ca_files() {
 validate_domain() {
   [[ "${MB_DOMAIN}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
     || die "MB_DOMAIN is not a valid DNS name: ${MB_DOMAIN}"
+  case "${MB_PROFILE}" in
+    full | laptop-demo) ;;
+    *) die "MB_PROFILE must be full or laptop-demo, not: ${MB_PROFILE}" ;;
+  esac
+}
+
+# Apps the profile leaves out (their namespaces still exist, empty).
+profile_disabled_apps() {
+  if [[ "${MB_PROFILE}" == laptop-demo ]]; then echo "grist livekit meet docs"; fi
+}
+app_enabled() { # app_enabled APP -> true|false
+  local a
+  for a in $(profile_disabled_apps); do [[ "$a" == "$1" ]] && { echo false; return; }; done
+  echo true
 }
 
 phase_preflight() {
@@ -488,14 +507,14 @@ phase_values() {
   #  disabled, OIDC endpoints) is upstream's, verbatim.
   #  - container.<key>.tag: digest-pinned (OQ-5, issue #9) via the DIGEST_*
   #    constants above; not part of upstream's 01-deploy.sh at all.
-  write_file "${MB_SRC_DIR}/helmfile/environments/demo/mijnbureau.yaml.gotmpl" 0644 <<YAML
----
-# Written by dawo-appliance apps/mijn-bureau/deploy.sh (phase 7). Do not edit
-# by hand; re-run the driver. Based on upstream scripts/single-vps-deploy/
-# 01-deploy.sh at ${MB_REV:0:12}, adapted per ADR 0004.
-global:
-  domain: "${MB_DOMAIN}"
-  resourcesPreset: "none"
+  # Profile (issue #110): full = upstream's preset "none" everywhere;
+  # laptop-demo = global preset "micro" with upstream's own per-app map (no
+  # resourcesPresetPerApp override), see docs/upstream/mijn-bureau-sizing.md.
+  local presets
+  if [[ "${MB_PROFILE}" == laptop-demo ]]; then
+    presets='  resourcesPreset: "micro"'
+  else
+    presets='  resourcesPreset: "none"
   resourcesPresetPerApp:
     collabora: "none"
     elementweb: "none"
@@ -509,7 +528,16 @@ global:
     docs: { backend: "none", frontend: "none", celery: "none", yProvider: "none", docspec: "none" }
     drive: { backend: "none", frontend: "none" }
     conversations: { backend: "none", frontend: "none" }
-    bureaublad: { backend: "none", frontend: "none" }
+    bureaublad: { backend: "none", frontend: "none" }'
+  fi
+  write_file "${MB_SRC_DIR}/helmfile/environments/demo/mijnbureau.yaml.gotmpl" 0644 <<YAML
+---
+# Written by dawo-appliance apps/mijn-bureau/deploy.sh (phase 7). Do not edit
+# by hand; re-run the driver. Based on upstream scripts/single-vps-deploy/
+# 01-deploy.sh at ${MB_REV:0:12}, adapted per ADR 0004. Profile: ${MB_PROFILE}.
+global:
+  domain: "${MB_DOMAIN}"
+${presets}
   tls:
     enabled: true
     selfSigned: false
@@ -537,13 +565,13 @@ application:
   openproject:
     enabled: false
   keycloak:    { enabled: true, namespace: mb-keycloak }
-  grist:       { enabled: true, namespace: mb-grist }
+  grist:       { enabled: $(app_enabled grist), namespace: mb-grist }
   element:     { enabled: true, namespace: mb-element }
   collabora:   { enabled: true, namespace: mb-collabora }
   nextcloud:   { enabled: true, namespace: mb-nextcloud }
-  livekit:     { enabled: true, namespace: mb-livekit }
-  meet:        { enabled: true, namespace: mb-meet }
-  docs:        { enabled: true, namespace: mb-docs }
+  livekit:     { enabled: $(app_enabled livekit), namespace: mb-livekit }
+  meet:        { enabled: $(app_enabled meet), namespace: mb-meet }
+  docs:        { enabled: $(app_enabled docs), namespace: mb-docs }
   bureaublad:  { enabled: true, namespace: mb-bureaublad }
 
 authentication:
@@ -680,19 +708,67 @@ phase_networking() {
   # CoreDNS rewrites *.${MB_DOMAIN} to the in-cluster Traefik service, so pods
   # never depend on the libvirt dnsmasq or NAT hairpin (ADR 0004). Also the
   # 8443 egress policies and LiveKit node_ip. Idempotent upstream.
-  run_upstream 02-networking.sh "${MB_DOMAIN}"
+  if [[ "${MB_PROFILE}" == full ]]; then
+    run_upstream 02-networking.sh "${MB_DOMAIN}"
+    return 0
+  fi
+  # laptop-demo: upstream's loop applies an egress policy in all nine
+  # namespaces, so create the ones the profile leaves out (empty). Its last
+  # step patches LiveKit, which this profile does not deploy: that step may
+  # fail; the CoreDNS rewrite and the policies before it must not.
+  ensure_namespaces
+  if run_upstream 02-networking.sh "${MB_DOMAIN}"; then
+    return 0
+  fi
+  if [[ "${DRY_RUN}" -eq 1 ]]; then return 0; fi
+  kubectl -n kube-system get configmap coredns-custom >/dev/null \
+    || die "02-networking.sh failed before the CoreDNS rewrite"
+  kubectl -n mb-keycloak get networkpolicy allow-egress-traefik >/dev/null \
+    || die "02-networking.sh failed before the egress policies"
+  info "02-networking.sh stopped at the LiveKit step: expected, LiveKit is not in profile ${MB_PROFILE}"
+}
+
+# Namespaces of apps a profile leaves out, so upstream's per-namespace steps
+# (02's egress loop, phase 11's CA ConfigMap) find them.
+ensure_namespaces() {
+  local ns
+  for ns in "${MB_NAMESPACES[@]}"; do
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+      printf 'DRY-RUN: kubectl create namespace %s (if missing)\n' "${ns}"
+    else
+      kubectl get namespace "${ns}" >/dev/null 2>&1 || kubectl create namespace "${ns}"
+    fi
+  done
 }
 
 phase_oidc_restart() {
   log "[12/14] Nextcloud SSRF/trusted_proxies + restart OIDC apps (upstream 03-restart-oidc-apps.sh)"
-  run_upstream 03-restart-oidc-apps.sh
+  if [[ "${MB_PROFILE}" == full ]]; then
+    run_upstream 03-restart-oidc-apps.sh
+    return 0
+  fi
+  # laptop-demo: upstream 03 also restarts grist, docs-backend and
+  # meet-backend, which this profile does not deploy (set -e would stop it
+  # there). The same steps for the apps that are deployed, from upstream's
+  # 03-restart-oidc-apps.sh at ${MB_REV:0:12} (lines "[6d]", trusted_proxies,
+  # and the nextcloud/synapse restarts); recorded as a deviation (D29).
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: nextcloud occ allow_local_remote_servers=true; trusted_proxies 1=10.42.0.0/16; rollout restart nextcloud, synapse\n'
+    return 0
+  fi
+  kubectl exec -n mb-nextcloud deploy/nextcloud -- \
+    php occ config:system:set allow_local_remote_servers --value=true --type=boolean
+  kubectl exec -n mb-nextcloud deploy/nextcloud -- \
+    php occ config:system:set trusted_proxies 1 --value=10.42.0.0/16
+  kubectl rollout restart deploy/nextcloud -n mb-nextcloud
+  kubectl rollout restart deploy/synapse -n mb-element
 }
 
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
   run_upstream 04-nextcloud-office.sh
-  run_upstream 05-docs.sh
-  run_upstream 06-grist.sh
+  if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
+  if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -957,6 +1033,7 @@ mijn_bureau_repo_url=${MB_REPO_URLS[0]}
 mijn_bureau_repo_mirror=${MB_REPO_URLS[1]}
 base_domain=${MB_DOMAIN_DEFAULT}
 cluster_issuer=${CLUSTER_ISSUER}
+profile=${MB_PROFILE}
 dashboard_url=https://bureaublad.${MB_DOMAIN_DEFAULT}
 helmfile_version=${HELMFILE_VERSION}
 helmfile_url=${HELMFILE_URL}

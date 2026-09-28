@@ -498,6 +498,41 @@ else
   echo "  SKIP shellcheck (not installed here)"
 fi
 
+# =============================================================================
+# 7. MB_PROFILE=laptop-demo (#110): micro preset, core apps only, no 05/06
+# =============================================================================
+echo "  -- 7. profile laptop-demo --"
+state_lap="${tmp}/state-laptop"
+reset_logs
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' MB_PROFILE=laptop-demo \
+  MB_STATE_DIR="${state_lap}" MB_MASTER_PASSWORD_FILE="${state_lap}/master-password" \
+  MB_SRC_DIR="${state_lap}/mijn-bureau-infra" MB_DOWNLOAD_DIR="${state_lap}/downloads" \
+  FAKE_HELM_VERSION="${p_helm_ver}" FAKE_HELMFILE_VERSION="${p_helmfile_ver}" \
+  FAKE_HELM_DIFF_VERSION="${p_helmdiff_ver#v}" \
+  bash "${DEPLOY}" --dry-run 2>&1)" || rc=$?
+if [[ "${rc}" -eq 0 ]] \
+  && grep -q '|   resourcesPreset: "micro"' <<<"${out}" \
+  && ! grep -q 'resourcesPresetPerApp' <<<"${out}" \
+  && grep -q '|   grist:       { enabled: false' <<<"${out}" \
+  && grep -q '|   docs:        { enabled: false' <<<"${out}" \
+  && grep -q '|   nextcloud:   { enabled: true' <<<"${out}" \
+  && grep -q '05-docs.sh skipped' <<<"${out}" && grep -q '06-grist.sh skipped' <<<"${out}" \
+  && grep -q 'kubectl create namespace mb-grist' <<<"${out}" \
+  && ! grep -q 'DRY-RUN: bash .*03-restart-oidc-apps.sh' <<<"${out}" \
+  && [[ ! -e "${state_lap}" ]]; then
+  ok "laptop-demo dry-run: micro preset, no per-app override, grist/docs/meet/livekit off, 05/06 skipped, own 03 steps, namespaces ensured"
+else
+  bad "laptop-demo dry-run (rc=${rc})"; dump "${out}"
+fi
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_PROFILE=bogus bash "${DEPLOY}" --dry-run --phase values 2>&1)" || rc=$?
+if [[ "${rc}" -ne 0 ]] && grep -q 'MB_PROFILE must be full or laptop-demo' <<<"${out}"; then
+  ok "an unknown MB_PROFILE is refused before any phase runs"
+else
+  bad "unknown MB_PROFILE was not refused (rc=${rc})"; dump "${out}"
+fi
+
 echo
 echo "test-mijnbureau-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
