@@ -17,6 +17,10 @@
 
 let
   driver = ../../apps/mijn-bureau/deploy.sh;
+  # A phase marker records the driver it was made with (#131): after a driver
+  # update every phase runs again (they are idempotent), so e.g. new values
+  # (phase 7) really reach the guest whose disk persisted on the stick.
+  driverSum = builtins.substring 0 16 (builtins.hashFile "sha256" driver);
   status = "/run/dawo-appliance/mijnbureau";
   logFile = "/var/log/dawo-appliance-mijnbureau.log";
 
@@ -109,9 +113,13 @@ let
       SECONDS=0
       for i in "''${!phases[@]}"; do
         n=$((i + 1)); name="''${phases[$i]}"
-        if g sudo test -e "/var/lib/dawo-appliance-mb/phase-$n.done"; then
+        marker="/var/lib/dawo-appliance-mb/phase-$n.done"
+        made_with="$(g sudo cat "$marker" 2>/dev/null || true)"
+        if [ "$made_with" = "${driverSum}" ]; then
           log "phase $n/$total $name: already done"
           continue
+        elif [ -n "$made_with" ] || g sudo test -e "$marker"; then
+          log "phase $n/$total $name: done with another driver (''${made_with:-unknown}); running it again"
         fi
         [ -s /run/dawo-appliance/mijnbureau-start ] || date +%s > /run/dawo-appliance/mijnbureau-start
         state "wordt uitgerold: stap $n van $total ($name)"
@@ -121,7 +129,7 @@ let
           log "phase $n/$total $name: attempt $attempt"
           if g sudo env MB_PROFILE=laptop-demo /usr/local/sbin/mb-deploy --phase "$n" >> ${logFile} 2>&1; then
             log "phase $n/$total $name: ok after $((SECONDS - t0))s"
-            g sudo touch "/var/lib/dawo-appliance-mb/phase-$n.done"
+            g "echo ${driverSum} | sudo tee $marker >/dev/null"
             ok=yes; break
           fi
           log "phase $n/$total $name: FAILED after $((SECONDS - t0))s"
