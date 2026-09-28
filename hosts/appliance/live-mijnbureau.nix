@@ -50,9 +50,11 @@ let
       phases=(preflight tools cert-manager issuer password source values deploy
               networking wait-certs trust oidc-restart post-fixes sessions)
 
+      k3s_ready() { g sudo k3s kubectl get node 2>/dev/null | grep -q ' Ready'; }
+
       # 1. Wait for the guest's K3s (bounded by the unit's TimeoutStartSec).
       state "wacht op de virtuele machine en K3s"
-      until g sudo k3s kubectl get node 2>/dev/null | grep -q ' Ready'; do
+      until k3s_ready; do
         if [ -s /run/dawo-appliance/guest-skipped ]; then
           state "niet mogelijk: de virtuele machine is niet gestart"
           exit 0
@@ -60,6 +62,22 @@ let
         sleep 10
       done
       log "K3s Ready"
+
+      # Before a retry: the guest may have dropped off the network or
+      # rebooted (#119). Wait up to 15 minutes for SSH and K3s Ready again.
+      wait_guest() {
+        local waited=0
+        until k3s_ready; do
+          if [ "$waited" -ge 900 ]; then
+            log "guest: no SSH/K3s Ready after ''${waited}s"
+            return 1
+          fi
+          [ "$waited" -eq 0 ] && log "guest: not answering; waiting for SSH and K3s Ready"
+          sleep 15; waited=$((waited + 15))
+        done
+        [ "$waited" -gt 0 ] && log "guest: back after ''${waited}s"
+        return 0
+      }
 
       # 2. Internet (upstream charts and images are downloaded).
       waited=0
@@ -98,6 +116,7 @@ let
           fi
           log "phase $n/$total $name: FAILED after $((SECONDS - t0))s"
           sleep 30
+          wait_guest || break
         done
         if [ "$ok" != yes ]; then
           state "mislukt bij stap $n van $total ($name); zie mijnbureau.txt op de USB-stick"

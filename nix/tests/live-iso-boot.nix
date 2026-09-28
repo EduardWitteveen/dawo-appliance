@@ -82,6 +82,12 @@ pkgs.runCommand "live-iso-boot"
       mcopy -n -i logs.raw "$run/progress.txt" progress.txt 2>/dev/null || true
       mcopy -n -i logs.raw "$run/journal.txt" journal.txt 2>/dev/null || true
       if grep -q "DAWO-LIVE: DONE ok" progress.txt 2>/dev/null && [ -s journal.txt ]; then logs_ok=yes; fi
+      # The guest's serial console is copied as a local file, independent of
+      # ssh (#119); the Ubuntu kernel prints "Linux version" on it.
+      mcopy -n -i logs.raw "$run/guest-console.txt" guest-console.txt 2>/dev/null || true
+      if ! grep -aq "Linux version" guest-console.txt 2>/dev/null; then
+        echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
+      fi
     fi
     echo "logs on stick: $logs_ok"
 
@@ -91,6 +97,8 @@ pkgs.runCommand "live-iso-boot"
       if [ -n "$run" ]; then
         echo "=== guest.txt from the DAWO_LOGS stick ==="
         mtype -i logs.raw "$run/guest.txt" 2>/dev/null | tail -n 150 || true
+        echo "=== guest-console.txt from the DAWO_LOGS stick ==="
+        mtype -i logs.raw "$run/guest-console.txt" 2>/dev/null | tail -n 80 || true
       fi
       exit 1
     fi

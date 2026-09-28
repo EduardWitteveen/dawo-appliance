@@ -17,8 +17,9 @@
 #   DAWO_LOGS/dawo-appliance/<UTC boot time>_<boot id>/
 #     progress.txt   DAWO-LIVE stage lines with seconds since boot
 #     journal.txt    journalctl -b (the whole boot so far)
-#     guest.txt      guest status, the guest's serial console, and its
-#                    cloud-init and K3s logs
+#     guest.txt      guest status, its cloud-init and K3s logs (over ssh)
+#     guest-console.txt the guest's serial console and qemu log (always,
+#                    also at shutdown; #119)
 #     health.log     the desktop's health check and dashboard opener log
 #     mijnbureau.txt the Mijn Bureau deployment, phase by phase (#111)
 #     network.txt    NetworkManager connections/devices, addresses, DNS, internet check
@@ -95,21 +96,31 @@ let
         mkdir -p "$dir/screens"
         cp -n "$d"/*.png "$dir/screens/" 2>/dev/null || true
       done
+      # The guest's serial console and qemu log are local files: copy them
+      # always, also at shutdown, before anything that talks to the guest.
+      # A guest that stops answering is exactly when they matter (#119).
+      {
+        echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
+        echo "== guest serial console (tail)"
+        tail -n 400 /var/log/libvirt/qemu/dawo-appliance-mb-console.log 2>&1 || true
+        echo "== guest qemu log (tail)"
+        tail -n 60 /var/log/libvirt/qemu/dawo-appliance-mb.log 2>&1 || true
+      } > "$dir/guest-console.txt" 2>&1
       if [ -z "''${DAWO_LOGS_FINAL:-}" ]; then
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
-        /run/current-system/sw/bin/dawo-appliance-guest-status 2>&1 || true
-        echo "== guest serial console (tail)"
-        tail -n 200 /var/log/libvirt/qemu/dawo-appliance-mb-console.log 2>&1 || true
-        echo "== guest qemu log (tail)"
-        tail -n 40 /var/log/libvirt/qemu/dawo-appliance-mb.log 2>&1 || true
+        # Bounded: a stalled guest can hold an established ssh session open.
+        timeout 30 /run/current-system/sw/bin/dawo-appliance-guest-status 2>&1 || echo "(guest status: no answer within 30 s)"
         key=/var/lib/dawo-appliance/ssh/id_ed25519
         if [ -r "$key" ]; then
-          g() { timeout 20 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 "$@"; }
+          g() { timeout 20 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 "$@"; }
           echo "== cloud-init status"; g cloud-init status --long 2>&1 || true
           echo "== k3s stage log"; g sudo cat /var/log/dawo-appliance-k3s-stage.log 2>&1 || true
           echo "== k3s nodes and pods"; g sudo k3s kubectl get node,pods -A -o wide 2>&1 || true
           echo "== cloud-init-output.log (tail)"; g sudo tail -n 300 /var/log/cloud-init-output.log 2>&1 || true
+          # If the guest rebooted on its own, its previous boot says why (#119).
+          echo "== guest boots"; g sudo journalctl --list-boots --no-pager 2>&1 | tail -n 5 || true
+          echo "== guest previous boot (tail)"; g sudo journalctl -b -1 -n 150 --no-pager 2>&1 || true
         fi
       } > "$dir/guest.txt" 2>&1
       fi
