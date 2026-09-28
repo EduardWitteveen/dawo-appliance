@@ -83,9 +83,10 @@ pkgs.runCommand "live-iso-boot"
       mcopy -n -i logs.raw "$run/journal.txt" journal.txt 2>/dev/null || true
       if grep -q "DAWO-LIVE: DONE ok" progress.txt 2>/dev/null && [ -s journal.txt ]; then logs_ok=yes; fi
       # The guest's serial console is copied as a local file, independent of
-      # ssh (#119); the Ubuntu kernel prints "Linux version" on it.
+      # ssh (#119). It holds the console's tail, which ends with Ubuntu's
+      # serial login prompt or cloud-init's messages.
       mcopy -n -i logs.raw "$run/guest-console.txt" guest-console.txt 2>/dev/null || true
-      if ! grep -aq "Linux version" guest-console.txt 2>/dev/null; then
+      if ! grep -aqE "login:|[Cc]loud-init" guest-console.txt 2>/dev/null; then
         echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
       fi
     fi
