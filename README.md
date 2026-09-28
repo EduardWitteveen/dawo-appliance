@@ -44,12 +44,16 @@ Deze demonstrator installeert een compleet ecosysteem op **één enkele test-lap
   stap 3 van 14.
 
 *Waar we nu mee bezig zijn:*
-- Bij stap 3 viel de virtuele machine weg. In de testomgeving zagen we dat de
-  Linux-kernel van de virtuele machine soms crasht en daarna blijft hangen. De
-  virtuele machine start zichzelf voortaan opnieuw op en de uitrol wacht tot hij
-  terug is ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
-- Een eenvoudig hulpmiddel om de stick te maken en de logboeken uit te lezen, op
-  Windows en Linux ([#97](https://github.com/EduardWitteveen/dawo-appliance/issues/97)).
+- Mijn Bureau bleef twee keer steken bij stap 3. De oorzaak bleek de klok: de
+  laptop liep na het opstarten 2 uur voor totdat hij de tijd via internet
+  corrigeerde, en van die tijdsprong raakte Kubernetes in de war. Dat is
+  opgelost en getest ([#124](https://github.com/EduardWitteveen/dawo-appliance/issues/124));
+  de uitrol kan bovendien beter tegen zo'n onderbreking.
+- De virtuele machine start zichzelf opnieuw op als zijn Linux-kernel crasht,
+  en de logboeken op de stick bevatten nu altijd zijn scherm-uitvoer
+  ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
+- Er is een hulpmiddel om de stick te maken, bij te werken en de logboeken uit te
+  lezen, op Windows en Linux ([#97](https://github.com/EduardWitteveen/dawo-appliance/issues/97)).
 
 *Volgende stap:* Mijn Bureau volledig uitgerold op de laptop en het dashboard
 open in de browser.
