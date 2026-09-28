@@ -493,6 +493,41 @@ in
       '';
     };
 
+    # The guest's UEFI firmware (OVMF) now and then dies with a General
+    # Protection fault before Linux starts, seen under nested KVM (#24): the
+    # domain stays "running" but never boots. Watch the serial console for
+    # the first two minutes and reset the guest (at most twice) when that
+    # happens; a reset reruns the firmware, which then boots normally.
+    systemd.services.dawo-appliance-guest-fwwatch = lib.mkIf cfg.autostart {
+      description = "Reset the ${vmSpec.name} guest if its firmware crashes at boot";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "dawo-appliance-guest.service" ];
+      requisite = [ "dawo-appliance-guest.service" ];
+      serviceConfig.Type = "oneshot";
+      environment.LIBVIRT_DEFAULT_URI = "qemu:///system";
+      path = servicePath;
+      script = ''
+        name=${lib.escapeShellArg vmSpec.name}
+        log=/var/log/libvirt/qemu/$name-console.log
+        resets=0
+        for _ in $(seq 1 60); do
+          [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
+          if grep -aq 'Linux version' "$log" 2>/dev/null; then exit 0; fi
+          crashes="$(grep -ac 'X64 Exception Type' "$log" 2>/dev/null || true)"
+          if [ "''${crashes:-0}" -gt "$resets" ]; then
+            if [ "$resets" -ge 2 ]; then
+              echo "dawo-appliance-guest-fwwatch: $name firmware crashed again after $resets resets; giving up" >&2
+              exit 1
+            fi
+            resets=$((resets + 1))
+            echo "dawo-appliance-guest-fwwatch: $name firmware crashed (General Protection fault, #24); reset $resets of 2"
+            virsh reset "$name"
+          fi
+          sleep 2
+        done
+      '';
+    };
+
     systemd.services.dawo-appliance-guest = {
       description = "Define and start the Ubuntu 24.04 guest (${vmSpec.name}): SSH key, cloud-init seed, libvirt domain";
       wantedBy = [ "multi-user.target" ];
