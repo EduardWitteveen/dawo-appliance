@@ -28,6 +28,18 @@ Deze demonstrator installeert een compleet ecosysteem op **één enkele test-lap
 - *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) gebaseerd op de officiële broncode van de Rijksoverheid.
 - *Kan dit morgen in productie?* Nee, dit is bedoeld voor evaluatie en bestuurlijke demo's. 
 
+**Stand van zaken (28 september 2026):** de USB-stick start op een gewone laptop
+(Dell Latitude 5550) zonder iets op de harde schijf te veranderen. Na 20 seconden
+staat de DAWO-werkplek klaar; binnen een minuut draaien de virtuele machine en
+Kubernetes (K3s). Een statuspagina laat zien waar we op wachten. Mijn Bureau
+rolt zichzelf uit; de laatste sessie kwam tot stap 3 van 14. Daarna viel de
+virtuele machine weg, wat we nu onderzoeken ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
+
+![De statuspagina van de live-USB op een Dell Latitude 5550: internet, opslag op de stick, virtuele machine, Mijn Bureau bij stap 3 van 14](docs/screenshots/live-status-page-dell.png)
+
+*Echte schermafbeelding van de testlaptop, gemaakt door de debug-modus van de stick
+(herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).*
+
 ---
 
 > **Experimental and unofficial.** This is an independent experiment. It is
@@ -76,24 +88,24 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 2 | Host install to disk (disko, gated by `--target-disk` + `--confirm-destroy`); no LUKS in v0.1 | Done, verified |
 | 2c | Upstream refresh: DAWO-Core 0.1.3, nixpkgs 26.05, mijn-bureau-infra 2026-07-27, ADR 0002/0003 | Done 2026-09-25 |
 | 3 | DAWO workplace (`profiles-dawo-generic`, Plasma) + KVM/libvirt, parity check, `nix run .#appliance-vm` | Built 2026-09-25, boot-tested; visual review pending |
-| 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Written 2026-09-25; not boot-tested, guest never actually started |
+| 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Boot-tested (`test-guest-boot`, live tests); runs on real hardware (Dell, guest SSH after 26 s); firmware-crash reset under nested KVM (#24) |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
-| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Phases 1–7 ran on a real cluster 2026-09-26 (#8); phase 8 (`helmfile apply`) not yet judged: the only test machine nested the guest three levels deep. Mijn Bureau has not run yet |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up; on the Dell phases 1–2 ran, phase 3 was interrupted by the guest dropping off the network (#119). Mijn Bureau has not run end-to-end yet |
 | 7 | Health check + auto-open browser, offline-tested | Runs on the desktop (seen in VirtualBox 2026-09-27); two start-up bugs fixed (#98, #100) and guarded by `checks.health-selfcontained`; never observed a real Mijn Bureau deployment |
-| Live | Live USB: boot an existing laptop, disk untouched, debug logs + screenshots on a `DAWO_LOGS` stick (ADR 0006, proposed; PR #96) | `test-live-iso-boot` green on KVM (desktop 19 s, guest 93 s, K3s 145 s); desktop verified in VirtualBox; guest sized to the machine or skipped with a reason (`docs/live-usb.md`); real hardware 2026-09-27: Dell Latitude 5550 desktop 20 s, guest 30 s, K3s Ready 48 s on the demo Wi-Fi; Dynabook (8 GB) desktop 21 s, guest skipped as designed |
+| Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-28: desktop 20 s, guest SSH 26 s, K3s Ready 34 s (data reused from the stick); the status page shows the progress; Mijn Bureau deployed itself up to phase 3 of 14, then the guest dropped off the network (#119). Dynabook (8 GB): desktop only, guest skipped as designed. Screenshot: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
 
-**What works today:** `dawo-appliance-installer.iso` boots, brings up
-networking, downloads and checksum-verifies the pinned manifest, prints the
-install plan, and installs the host to an explicitly confirmed disk. That host
-is the DAWO workplace (SDDM + KDE Plasma 6, the pilot app set, nl_NL, mandatory
-hardening) with KVM/libvirt and an optional install-time generated password.
-The VM, K3s, Mijn Bureau and the browser step (slices 4–7) have code and (for
-5, 6 and 7) offline tests written, but **none of it has been boot-tested or run
-end-to-end**: no guest VM has ever been started, no K3s node has ever come up,
-Mijn Bureau has never been deployed, and the health check has never observed a
-real dashboard. Details and what's missing per slice: `docs/roadmap.md`.
-Running the full stack end-to-end also needs a large host (see below).
+**What works today:** the **live USB** boots an existing laptop without touching
+its disk: the DAWO workplace (SDDM + KDE Plasma 6, the pilot app set, nl_NL)
+comes up in about 20 s, the Ubuntu guest and single-node K3s in under a minute
+on a 32 GB laptop, and a self-updating status page shows what works and what
+we are waiting for. Data (the guest disk) persists on the stick across boots.
+Mijn Bureau's deployment starts by itself and has reached phase 3 of 14 on real
+hardware; it has not yet run end-to-end, and the health check has not yet seen
+a real dashboard. The installer ISO (Slices 1–2) installs the same host to an
+explicitly confirmed disk. Details per slice: `docs/roadmap.md`; the live USB:
+[`docs/live-usb.md`](docs/live-usb.md). Running Mijn Bureau needs a large host
+(see below).
 
 ## Verification
 
