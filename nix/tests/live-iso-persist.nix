@@ -58,9 +58,22 @@ pkgs.runCommand "live-iso-persist"
       # Clean shutdown so the data file and the exFAT stick are consistent.
       printf '%s\n' '{"execute":"qmp_capabilities"}' '{"execute":"system_powerdown"}' \
         | socat - "UNIX-CONNECT:qmp$n.sock" >/dev/null 2>&1 || true
-      for _ in $(seq 1 90); do kill -0 "$(cat "qemu$n.pid")" 2>/dev/null || break; sleep 2; done
+      # The system must power itself off: a hang here (the guest losing its
+      # disk, libvirt waiting 5 minutes) is what the Dell showed (#115).
+      SECONDS=0
+      down=no
+      for _ in $(seq 1 90); do
+        if ! kill -0 "$(cat "qemu$n.pid")" 2>/dev/null; then down=yes; break; fi
+        sleep 2
+      done
+      echo "boot $n: shutdown took ''${SECONDS}s (clean: $down)"
       kill "$(cat "qemu$n.pid")" 2>/dev/null || true
       sleep 2
+      if [ "$down" != yes ] || [ "$SECONDS" -gt 120 ]; then
+        echo "FAIL: boot $n: the system did not power off by itself within 120 s; last console lines:"
+        tail -n 40 "serial$n.log" | tr -d '\r' || true
+        exit 1
+      fi
       if [ "$result" != ok ]; then
         echo "FAIL: boot $n: $result; last console lines:"
         tail -n 60 "serial$n.log" | tr -d '\r' || true

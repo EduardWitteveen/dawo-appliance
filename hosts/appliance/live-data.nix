@@ -26,6 +26,9 @@
 let
   cfg = config.appliance.live.data;
   logsMnt = "/run/dawo-logs";
+  # systemd's escaped unit name for /run/dawo-logs (systemd-escape -p).
+  logsMountUnit = "run-dawo\\x2dlogs.mount";
+  qemuGid = toString config.users.groups.qemu-libvirtd.gid;
   stateDir = "/var/lib/dawo-appliance";
 
   setup = pkgs.writeShellApplication {
@@ -50,13 +53,11 @@ let
       [ -n "$disk" ] || disk="$(basename "$dev")"
       [ "$(lsblk -dno TRAN "/dev/$disk" 2>/dev/null)" = usb ] || ram "DAWO_LOGS on $dev is not on a USB disk"
 
+      # Mounted through the systemd unit below (not a bare mount), so systemd
+      # unmounts the stick only after this service and the guest have
+      # stopped (#115: the stick vanished under the running guest).
       if ! mountpoint -q ${logsMnt}; then
-        mkdir -p ${logsMnt}
-        # exFAT has no per-file owners or modes: owner root, group
-        # qemu-libvirtd, so libvirt's QEMU (uid qemu-libvirtd) can open the
-        # guest disk in dawo-images/, and nobody else can read the stick here.
-        qgid="$(getent group qemu-libvirtd | cut -d: -f3)"
-        mount -o "uid=0,gid=''${qgid:-0},fmask=0117,dmask=0007" "$dev" ${logsMnt} || ram "cannot mount DAWO_LOGS ($dev)"
+        systemctl start "$(systemd-escape -p --suffix=mount ${logsMnt})" || ram "cannot mount DAWO_LOGS ($dev)"
       fi
       freeg="$(( $(df --output=avail -B1 ${logsMnt} | tail -n1) / 1073741824 ))"
 
@@ -97,6 +98,11 @@ let
   };
 
   teardown = pkgs.writeShellScript "dawo-appliance-data-teardown" ''
+    # A guest QEMU still using the disk (libvirt-guests timed out): stop it.
+    for pid in $(${pkgs.procps}/bin/pgrep -f 'qemu.*dawo-appliance-mb' || true); do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+    for _ in $(seq 1 15); do ${pkgs.procps}/bin/pgrep -f 'qemu.*dawo-appliance-mb' >/dev/null || break; sleep 1; done
     ${pkgs.coreutils}/bin/sync
     ${pkgs.util-linux}/bin/mountpoint -q ${stateDir}/images && { ${pkgs.util-linux}/bin/umount ${stateDir}/images || ${pkgs.util-linux}/bin/umount -l ${stateDir}/images; }
     ${pkgs.util-linux}/bin/mountpoint -q ${stateDir} || exit 0
@@ -147,9 +153,13 @@ in
       { dawo-appliance-data = {
       description = "Persistent appliance data on the USB stick (dawo-data.ext4 on DAWO_LOGS)";
       wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" "systemd-udev-settle.service" ];
+      # After the stick's mount unit: at shutdown this service (and so the
+      # guest disk) is stopped before the stick is unmounted.
+      after = [ "local-fs.target" "systemd-udev-settle.service" logsMountUnit ];
       wants = [ "systemd-udev-settle.service" ];
-      before = stateUsers;
+      # Also before libvirt: at shutdown libvirt-guests shuts the guest down
+      # and libvirtd stops BEFORE the data is unmounted (#115).
+      before = stateUsers ++ [ "libvirtd.service" "libvirt-guests.service" ];
       unitConfig.DefaultDependencies = false;
       conflicts = [ "shutdown.target" ];
       serviceConfig = {
@@ -163,6 +173,16 @@ in
       };
       }; }
     ];
+
+    # The DAWO_LOGS stick as a real systemd mount (started on demand by the
+    # data service and the log collector). exFAT/FAT have no per-file owners:
+    # owner root, group qemu-libvirtd (QEMU opens the guest disk), no others.
+    systemd.mounts = [{
+      what = "/dev/disk/by-label/DAWO_LOGS";
+      where = logsMnt;
+      type = "auto";
+      options = "uid=0,gid=${qemuGid},fmask=0117,dmask=0007,nofail";
+    }];
 
     environment.systemPackages = [ setup ];
   };

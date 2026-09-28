@@ -46,7 +46,9 @@ let
           exit 0
         fi
         mkdir -p ${mnt}
-        mount -o sync "$dev" ${mnt}
+        # Through the systemd mount unit (live-data.nix), so shutdown order is
+        # right; fall back to a plain mount if that unit is absent.
+        systemctl start "$(systemd-escape -p --suffix=mount ${mnt})" 2>/dev/null || { mkdir -p ${mnt}; mount "$dev" ${mnt}; }
       fi
       bootid="$(tr -d '-' < /proc/sys/kernel/random/boot_id | cut -c1-8)"
       stamp_file=/run/dawo-appliance/logs-dir
