@@ -5,8 +5,9 @@
 # its 14 phases one by one with the laptop profile (ADR 0007). It is
 # re-entrant: a phase that finished leaves a marker in the guest, whose disk
 # lives on the stick (#109), so a later boot continues where the last one
-# stopped. Progress is ONE desktop notification that is updated in place (no
-# windows, #106) and /run/dawo-appliance/mijnbureau for the status window; the
+# stopped. Progress goes to /run/dawo-appliance/mijnbureau, shown with a
+# progress bar on the live status page (#116); a desktop notification only
+# says "done" or "failed". The
 # full output goes to /var/log/dawo-appliance-mijnbureau.log, which the debug
 # log collector copies to the stick as mijnbureau.txt. When the deployment is
 # healthy, the existing dashboard opener opens the browser.
@@ -65,7 +66,6 @@ let
       until g curl -sS -o /dev/null --max-time 10 https://github.com 2>/dev/null; do
         if [ "$waited" -eq 0 ]; then
           state "wacht op internet (wifi Dawo of een netwerkkabel)"
-          notify "Mijn Bureau wacht op internet" "Verbind met de wifi Dawo (wachtwoord DawoDawo), een ander netwerk of een kabel. De uitrol start daarna vanzelf."
         fi
         waited=$((waited + 15)); sleep 15
       done
@@ -85,8 +85,8 @@ let
           log "phase $n/$total $name: already done"
           continue
         fi
+        [ -s /run/dawo-appliance/mijnbureau-start ] || date +%s > /run/dawo-appliance/mijnbureau-start
         state "wordt uitgerold: stap $n van $total ($name)"
-        notify "Mijn Bureau wordt uitgerold" "Stap $n van $total: $name. Dit duurt in totaal 30 tot 60 minuten; de browser opent vanzelf."
         ok=no
         for attempt in 1 2 3; do
           t0=$SECONDS

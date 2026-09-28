@@ -92,6 +92,23 @@ let
       exit 1
     '';
   };
+  statusPage = pkgs.writeShellApplication {
+    name = "dawo-appliance-status-page";
+    runtimeInputs = with pkgs; [ coreutils gnused gnugrep curl systemd ];
+    text = builtins.readFile ../../health/dawo-appliance-status-page.sh;
+  };
+  # Starts the page writer and opens the page once in the browser.
+  statusApp = pkgs.writeShellApplication {
+    name = "dawo-appliance-status";
+    runtimeInputs = with pkgs; [ coreutils xdg-utils ];
+    text = ''
+      page="''${XDG_RUNTIME_DIR:-/tmp}/dawo-appliance-status.html"
+      ${statusPage}/bin/dawo-appliance-status-page &
+      for _ in $(seq 1 20); do [ -s "$page" ] && break; sleep 1; done
+      xdg-open "file://$page" >/dev/null 2>&1 || true
+      wait
+    '';
+  };
 in
 {
   imports = [
@@ -153,7 +170,7 @@ in
       StandardError = "journal+console";
     };
   };
-  environment.systemPackages = [ report ];
+  environment.systemPackages = [ report statusPage statusApp ];
 
   # Marker for the welcome/status window: this is the live USB, so it
   # mentions debug mode (health/dawo-appliance-welcome.sh).
@@ -217,6 +234,25 @@ in
   # Shut the guest down (never suspend: that writes its RAM to the tmpfs
   # root) and do not wait 5 minutes for it (#115).
   virtualisation.libvirtd.shutdownTimeout = lib.mkForce 60;
+
+  # One live status page instead of the static welcome window (#116): it
+  # opens in the browser at login and updates itself (internet, storage,
+  # virtual machine, Mijn Bureau with a progress bar, debug mode).
+  environment.etc."xdg/autostart/dawo-appliance-welcome.desktop".text = lib.mkForce ''
+    [Desktop Entry]
+    Type=Application
+    Name=DAWO appliance welcome (replaced by the live status page)
+    Hidden=true
+  '';
+  environment.etc."xdg/autostart/dawo-appliance-status.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=DAWO appliance status
+    Comment=Live status page: what works and what we are waiting for
+    Exec=${statusApp}/bin/dawo-appliance-status
+    OnlyShowIn=KDE;
+    X-KDE-autostart-phase=2
+  '';
 
   system.stateVersion = lib.mkDefault "26.05";
 }
