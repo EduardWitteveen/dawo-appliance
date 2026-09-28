@@ -261,6 +261,16 @@ in
     PowerButtonAction=8
   '';
 
+  # No KWallet on the live USB (D31, #128): the session logs in automatically,
+  # so pam_kwallet has no password to open a wallet with, and the first app
+  # asking for a secret started KWallet's setup wizard (Blowfish/GPG, a new
+  # password). A demo stick holds no user secrets worth a wallet.
+  environment.etc."xdg/kwalletrc".text = ''
+    [Wallet]
+    Enabled=false
+    First Use=false
+  '';
+
   # One live status page instead of the static welcome window (#116): it
   # opens in the browser at login and updates itself (internet, storage,
   # virtual machine, Mijn Bureau with a progress bar, debug mode).
