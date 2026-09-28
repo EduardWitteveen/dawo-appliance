@@ -235,6 +235,16 @@ in
   # root) and do not wait 5 minutes for it (#115).
   virtualisation.libvirtd.shutdownTimeout = lib.mkForce 60;
 
+  # The power button shuts the live system down cleanly, also while the
+  # Plasma session holds the power-key inhibitor (it would only show the
+  # logout screen). A live stick is often left with just that button; the
+  # persistence test presses it (ACPI power-down) and asserts a clean
+  # power-off (#115).
+  services.logind.settings.Login = {
+    HandlePowerKey = "poweroff";
+    PowerKeyIgnoreInhibited = true;
+  };
+
   # One live status page instead of the static welcome window (#116): it
   # opens in the browser at login and updates itself (internet, storage,
   # virtual machine, Mijn Bureau with a progress bar, debug mode).

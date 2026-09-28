@@ -56,6 +56,7 @@ pkgs.runCommand "live-iso-persist"
       echo "=== boot $n: $result after ''${SECONDS}s ==="
       grep -a "DAWO-LIVE:" "serial$n.log" | tr -d '\r' || true
       # Clean shutdown so the data file and the exFAT stick are consistent.
+      lines_before="$(wc -l < "serial$n.log")"
       printf '%s\n' '{"execute":"qmp_capabilities"}' '{"execute":"system_powerdown"}' \
         | socat - "UNIX-CONNECT:qmp$n.sock" >/dev/null 2>&1 || true
       # The system must power itself off: a hang here (the guest losing its
@@ -70,8 +71,8 @@ pkgs.runCommand "live-iso-persist"
       kill "$(cat "qemu$n.pid")" 2>/dev/null || true
       sleep 2
       if [ "$down" != yes ] || [ "$SECONDS" -gt 120 ]; then
-        echo "FAIL: boot $n: the system did not power off by itself within 120 s; last console lines:"
-        tail -n 40 "serial$n.log" | tr -d '\r' || true
+        echo "FAIL: boot $n: the system did not power off by itself within 120 s; console since the power-down request:"
+        tail -n "+$((lines_before + 1))" "serial$n.log" | tr -d '\r' | tail -n 80 || true
         exit 1
       fi
       if [ "$result" != ok ]; then
