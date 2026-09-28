@@ -204,6 +204,29 @@ run() {
   fi
 }
 
+# wait_rollout NS DEPLOYMENT TIMEOUT: kubectl rollout status, but re-entrant.
+# A clock jump on the live USB (#124) or an interrupted earlier run can leave
+# a stale ProgressDeadlineExceeded condition on a deployment that is in fact
+# up; `rollout status` then fails at once. Accept the deployment when its
+# Available condition is True and all its replicas are ready.
+wait_rollout() {
+  local ns="$1" dep="$2" timeout="$3"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl -n %s rollout status deploy/%s --timeout=%s\n' "${ns}" "${dep}" "${timeout}"
+    return 0
+  fi
+  kubectl -n "${ns}" rollout status "deploy/${dep}" "--timeout=${timeout}" && return 0
+  local avail want ready
+  avail="$(kubectl -n "${ns}" get "deploy/${dep}" -o 'jsonpath={.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)"
+  want="$(kubectl -n "${ns}" get "deploy/${dep}" -o 'jsonpath={.spec.replicas}' 2>/dev/null || true)"
+  ready="$(kubectl -n "${ns}" get "deploy/${dep}" -o 'jsonpath={.status.readyReplicas}' 2>/dev/null || true)"
+  if [[ "${avail}" == "True" && "${want:-x}" =~ ^[0-9]+$ && "${ready:-0}" =~ ^[0-9]+$ && "${ready:-0}" -ge "${want}" ]]; then
+    warn "deploy/${dep} in ${ns}: rollout status failed, but it is Available with ${ready}/${want} ready replicas; continuing (#124)"
+    return 0
+  fi
+  return 1
+}
+
 # run_in DIR CMD...: like run, in a directory.
 run_in() {
   local dir="$1"; shift
@@ -378,7 +401,7 @@ phase_cert_manager() {
   run kubectl apply -f "${MB_DOWNLOAD_DIR}/cert-manager-${CERT_MANAGER_VERSION}.yaml"
   local d
   for d in cert-manager cert-manager-cainjector cert-manager-webhook; do
-    run kubectl -n cert-manager rollout status "deploy/${d}" --timeout=180s
+    wait_rollout cert-manager "${d}" 180s
   done
 }
 
@@ -934,7 +957,7 @@ phase_trust() {
     printf 'DRY-RUN: kubectl -n mb-nextcloud exec deploy/nextcloud -- php occ security:certificates:import /tmp/dawo-appliance-ca.crt\n'
   else
     if kubectl -n mb-nextcloud get deploy/nextcloud >/dev/null 2>&1; then
-      kubectl -n mb-nextcloud rollout status deploy/nextcloud --timeout=600s
+      wait_rollout mb-nextcloud nextcloud 600s
       kubectl -n mb-nextcloud exec -i deploy/nextcloud -- sh -c 'cat > /tmp/dawo-appliance-ca.crt' <"${CA_CRT}"
       kubectl -n mb-nextcloud exec deploy/nextcloud -- php occ security:certificates:import /tmp/dawo-appliance-ca.crt
     else
@@ -947,7 +970,7 @@ phase_trust() {
     if [[ "${DRY_RUN}" -eq 1 ]]; then
       printf 'DRY-RUN: kubectl -n %s rollout status deploy/%s --timeout=600s\n' "${d%/*}" "${d#*/}"
     elif kubectl -n "${d%/*}" get "deploy/${d#*/}" >/dev/null 2>&1; then
-      kubectl -n "${d%/*}" rollout status "deploy/${d#*/}" --timeout=600s
+      wait_rollout "${d%/*}" "${d#*/}" 600s
     fi
   done
 

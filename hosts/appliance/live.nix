@@ -49,7 +49,9 @@ let
         # reads it; on a laptop without a serial port this is a no-op).
         if [ -w /dev/ttyS0 ]; then echo "$line" > /dev/ttyS0 2>/dev/null || true; fi
       }
-      say "report started"
+      # The UTC clock as seconds since the epoch: the ISO boot test checks it
+      # against the host's time (the RTC local-time warp, #124).
+      say "report started (clock $(date -u +%s))"
       # Where the appliance data lives (live-data.nix, #109).
       for _ in $(seq 1 60); do [ -s /run/dawo-appliance/data ] && break; sleep 1; done
       say "data: $(cat /run/dawo-appliance/data 2>/dev/null || echo unknown)"
@@ -230,6 +232,11 @@ in
   # the time 2 h off (CEST) until it synced (#115). Keep local time, as
   # Windows does.
   time.hardwareClockInLocalTime = lib.mkForce true;
+  # Load the RTC driver in the initrd (#124). As a module loaded later in
+  # stage 2 its hctosys set the clock from the RTC *as UTC* one second after
+  # systemd had applied the local-time delta, so the laptop and the guest ran
+  # 2 h ahead until NTP stepped them back; K3s took that jump badly.
+  boot.initrd.kernelModules = [ "rtc_cmos" ];
 
   # Shut the guest down (never suspend: that writes its RAM to the tmpfs
   # root) and do not wait 5 minutes for it (#115).

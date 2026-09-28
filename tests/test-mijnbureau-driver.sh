@@ -533,6 +533,32 @@ else
   bad "unknown MB_PROFILE was not refused (rc=${rc})"; dump "${out}"
 fi
 
+# wait_rollout (#124): a stale ProgressDeadlineExceeded (after a clock jump or
+# an interrupted run) must not fail a deployment that is Available; a
+# deployment that is really not ready must still fail. The function is taken
+# out of deploy.sh and run against a fake kubectl, without --dry-run.
+wr_bin="${tmp}/wrbin"; mkdir -p "${wr_bin}"
+cat >"${wr_bin}/kubectl" <<'EOF2'
+#!/usr/bin/env bash
+case "$*" in
+  *"rollout status"*) [[ "${FAKE_ROLLOUT:-ok}" == ok ]] && exit 0; echo 'error: deployment "x" exceeded its progress deadline' >&2; exit 1 ;;
+  *'type=="Available"'*) echo "${FAKE_AVAILABLE:-True}" ;;
+  *"spec.replicas"*) echo 1 ;;
+  *"readyReplicas"*) echo "${FAKE_READY:-1}" ;;
+esac
+EOF2
+chmod +x "${wr_bin}/kubectl"
+wr_fn="$(sed -n '/^wait_rollout() {/,/^}/p' "${DEPLOY}")"
+wr() { env PATH="${wr_bin}:${PATH}" "$@" bash -c 'DRY_RUN=0; warn() { echo "WARNING: $*"; }; '"${wr_fn}"'; wait_rollout cert-manager cert-manager 5s' 2>&1; }
+r1=0; o1="$(wr FAKE_ROLLOUT=ok)" || r1=$?
+r2=0; o2="$(wr FAKE_ROLLOUT=deadline FAKE_AVAILABLE=True FAKE_READY=1)" || r2=$?
+r3=0; o3="$(wr FAKE_ROLLOUT=deadline FAKE_AVAILABLE=False FAKE_READY=0)" || r3=$?
+if [[ -n "${wr_fn}" && "${r1}" -eq 0 && "${r2}" -eq 0 && "${o2}" == *"Available with 1/1 ready replicas"* && "${r3}" -ne 0 ]]; then
+  ok "wait_rollout: a normal rollout passes; a stale progress deadline on an Available deployment passes with a warning; a deployment that is not Available fails (#124)"
+else
+  bad "wait_rollout (r1=${r1} r2=${r2} r3=${r3})"; dump "${o2}"; dump "${o3}"
+fi
+
 echo
 echo "test-mijnbureau-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
