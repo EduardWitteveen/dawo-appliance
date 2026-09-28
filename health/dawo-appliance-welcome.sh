@@ -31,6 +31,8 @@ GUEST_UNIT="${WELCOME_GUEST_UNIT:-dawo-appliance-guest.service}"
 CMDLINE="${WELCOME_CMDLINE:-/proc/cmdline}"
 LIVE_MARKER="${WELCOME_LIVE_MARKER:-/etc/dawo-appliance/live}"
 DATA_STATUS="${WELCOME_DATA_STATUS:-/run/dawo-appliance/data}"
+MB_AUTO="${WELCOME_MB_AUTO:-/etc/dawo-appliance/mijnbureau-auto}"
+MB_STATUS="${WELCOME_MB_STATUS:-/run/dawo-appliance/mijnbureau}"
 NET_URL="${WELCOME_NET_URL:-https://dl.flathub.org/repo/flathub.flatpakrepo}"
 CURL_BIN="${WELCOME_CURL:-curl}"
 SYSTEMCTL_BIN="${WELCOME_SYSTEMCTL:-systemctl}"
@@ -111,7 +113,12 @@ if [ -e "${LIVE_MARKER}" ] && [ -s "${DATA_STATUS}" ]; then
   esac
 fi
 
-row "${warn}" "Mijn Bureau" "wordt in deze versie nog niet automatisch uitgerold (in ontwikkeling)"
+if [ -e "${MB_AUTO}" ]; then
+  mbs="$(cat "${MB_STATUS}" 2>/dev/null || echo "wacht op de virtuele machine")"
+  row "${warn}" "Mijn Bureau" "rolt zichzelf uit (30 tot 60 minuten; voortgang in de melding rechtsonder; de browser opent vanzelf). Nu: $(esc "${mbs}")"
+else
+  row "${warn}" "Mijn Bureau" "wordt in deze versie nog niet automatisch uitgerold (in ontwikkeling)"
+fi
 
 debug_html=""
 if [ -e "${LIVE_MARKER}" ] && ! grep -qw 'dawo.debug=0' "${CMDLINE}" 2>/dev/null; then

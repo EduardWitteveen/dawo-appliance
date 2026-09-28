@@ -49,6 +49,7 @@ export WELCOME_CURL="${fakes}/curl"
 export WELCOME_SYSTEMCTL="${fakes}/systemctl"
 export WELCOME_KDIALOG="${fakes}/kdialog"
 export WELCOME_WAIT=0
+export WELCOME_MB_AUTO="${tmp}/no-mb-auto"
 export WELCOME_STEP=1
 
 run() {
@@ -116,6 +117,19 @@ if grep -q 'op de USB-stick, blijft bewaard' "$d" && grep -q 'alleen in het werk
 else
   bad "live USB storage line"; cat "$d" "${tmp}/dialog.2d"
 fi
+
+# 2e. Mijn Bureau deploys itself: the status line says so, with its state.
+: >"${tmp}/mb-auto"
+printf 'wordt uitgerold: stap 8 van 14 (deploy)
+' >"${tmp}/mb-status"
+export WELCOME_MB_AUTO="${tmp}/mb-auto" WELCOME_MB_STATUS="${tmp}/mb-status"
+FAKE_NET=up run 2e
+if grep -q 'rolt zichzelf uit' "${tmp}/dialog.2e" && grep -q 'stap 8 van 14' "${tmp}/dialog.2e"; then
+  ok "automatic Mijn Bureau deployment: status line with the current step"
+else
+  bad "automatic Mijn Bureau deployment status line"; cat "${tmp}/dialog.2e"
+fi
+export WELCOME_MB_AUTO="${tmp}/no-mb-auto"
 
 # 3. live USB booted with dawo.debug=0.
 printf 'quiet dawo.debug=0\n' >"${tmp}/cmdline"

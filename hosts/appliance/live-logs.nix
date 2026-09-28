@@ -20,6 +20,7 @@
 #     guest.txt      guest status, the guest's serial console, and its
 #                    cloud-init and K3s logs
 #     health.log     the desktop's health check and dashboard opener log
+#     mijnbureau.txt the Mijn Bureau deployment, phase by phase (#111)
 #     network.txt    NetworkManager connections/devices, addresses, DNS, internet check
 #     hardware.txt   model, firmware, CPU, memory, disks (once per boot)
 #     screens/       debug mode (default for now): a screenshot every 30 s
@@ -71,6 +72,8 @@ let
         } > "$dir/hardware.txt" 2>&1
       fi
       cp -f /run/dawo-appliance/live-report.txt "$dir/progress.txt" 2>/dev/null || true
+      # The Mijn Bureau deployment log (live-mijnbureau.nix, #111).
+      cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt" 2>&1 || true

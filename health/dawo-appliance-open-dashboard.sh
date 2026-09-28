@@ -32,6 +32,12 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HEALTH="${DASHBOARD_HEALTH:-${here}/dawo-appliance-health.sh}"
 URL="${DASHBOARD_URL:-https://bureaublad.dawo.internal}"
+# The live USB waits longer (a first Mijn Bureau deployment from a stick takes
+# 30-60 minutes, #111); an explicit DASHBOARD_TIMEOUT still wins.
+if [ -z "${DASHBOARD_TIMEOUT:-}" ] && [ -r "${DASHBOARD_ENV:-/etc/dawo-appliance/dashboard.env}" ]; then
+  # shellcheck disable=SC1090
+  . "${DASHBOARD_ENV:-/etc/dawo-appliance/dashboard.env}"
+fi
 TIMEOUT="${DASHBOARD_TIMEOUT:-1800}"
 OPEN_BIN="${DASHBOARD_XDG_OPEN:-xdg-open}"
 NOTIFY_BIN="${DASHBOARD_NOTIFY:-notify-send}"
