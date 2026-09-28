@@ -596,6 +596,13 @@ application:
   meet:        { enabled: $(app_enabled meet), namespace: mb-meet }
   docs:        { enabled: $(app_enabled docs), namespace: mb-docs }
   bureaublad:  { enabled: true, namespace: mb-bureaublad }
+  # Upstream enables Drive and Conversations by default (application.yaml),
+  # which neither upstream's single-VPS values nor ADR 0007's set include; at
+  # b2ae545 drive-static's values do not even parse with ingress type traefik
+  # (5-space indent, helmfile/apps/drive/values-static-nginx.yaml.gotmpl:804),
+  # and both would exceed the laptop guest's CPU (#134, U-row).
+  drive:         { enabled: false }
+  conversations: { enabled: false }
 
 # Upstream defaults backup.enabled to true (environments/default/backup.yaml),
 # which installs openproject-backups even with OpenProject disabled; it needs
