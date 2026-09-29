@@ -42,7 +42,7 @@ bad() { echo "  FAIL $*"; fail=$((fail + 1)); }
 export STATUS_ONCE=1 STATUS_CURL="${fakes}/curl" STATUS_SYSTEMCTL="${fakes}/systemctl"
 export STATUS_PASSWORD_FILE="${tmp}/no-password" STATUS_GUEST_SKIPPED="${tmp}/no-skip"
 export STATUS_DATA="${tmp}/data" STATUS_MB="${tmp}/mb" STATUS_MB_START="${tmp}/mb-start"
-export STATUS_MB_LOG="${tmp}/mb.log"
+export STATUS_MB_LOG="${tmp}/mb.log" STATUS_MB_DURATIONS="${tmp}/no-durations"
 printf 'quiet\n' >"${tmp}/cmdline"
 export STATUS_CMDLINE="${tmp}/cmdline"
 printf 'stick: reused dawo-data.ext4 + dawo-images\n' >"${tmp}/data"
@@ -56,8 +56,9 @@ p="$(FAKE_NET=down render 1)"
 if grep -q 'http-equiv="refresh"' <<<"$p" && grep -q 'DawoDawo' <<<"$p" \
    && grep -q 'stap 8 van 14' <<<"$p" && grep -q "width:50%" <<<"$p" \
    && grep -q 'bezig: 12 min' <<<"$p" && grep -q 'Debug-modus' <<<"$p" \
-   && grep -q 'op de USB-stick, blijft bewaard' <<<"$p"; then
-  ok "offline + step 8/14: Wi-Fi hint, 50 % bar, 12 min elapsed, debug line, storage, auto refresh"
+   && grep -q 'op de USB-stick, blijft bewaard' <<<"$p" \
+   && grep -q 'Deze stap duurt meestal ongeveer 6 minuten' <<<"$p"; then
+  ok "offline + step 8/14: Wi-Fi hint, 50 % bar, 12 min elapsed, typical duration, debug line, storage, auto refresh"
 else
   bad "offline + step 8/14"; echo "$p"
 fi
@@ -80,11 +81,22 @@ else
   bad "deploying: signs of life"; echo "$p"
 fi
 
+# 1c. how long the step took last time on this machine (#143): the latest
+#     entry for the running phase wins.
+printf '%s\n' '8 412' '10 70' '8 338' >"${tmp}/durations"
+p="$(STATUS_MB_DURATIONS="${tmp}/durations" FAKE_NET=up render 1c)"
+if grep -q 'Vorige keer duurde deze stap op deze laptop 6 min' <<<"$p" && ! grep -q 'duurt meestal' <<<"$p"; then
+  ok "deploying: 'vorige keer duurde deze stap op deze laptop 6 min' from the durations kept on the stick"
+else
+  bad "deploying: previous duration"; echo "$p"
+fi
+
 # 2. done.
 printf 'klaar: Mijn Bureau is uitgerold (1800s)\n' >"${tmp}/mb"
 p="$(FAKE_NET=up render 2)"
-if grep -q "href='https://bureaublad.dawo.internal'" <<<"$p" && grep -q 'Mijn Bureau staat klaar' <<<"$p"; then
-  ok "done: 'Open Mijn Bureau' links to the dashboard"
+if grep -q "href='https://bureaublad.dawo.internal'" <<<"$p" && grep -q 'Mijn Bureau staat klaar' <<<"$p" \
+   && grep -q '<b>johndoe</b>' <<<"$p" && grep -q 'myStrongPassword123' <<<"$p"; then
+  ok "done: 'Open Mijn Bureau' links to the dashboard and the demo login is shown"
 else
   bad "done"; echo "$p"
 fi

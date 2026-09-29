@@ -332,6 +332,36 @@ else
 fi
 export DASHBOARD_GUEST_SKIPPED="${tmp}/no-such-guest-skipped"
 
+# --- 12. open-dashboard on the live USB: waits for the deployment (#143) -----
+# The browser opens only once the deployment's status says "klaar"; a failed
+# deployment opens nothing (the status page says why).
+reset_state
+export FAKE_SCENARIO=ok DASHBOARD_WAIT_STATUS="${tmp}/mb-status" DASHBOARD_POLL=1
+printf 'wordt uitgerold: stap 10 van 14 (wait-certs)\n' > "${tmp}/mb-status"
+( sleep 3; printf 'klaar: Mijn Bureau is uitgerold (900s)\n' > "${tmp}/mb-status" ) &
+rc=0
+SECONDS=0
+out="$(bash "${OPENER}" 2>&1)" || rc=$?
+waited="${SECONDS}"
+wait
+if [ "${rc}" -eq 0 ] && [ "${waited}" -ge 3 ] \
+   && [ "$(cat "${state}/xdg-open.log" 2>/dev/null)" = "https://bureaublad.dawo.internal" ]; then
+  ok "open-dashboard (live): waits while the deployment runs (${waited}s), opens the dashboard at 'klaar'"
+else
+  bad "open-dashboard waits for 'klaar' (rc=${rc}, ${waited}s)"; show "${out}"
+fi
+reset_state
+printf 'mislukt bij stap 10 van 14 (wait-certs); zie mijnbureau.txt op de USB-stick\n' > "${tmp}/mb-status"
+rc=0
+out="$(bash "${OPENER}" 2>&1)" || rc=$?
+if [ "${rc}" -eq 1 ] && [ ! -e "${state}/xdg-open.log" ] && [ ! -e "${state}/notify.log" ] \
+   && printf '%s' "${out}" | grep -q 'did not finish'; then
+  ok "open-dashboard (live): a failed deployment opens no browser and no notification"
+else
+  bad "open-dashboard with a failed deployment (rc=${rc})"; show "${out}"
+fi
+unset DASHBOARD_WAIT_STATUS DASHBOARD_POLL
+
 # --- 10. curl always got the CA ------------------------------------------------
 reset_state
 export FAKE_SCENARIO=ok

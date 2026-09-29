@@ -129,6 +129,9 @@ let
           log "phase $n/$total $name: attempt $attempt"
           if g sudo env MB_PROFILE=laptop-demo /usr/local/sbin/mb-deploy --phase "$n" >> ${logFile} 2>&1; then
             log "phase $n/$total $name: ok after $((SECONDS - t0))s"
+            # Kept on the stick (#143): the status page shows how long this
+            # step took last time on this machine.
+            echo "$n $((SECONDS - t0))" >> /var/lib/dawo-appliance/mb-durations || true
             g "echo ${driverSum} | sudo tee $marker >/dev/null"
             ok=yes; break
           fi
@@ -163,7 +166,11 @@ in
 
   # The status window mentions the automatic deployment (welcome script).
   environment.etc."dawo-appliance/mijnbureau-auto".text = "laptop-demo\n";
-  # The dashboard opener waits long enough for a first deployment from a stick.
-  environment.etc."dawo-appliance/dashboard.env".text = "DASHBOARD_TIMEOUT=14400\n";
+  # The dashboard opener waits long enough for a first deployment from a stick,
+  # and opens the browser only when the deployment above says "klaar" (#143).
+  environment.etc."dawo-appliance/dashboard.env".text = ''
+    DASHBOARD_TIMEOUT=14400
+    DASHBOARD_WAIT_STATUS=${status}
+  '';
   environment.systemPackages = [ runner ];
 }
