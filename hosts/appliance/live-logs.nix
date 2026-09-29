@@ -34,6 +34,16 @@
 let
   mnt = "/run/dawo-logs";
 
+  # Runs in the guest (sent over ssh as stdin): the previous container's log
+  # of every pod that is not fully ready (#150).
+  notReadyLogs = pkgs.writeText "dawo-not-ready-logs.sh" ''
+    k3s kubectl get pods -A --no-headers 2>/dev/null | while read -r ns name ready status _; do
+      if [ "''${ready%/*}" = "''${ready#*/}" ] || [ "$status" = Completed ]; then continue; fi
+      echo "-- $ns/$name ($ready $status)"
+      k3s kubectl -n "$ns" logs "$name" --all-containers --previous --tail=30 2>&1 | tail -n 30
+    done
+  '';
+
   collect = pkgs.writeShellApplication {
     name = "dawo-appliance-logs-collect";
     runtimeInputs = with pkgs; [ util-linux coreutils gnugrep gawk procps systemd openssh dmidecode pciutils networkmanager iproute2 curl ];
@@ -133,6 +143,14 @@ let
           echo "== cloud-init status"; g cloud-init status --long 2>&1 || true
           echo "== k3s stage log"; g sudo cat /var/log/dawo-appliance-k3s-stage.log 2>&1 || true
           echo "== k3s nodes and pods"; g sudo k3s kubectl get node,pods -A -o wide 2>&1 || true
+          # Why a pod restarts or is not ready (#150): recent Warning events
+          # (probe failures, OOM kills, pull errors) and the previous
+          # container's log of every pod that is not fully ready.
+          echo "== k3s warning events (latest 40)"
+          g sudo k3s kubectl get events -A --field-selector type=Warning --sort-by=.lastTimestamp 2>&1 | tail -n 40 || true
+          echo "== logs of pods that are not ready (previous container, tail 30)"
+          timeout 90 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+            -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 sudo bash -s < ${notReadyLogs} 2>&1 || true
           echo "== cloud-init-output.log (tail)"; g sudo tail -n 300 /var/log/cloud-init-output.log 2>&1 || true
           # If the guest rebooted on its own, its previous boot says why (#119).
           echo "== guest boots"; g sudo journalctl --list-boots --no-pager 2>&1 | tail -n 5 || true
