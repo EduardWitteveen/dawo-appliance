@@ -71,8 +71,8 @@ printf '%s\n' '2026-09-29T01:00:00Z t=85s phase 8/14 deploy: attempt 1' \
   "$(printf 'Upgrading release=keycloak, chart=\033[1mcharts/keycloak\033[0m')" '' >"${tmp}/mb.log"
 touch -d '-20 seconds' "${tmp}/mb.log"
 p="$(FAKE_NET=up render 1b)"
-if grep -q "class='spin'" <<<"$p" && grep -q 'poging 2 van 3' <<<"$p" \
-   && grep -qE 'laatste activiteit: (19|2[0-9]) s geleden' <<<"$p" \
+if grep -q "class='spin'" <<<"$p" && grep -q 'Poging 2 van 3' <<<"$p" \
+   && grep -qE 'Laatste activiteit: (19|2[0-9]) s geleden' <<<"$p" \
    && grep -q 'Upgrading release=keycloak, chart=charts/keycloak' <<<"$p" \
    && ! grep -q $'\033' <<<"$p" && grep -q '<title>DAWO appliance &mdash; bezig</title>' <<<"$p" \
    && grep -q 'Bezig: Mijn Bureau wordt uitgerold' <<<"$p"; then
