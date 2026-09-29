@@ -562,6 +562,45 @@ else
   bad "wait_rollout (r1=${r1} r2=${r2} r3=${r3})"; dump "${o2}"; dump "${o3}"
 fi
 
+# verify_image_digests (#140): the pinned list must reach python3 (not only
+# kubectl), and a failing check must only warn. Run without --dry-run against
+# a fake kubectl that prints one pod at a pinned digest and one that is not.
+py=""
+for c in python3 python; do
+  # A real interpreter (the fakes above also answer to python3 and exit 0).
+  if command -v "${c}" >/dev/null 2>&1 && [[ "$("${c}" -c 'import json; print(6*7)' 2>/dev/null | tr -d '\r')" == 42 ]]; then py="$(command -v "${c}")"; break; fi
+done
+if [[ -z "${py}" ]]; then
+  echo "  SKIP verify_image_digests: no working python3/python here"
+else
+  vd_bin="${tmp}/vdbin"; mkdir -p "${vd_bin}"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "${py}" >"${vd_bin}/python3"
+  cat >"${vd_bin}/kubectl" <<'EOF2'
+#!/usr/bin/env bash
+[[ "${FAKE_KUBECTL_FAIL:-0}" == 1 ]] && exit 1
+cat <<'JSON'
+{"items":[
+ {"metadata":{"namespace":"mb-keycloak","name":"kc-0"},"status":{"containerStatuses":[{"name":"kc","image":"x/kc:1","imageID":"docker.io/x/kc@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}},
+ {"metadata":{"namespace":"kube-system","name":"coredns-1"},"status":{"containerStatuses":[{"name":"coredns","image":"coredns:1","imageID":"docker.io/coredns@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]}}
+]}
+JSON
+EOF2
+  chmod +x "${vd_bin}"/*
+  vd_fn="$(sed -n '/^verify_image_digests() {/,/^}/p' "${DEPLOY}")"
+  vd() { env PATH="${vd_bin}:${PATH}" "$@" bash -c 'set -euo pipefail; DRY_RUN=0; log() { echo "==> $*"; }; warn() { echo "WARNING: $*"; }
+    MB_KNOWN_DIGESTS=(sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
+    '"${vd_fn}"'; verify_image_digests; echo "RC_AFTER=0"' 2>&1; }
+  v1=0; ov1="$(vd FAKE_KUBECTL_FAIL=0)" || v1=$?
+  v2=0; ov2="$(vd FAKE_KUBECTL_FAIL=1)" || v2=$?
+  if [[ -n "${vd_fn}" && "${v1}" -eq 0 && "${ov1}" == *"at a pinned digest: 1; not matching any pinned digest: 1"* \
+        && "${ov1}" == *"kube-system/coredns-1"* && "${ov1}" == *"RC_AFTER=0"* \
+        && "${v2}" -eq 0 && "${ov2}" == *"RC_AFTER=0"* ]]; then
+    ok "verify_image_digests: the pinned list reaches python3 (1 pinned, 1 not); an empty kubectl answer does not fail the phase (#140)"
+  else
+    bad "verify_image_digests (v1=${v1} v2=${v2})"; dump "${ov1}"; dump "${ov2}"
+  fi
+fi
+
 echo
 echo "test-mijnbureau-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]

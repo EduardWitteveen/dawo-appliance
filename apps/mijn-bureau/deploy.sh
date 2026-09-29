@@ -869,7 +869,9 @@ verify_image_digests() {
     printf 'DRY-RUN: kubectl get pods -A -o json | compare every (init)containerStatuses[].imageID sha256 against the %d pinned digests; WARN (not fatal) on any container whose digest matches none of them\n' "${#MB_KNOWN_DIGESTS[@]}"
     return 0
   fi
-  MB_KNOWN_DIGESTS_LIST="${MB_KNOWN_DIGESTS[*]}" kubectl get pods -A -o json 2>/dev/null | python3 -c '
+  # The digest list goes to python3 (a prefix on kubectl would not reach it,
+  # #140); a failure of the check itself only warns, as documented above.
+  kubectl get pods -A -o json 2>/dev/null | MB_KNOWN_DIGESTS_LIST="${MB_KNOWN_DIGESTS[*]}" python3 -c '
 import json, os, sys
 known = set(os.environ["MB_KNOWN_DIGESTS_LIST"].split())
 try:
@@ -902,7 +904,7 @@ if mismatches:
     print("     re-pointed tag or a digest override that did not take effect):")
     for m in mismatches:
         print("      " + m)
-'
+' || warn "image digest verification could not run; continuing (warn-only check, #140)"
 }
 
 # ---------------------------------------------------------------------------
