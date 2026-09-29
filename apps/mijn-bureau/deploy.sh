@@ -812,8 +812,39 @@ phase_oidc_restart() {
   kubectl rollout restart deploy/synapse -n mb-element
 }
 
+# patch_collabora_args: pass upstream's collabora.extra_params as container
+# args (#154, U4). collabora/code 26.04 is distroless: its entrypoint is
+# coolwsd --use-env-vars itself, with no start script to expand the
+# extra_params environment variable, so upstream's --o:ssl.enable=false never
+# arrives. coolwsd then serves TLS on 9980 and fails the chart's HTTP probes
+# (restart loop) and Traefik's plain-HTTP backend. The chart has `args`
+# (appended to the entrypoint); upstream's values template does not forward
+# it. Same options as upstream's values-collabora.yaml.gotmpl, without its
+# stray trailing quote. Idempotent strategic-merge patch; a changed pod
+# template triggers a fresh rollout.
+patch_collabora_args() {
+  local args=(
+    "--o:ssl.enable=false"
+    "--o:ssl.termination=true"
+    "--o:storage.wopi.alias_groups.mode=groups"
+    "--o:storage.wopi.alias_groups.group[0].host=https://nextcloud.${MB_DOMAIN}"
+    "--o:storage.wopi.alias_groups.group[1].host=https://drive.${MB_DOMAIN}"
+  )
+  local json a
+  json="$(printf '"%s",' "${args[@]}")"
+  json="[${json%,}]"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl -n mb-collabora patch deploy/collabora-online --type strategic: container collabora args %s\n' "${json}"
+    return 0
+  fi
+  for a in "${args[@]}"; do [[ "${a}" != *'"'* ]] || die "internal: quote in Collabora arg ${a}"; done
+  kubectl -n mb-collabora patch deploy/collabora-online --type strategic \
+    -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"collabora\",\"args\":${json}}]}}}}"
+}
+
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
+  patch_collabora_args
   # Upstream 04 waits for Nextcloud, then asks Collabora for its discovery
   # document; wait for Collabora itself first (#150), bounded.
   wait_rollout mb-collabora collabora-online 900s
@@ -1007,7 +1038,7 @@ phase_trust() {
   # Not yet implemented; each needs per-app verification on a real cluster.
   # Exact knobs, from the pinned charts (ADR 0004):
   todo "Keycloak back-channel calls: chart value trustedCertsExistingSecret (mounted, KC_TRUSTSTORE_PATHS) -> Secret with ca.crt in mb-keycloak via helmfile/apps/keycloak values"
-  todo "Collabora WOPI to https://nextcloud.${MB_DOMAIN}: append --o:ssl.ca_file_path=${CA_MOUNT_PATH}/ca.crt to collabora.extra_params (helmfile/apps/collabora/values-collabora.yaml.gotmpl) plus extraVolumes/extraVolumeMounts"
+  todo "Collabora WOPI to https://nextcloud.${MB_DOMAIN}: add --o:ssl.ca_file_path=${CA_MOUNT_PATH}/ca.crt to the container args of patch_collabora_args (extra_params is ignored, #154) plus the CA volume and mount"
   todo "Docs celery worker / y-provider (deploy/docs-celery-worker, deploy/docs-y-provider) and Bureaublad backend (deploy/bureaublad-backend): same env pattern once their runtimes' TLS calls are confirmed"
   todo "Move the env/volume additions from kubectl patches into chart values (extraEnvVars, extraVolumes, extraVolumeMounts) so a re-run of helmfile apply cannot revert them"
 }
