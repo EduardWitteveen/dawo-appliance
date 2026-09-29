@@ -533,9 +533,19 @@ phase_values() {
   # Profile (issue #110): full = upstream's preset "none" everywhere;
   # laptop-demo = global preset "micro" with upstream's own per-app map (no
   # resourcesPresetPerApp override), see docs/upstream/mijn-bureau-sizing.md.
-  local presets
+  local presets extra_resources=""
   if [[ "${MB_PROFILE}" == laptop-demo ]]; then
     presets='  resourcesPreset: "micro"'
+    # Collabora under upstream's per-app preset "small" (0.75 CPU, 768 MiB)
+    # failed its liveness probe while forking its kits and restarted in a
+    # loop on the Dell (#150); upstream's own VPS setup runs it without
+    # limits. Explicit resources override the preset.
+    extra_resources='
+resource:
+  collabora:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits: { cpu: "2", memory: "2Gi" }
+'
   else
     presets='  resourcesPreset: "none"
   resourcesPresetPerApp:
@@ -611,7 +621,7 @@ application:
 # in docs/deviations.md).
 backup:
   enabled: false
-
+${extra_resources}
 authentication:
   oidc:
     issuer: "https://id.${MB_DOMAIN}/realms/mijnbureau"
@@ -804,6 +814,9 @@ phase_oidc_restart() {
 
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
+  # Upstream 04 waits for Nextcloud, then asks Collabora for its discovery
+  # document; wait for Collabora itself first (#150), bounded.
+  wait_rollout mb-collabora collabora-online 900s
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi

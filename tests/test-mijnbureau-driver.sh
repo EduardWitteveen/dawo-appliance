@@ -516,6 +516,8 @@ if [[ "${rc}" -eq 0 ]] \
   && grep -A1 '| backup:$' <<<"${out}" | grep -q '|   enabled: false' \
   && grep -q '|   drive:         { enabled: false }' <<<"${out}" \
   && grep -q '|   conversations: { enabled: false }' <<<"${out}" \
+  && grep -A3 '| resource:$' <<<"${out}" | grep -q '|     limits: { cpu: "2", memory: "2Gi" }' \
+  && grep -q 'rollout status deploy/collabora-online --timeout=900s' <<<"${out}" \
   && ! grep -q 'resourcesPresetPerApp' <<<"${out}" \
   && grep -q '|   grist:       { enabled: false' <<<"${out}" \
   && grep -q '|   docs:        { enabled: false' <<<"${out}" \
@@ -524,7 +526,7 @@ if [[ "${rc}" -eq 0 ]] \
   && grep -q 'kubectl create namespace mb-grist' <<<"${out}" \
   && ! grep -q 'DRY-RUN: bash .*03-restart-oidc-apps.sh' <<<"${out}" \
   && [[ ! -e "${state_lap}" ]]; then
-  ok "laptop-demo dry-run: micro preset, no per-app override, grist/docs/meet/livekit off, drive/conversations off (#134), backup off (#127), 05/06 skipped, own 03 steps, namespaces ensured"
+  ok "laptop-demo dry-run: micro preset, no per-app override, grist/docs/meet/livekit off, drive/conversations off (#134), backup off (#127), Collabora 2 CPU/2 GiB and waited for in phase 13 (#150), 05/06 skipped, own 03 steps, namespaces ensured"
 else
   bad "laptop-demo dry-run (rc=${rc})"; dump "${out}"
 fi
