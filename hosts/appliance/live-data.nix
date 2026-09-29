@@ -176,12 +176,16 @@ in
 
     # The DAWO_LOGS stick as a real systemd mount (started on demand by the
     # data service and the log collector). exFAT/FAT have no per-file owners:
-    # owner root, group qemu-libvirtd (QEMU opens the guest disk), no others.
+    # owner root, group qemu-libvirtd (QEMU opens the guest disk); others may
+    # read, so the desktop user can browse the logs and screenshots in the file
+    # manager but not change or delete anything (#147). That user is the
+    # machine's administrator anyway (wheel, libvirtd), so reading the data
+    # file exposes nothing new; demo posture, see docs/live-usb.md.
     systemd.mounts = [{
       what = "/dev/disk/by-label/DAWO_LOGS";
       where = logsMnt;
       type = "auto";
-      options = "uid=0,gid=${qemuGid},fmask=0117,dmask=0007,nofail";
+      options = "uid=0,gid=${qemuGid},fmask=0113,dmask=0002,nofail";
     }];
 
     environment.systemPackages = [ setup ];

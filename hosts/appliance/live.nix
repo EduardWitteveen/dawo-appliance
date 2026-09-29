@@ -279,6 +279,17 @@ in
   '';
   services.logind.settings.Login.HandleLidSwitchExternalPower = "ignore";
 
+  # Screen lock after 60 minutes instead of DAWO's 5 (D33, #146; maintainer
+  # decision 2026-09-29): the 5-minute lock hid the status page during the
+  # 30-60 minute Mijn Bureau deployment. Still immutable ([$i]) and on; the
+  # GNOME dconf lock of DAWO's rule stays, so its verify still passes.
+  environment.etc."xdg/kscreenlockerrc".text = lib.mkForce ''
+    [Daemon][$i]
+    Autolock=true
+    LockGrace=0
+    Timeout=60
+  '';
+
   # No KWallet on the live USB (D31, #128): the session logs in automatically,
   # so pam_kwallet has no password to open a wallet with, and the first app
   # asking for a secret started KWallet's setup wizard (Blowfish/GPG, a new

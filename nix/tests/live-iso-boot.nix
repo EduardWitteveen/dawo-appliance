@@ -110,6 +110,11 @@ pkgs.runCommand "live-iso-boot"
       if ! grep -aqE "login:|[Cc]loud-init" guest-console.txt 2>/dev/null; then
         echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
       fi
+      # How much the session wrote to the stick is recorded (#147).
+      mcopy -n -i logs.raw "$run/io.txt" io.txt 2>/dev/null || true
+      if ! grep -q "written_since_boot_GB=[0-9]" io.txt 2>/dev/null; then
+        echo "no write counters in io.txt on the stick"; logs_ok=no
+      fi
       # After K3s Ready the Mijn Bureau runner makes the guest reboot itself
       # after a kernel Oops instead of hanging (#119).
       mcopy -n -i logs.raw "$run/mijnbureau.txt" mijnbureau.txt 2>/dev/null || true
