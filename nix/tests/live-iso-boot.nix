@@ -110,6 +110,12 @@ pkgs.runCommand "live-iso-boot"
       if ! grep -aqE "login:|[Cc]loud-init" guest-console.txt 2>/dev/null; then
         echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
       fi
+      # guest.txt explains not-ready pods: warning events and their logs (#150).
+      mcopy -n -i logs.raw "$run/guest.txt" guest-final.txt 2>/dev/null || true
+      if ! grep -q "== k3s warning events" guest-final.txt 2>/dev/null \
+         || ! grep -q "== logs of pods that are not ready" guest-final.txt; then
+        echo "guest.txt lacks the warning events or the not-ready pod logs"; logs_ok=no
+      fi
       # How much the session wrote to the stick is recorded (#147).
       mcopy -n -i logs.raw "$run/io.txt" io.txt 2>/dev/null || true
       if ! grep -q "written_since_boot_GB=[0-9]" io.txt 2>/dev/null; then
