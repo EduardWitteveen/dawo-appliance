@@ -61,9 +61,31 @@ if [ -s "${GUEST_SKIPPED}" ]; then
   exit 1
 fi
 
+# On the live USB Mijn Bureau deploys itself (#111): wait (bounded) until that
+# deployment says "klaar" before opening anything, so the browser does not
+# show the login while phases 11-14 still run (#143). On "mislukt" or "niet
+# mogelijk" stay quiet: the live status page says why. Unset: no wait.
+WAIT_STATUS="${DASHBOARD_WAIT_STATUS:-}"
+SECONDS=0
+if [ -n "${WAIT_STATUS}" ]; then
+  while :; do
+    s="$(cat "${WAIT_STATUS}" 2>/dev/null || true)"
+    case "${s}" in
+      klaar*) break ;;
+      mislukt* | "niet mogelijk"*)
+        echo "dawo-appliance: the Mijn Bureau deployment did not finish (${s}); not opening the dashboard" >&2
+        exit 1 ;;
+    esac
+    if [ "${SECONDS}" -ge "${TIMEOUT}" ]; then
+      echo "dawo-appliance: the Mijn Bureau deployment was not done within ${TIMEOUT}s (${s:-no status}); not opening the dashboard" >&2
+      exit 1
+    fi
+    sleep "${DASHBOARD_POLL:-10}"
+  done
+fi
+
 report=""
 rc=0
-SECONDS=0
 report="$(bash "${HEALTH}" --wait --timeout "${TIMEOUT}" 2>>"${LOG}")" || rc=$?
 elapsed="${SECONDS}"
 

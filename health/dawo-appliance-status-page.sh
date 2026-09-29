@@ -31,6 +31,7 @@ DATA_STATUS="${STATUS_DATA:-/run/dawo-appliance/data}"
 MB_STATUS="${STATUS_MB:-/run/dawo-appliance/mijnbureau}"
 MB_START="${STATUS_MB_START:-/run/dawo-appliance/mijnbureau-start}"
 MB_LOG="${STATUS_MB_LOG:-/var/log/dawo-appliance-mijnbureau.log}"
+MB_DURATIONS="${STATUS_MB_DURATIONS:-/var/lib/dawo-appliance/mb-durations}"
 CMDLINE="${STATUS_CMDLINE:-/proc/cmdline}"
 NET_URL="${STATUS_NET_URL:-https://dl.flathub.org/repo/flathub.flatpakrepo}"
 CURL_BIN="${STATUS_CURL:-curl}"
@@ -56,6 +57,24 @@ alive() {
   last="$(grep -v '^[[:space:]]*$' "${MB_LOG}" 2>/dev/null | tail -n 1 | tr -d '\033' | sed 's/\[[0-9;]*m//g' | cut -c1-140)"
   [ -n "${last}" ] && out="${out}<br><code class='log'>$(esc "${last}")</code>"
   printf '%s' "${out}"
+}
+
+# How long phase $1 took the previous time on this machine (#143): the runner
+# appends "<phase> <seconds>" to MB_DURATIONS on the stick. Without earlier
+# data, the typical duration measured on a Dell Latitude 5550 (2026-09-29).
+expected() {
+  local n="$1" prev
+  prev="$(awk -v n="${n}" '$1 == n { s = $2 } END { if (s != "") print s }' "${MB_DURATIONS}" 2>/dev/null)"
+  if [ -n "${prev}" ]; then
+    if [ "${prev}" -lt 90 ]; then echo "Vorige keer duurde deze stap op deze laptop ${prev} s"
+    else echo "Vorige keer duurde deze stap op deze laptop $(( (prev + 30) / 60 )) min"; fi
+    return
+  fi
+  case "${n}" in
+    8) echo "Deze stap duurt meestal ongeveer 6 minuten (alle apps worden gedownload)" ;;
+    10) echo "Deze stap duurt meestal 1 tot 2 minuten" ;;
+    *) echo "Deze stap duurt meestal minder dan een minuut" ;;
+  esac
 }
 
 render() {
@@ -103,7 +122,9 @@ render() {
 
   mbs="$(cat "${MB_STATUS}" 2>/dev/null || true)"
   case "${mbs}" in
-    "klaar"*) row ok "&#10004;" "Mijn Bureau" "uitgerold. <a class='btn' href='${DASHBOARD}'>Open Mijn Bureau</a>"; mb="done" ;;
+    "klaar"*) row ok "&#10004;" "Mijn Bureau" "uitgerold. <a class='btn' href='${DASHBOARD}'>Open Mijn Bureau</a>
+      <br>Inloggen met een van de demo-accounts: <b>johndoe</b> of <b>janedoe</b>, wachtwoord
+      <code>myStrongPassword123</code>."; mb="done" ;;
     "mislukt"*) row fail "&#10008;" "Mijn Bureau" "$(esc "${mbs}")<br><small>De uitrol is gestopt. Start de laptop
       opnieuw op om het nog eens te proberen; hij gaat dan verder waar hij was.</small>"; mb="failed" ;;
     "niet mogelijk"*) row warn "&#9888;" "Mijn Bureau" "$(esc "${mbs}")"; mb="no" ;;
@@ -115,7 +136,7 @@ render() {
         elapsed=" &middot; bezig: $(( ($(now) - started) / 60 )) min"
       fi
       row wait "<span class='spin'></span>" "Mijn Bureau" "$(esc "${mbs}")${elapsed}<div class='bar'><div style='width:${pct}%'></div></div>
-      <small>$(alive)</small><br>
+      <small>$(expected "${n:-0}"). $(alive)</small><br>
       <small>De eerste keer 30 tot 60 minuten (apps downloaden); daarna opent het dashboard vanzelf.</small>"
       mb="busy" ;;
     "") if [ "${guest}" = skipped ]; then
