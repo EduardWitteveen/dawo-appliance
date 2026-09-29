@@ -17,7 +17,7 @@ RAM, so nothing survives a reboot.
 | Item | Requirement |
 |---|---|
 | Laptop | x86-64 with virtualisation (VT-x / AMD-V) enabled in the firmware. The desktop runs on 8 GB; the guest needs at least 9 GB in total (6 GB stays for the desktop, 3 GB minimum for the guest); 16–32 GB recommended |
-| Boot stick | USB 3, at least 16 GB; 32 GB or more to keep the guest on it. The image takes about 7 GB; the rest becomes the `DAWO_LOGS` partition for logs, screenshots and data ("Writing the stick" below). Everything on it is erased the first time |
+| Boot medium | **A USB SSD of 64 GB or more** (an SSD in a USB enclosure, or a portable one such as a Samsung T7). A USB flash stick of 16 GB boots the desktop, but keeping the guest on it means hours of writes (a Mijn Bureau deployment grows the guest disk to about 13 GB): a SanDisk stick died after two days of this and ran hot (#139). The image takes about 7 GB; the rest becomes the `DAWO_LOGS` partition for logs, screenshots and data ("Writing the stick" below). Everything on it is erased the first time; up to 2 TB (MBR). `io.txt` in each session's logs records how many GB the session wrote (#147) |
 | Second stick (optional) | Only when `DAWO_LOGS` is not on the boot stick: any USB stick formatted FAT32 or exFAT with the name `DAWO_LOGS`. Files on it are kept |
 
 ## 1. Build the image

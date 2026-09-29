@@ -4,6 +4,13 @@
 
 Deze gids helpt gemeentelijke IT-beheerders, werkplek-engineers en technisch adviseurs om een fysieke test-laptop (bijvoorbeeld uit de overgebleven IT-voorraad) klaar te maken voor een live demonstratie van de `dawo-appliance`.
 
+> **De snelste manier: de live-USB (aanbevolen).** Start een bestaande laptop op vanaf een USB-schijf; er verandert niets op de laptop zelf. Je hebt nodig:
+> - een laptop met **32 GB geheugen** en virtualisatie (VT-x/AMD-V) aan in de BIOS; met 8 GB start alleen de werkplek;
+> - een **USB-SSD van 64 GB of meer** (een SSD in een USB-behuizing, of een draagbare SSD). Een gewone USB-stick raden we af: de virtuele machine schrijft er urenlang naar, waardoor een stick heet wordt en slijt. Een SanDisk-stick ging bij ons na twee dagen kapot ([#139](https://github.com/EduardWitteveen/dawo-appliance/issues/139));
+> - internet bij de eerste keer opstarten (Mijn Bureau downloadt ongeveer 10 minuten).
+>
+> Hoe je de USB-schijf maakt en de laptop voorbereidt: [`live-usb.md`](live-usb.md). De rest van deze gids beschrijft de installatie op de interne schijf van een test-laptop.
+
 ---
 
 ## 1. Geschikte laptops & hardware-profielen
