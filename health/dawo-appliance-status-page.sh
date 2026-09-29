@@ -51,9 +51,9 @@ alive() {
   [ -r "${MB_LOG}" ] || return 0
   local attempt age last out=""
   attempt="$(grep -o 'attempt [0-9]' "${MB_LOG}" 2>/dev/null | tail -n 1 | tr -dc '0-9')"
-  if [ -n "${attempt}" ] && [ "${attempt}" -gt 1 ]; then out="poging ${attempt} van 3 &middot; "; fi
+  if [ -n "${attempt}" ] && [ "${attempt}" -gt 1 ]; then out="Poging ${attempt} van 3 &middot; "; fi
   age=$(( $(now) - $(stat -c %Y "${MB_LOG}" 2>/dev/null || now) ))
-  out="${out}laatste activiteit: $(ago "${age}")"
+  out="${out}Laatste activiteit: $(ago "${age}")"
   last="$(grep -v '^[[:space:]]*$' "${MB_LOG}" 2>/dev/null | tail -n 1 | tr -d '\033' | sed 's/\[[0-9;]*m//g' | cut -c1-140)"
   [ -n "${last}" ] && out="${out}<br><code class='log'>$(esc "${last}")</code>"
   printf '%s' "${out}"
@@ -73,6 +73,8 @@ expected() {
   case "${n}" in
     8) echo "Deze stap duurt meestal ongeveer 6 minuten (alle apps worden gedownload)" ;;
     10) echo "Deze stap duurt meestal 1 tot 2 minuten" ;;
+    11) echo "Deze stap duurt meestal ongeveer 7 minuten (apps worden opnieuw gestart)" ;;
+    13) echo "Deze stap duurt meestal 1 tot 3 minuten" ;;
     *) echo "Deze stap duurt meestal minder dan een minuut" ;;
   esac
 }
