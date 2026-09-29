@@ -18,6 +18,8 @@
 #     progress.txt   DAWO-LIVE stage lines with seconds since boot
 #     journal.txt    journalctl -b (the whole boot so far)
 #     guest.txt      guest status, its cloud-init and K3s logs (over ssh)
+#     io.txt         per copy: GB written to the stick since boot and by the
+#                    guest QEMU process (#139, #147)
 #     guest-console.txt the guest's serial console and qemu log (always,
 #                    also at shutdown; #119)
 #     health.log     the desktop's health check and dashboard opener log
@@ -34,7 +36,7 @@ let
 
   collect = pkgs.writeShellApplication {
     name = "dawo-appliance-logs-collect";
-    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep procps systemd openssh dmidecode pciutils networkmanager iproute2 curl ];
+    runtimeInputs = with pkgs; [ util-linux coreutils gnugrep gawk procps systemd openssh dmidecode pciutils networkmanager iproute2 curl ];
     text = ''
       if ! mountpoint -q ${mnt}; then
         dev="$(blkid -L DAWO_LOGS 2>/dev/null || true)"
@@ -106,6 +108,20 @@ let
         echo "== guest qemu log (tail)"
         tail -n 60 /var/log/libvirt/qemu/dawo-appliance-mb.log 2>&1 || true
       } > "$dir/guest-console.txt" 2>&1
+      # How much this session wrote to the stick (#139, #147): one line per
+      # copy with the stick disk's written sectors since boot (in GB) and the
+      # guest QEMU process's write_bytes, so the wear per session is known.
+      {
+        part="$(findmnt -no SOURCE ${mnt} 2>/dev/null || true)"
+        disk="$(lsblk -no PKNAME "$part" 2>/dev/null | head -n1)"
+        sectors="$(awk -v d="$disk" '$3 == d { print $10 }' /proc/diskstats 2>/dev/null)"
+        qpid="$(pgrep -f 'guest=dawo-appliance-mb' | head -n1 || true)"
+        qbytes="$(awk '/^write_bytes/ { print $2 }' "/proc/$qpid/io" 2>/dev/null || true)"
+        printf '%s uptime=%ss stick=%s written_since_boot_GB=%s guest_qemu_write_GB=%s\n' \
+          "$(date -u +%FT%TZ)" "$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)" "''${disk:-?}" \
+          "$(awk -v s="''${sectors:-0}" 'BEGIN { printf "%.2f", s * 512 / 1e9 }')" \
+          "$(awk -v b="''${qbytes:-0}" 'BEGIN { printf "%.2f", b / 1e9 }')"
+      } >> "$dir/io.txt" 2>&1
       if [ -z "''${DAWO_LOGS_FINAL:-}" ]; then
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
