@@ -28,8 +28,8 @@ Op de USB-schijf staat alles:
 
 | Mijn Bureau installeert zichzelf | De voortgang, stap voor stap |
 | --- | --- |
-| [![De statuspagina terwijl Mijn Bureau zijn apps installeert: draaiend symbool, laatste activiteit en de laatste regel van het logboek](docs/screenshots/live-status-deploying.png)](docs/screenshots/live-status-deploying.png) | [![De statuspagina bij stap 10 van 14: stap 1 tot en met 9, waaronder de installatie van alle apps, zijn gelukt](docs/screenshots/live-status-page-dell.png)](docs/screenshots/live-status-page-dell.png) |
-| Na het opstarten opent een statuspagina die laat zien wat werkt en waar het systeem op wacht. | Stap 1 tot en met 9 lukten op de testlaptop; stap 8, de installatie van alle apps, duurde 6 minuten. |
+| [![De statuspagina terwijl Mijn Bureau zijn apps installeert: draaiend symbool, laatste activiteit en de laatste regel van het logboek](docs/screenshots/live-status-deploying.png)](docs/screenshots/live-status-deploying.png) | [![De statuspagina bij stap 11 van 14, met de verwachte duur van de stap en de laatste activiteit](docs/screenshots/live-status-page-dell.png)](docs/screenshots/live-status-page-dell.png) |
+| Na het opstarten opent een statuspagina die laat zien wat werkt en waar het systeem op wacht. | Stap 1 tot en met 12 lukten op de testlaptop; de pagina vertelt ook hoe lang een stap meestal duurt. |
 
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 
@@ -38,8 +38,8 @@ Op de USB-schijf staat alles:
 | | |
 | --- | --- |
 | ✅ **Werkt** | Opstarten van USB zonder de laptop te veranderen · werkplek na 20 seconden · virtuele machine en Kubernetes binnen een minuut · gegevens blijven bewaard · netjes afsluiten · statuspagina met voortgang |
-| ✅ **Werkt** | Mijn Bureau installeert zichzelf: stap 1 tot en met 9 van 14 gelukt, inclusief alle apps |
-| 🔄 **Bezig** | Stap 10 tot en met 14 (certificaten, inloggen koppelen): de laatste fout is gevonden en opgelost; de volgende sessie op de testlaptop moet het bevestigen |
+| ✅ **Werkt** | Mijn Bureau installeert zichzelf: stap 1 tot en met 12 van 14 gelukt, inclusief alle apps, certificaten en de koppeling met de inlogdienst |
+| 🔄 **Bezig** | Stap 13: de online kantoorprogramma's (Collabora) kregen te weinig rekenkracht en werden steeds herstart. Ze krijgen nu meer ruimte; de volgende sessie op de testlaptop moet het bevestigen |
 | ⏭️ **Daarna** | Inloggen in Mijn Bureau en het dashboard in de browser, met schermafbeeldingen |
 
 De technische details per stap staan hieronder in het Engelse deel en in de [issues op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues).
@@ -108,18 +108,19 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Boot-tested (`test-guest-boot`, live tests); runs on real hardware (Dell, guest SSH after 26 s); firmware-crash reset under nested KVM (#24) |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
-| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up. Dell, 2026-09-29 (USB SSD): phases 1–9 passed, phase 8 (`helmfile apply`, 13 releases) in 338 s; phase 10 stopped in our own digest check after all 6 certificates were ready (#140, fixed). Phases 11–14 not yet seen |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up. Dell, 2026-09-29 evening (USB SSD): phases 1–12 passed (phase 8 `helmfile apply` 126–338 s, phase 11 in-cluster trust 405 s); phase 13 stopped because Collabora restarted in a loop under the `small` preset's limits (liveness probe; #150, now 2 CPU / 2 GiB). Phase 14 not yet seen |
 | 7 | Health check + auto-open browser, offline-tested | First real pass on the Dell 2026-09-29: all 9 checks OK after 552 s. On the live USB the browser now opens only when the deployment is done (#143) |
-| Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-29, fresh USB SSD: desktop 23 s, guest SSH 37 s, K3s Ready 49 s; Mijn Bureau through phase 9 (see row 6). Dynabook (8 GB): desktop only, guest skipped as designed. The first SanDisk USB stick died after two days of VM writes (#139): use a USB SSD. Screenshots: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
+| Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-29, fresh USB SSD: desktop 23 s, guest SSH 37 s, K3s Ready 49 s; Mijn Bureau through phase 12 (see row 6); a whole session writes about 1 GB to the stick (`io.txt`, #147). Dynabook (8 GB): desktop only, guest skipped as designed. The first SanDisk USB stick died after two days of VM writes (#139): use a USB SSD. Screenshots: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
 
 **What works today:** the **live USB** boots an existing laptop without touching
 its disk: the DAWO workplace (SDDM + KDE Plasma 6, the pilot app set, nl_NL)
 comes up in about 20 s, the Ubuntu guest and single-node K3s in under a minute
 on a 32 GB laptop, and a self-updating status page shows what works and what
 we are waiting for. Data (the guest disk) persists on the stick across boots.
-Mijn Bureau's deployment starts by itself and has passed phase 9 of 14 on real
-hardware, including the full `helmfile apply`; the health check saw a healthy
-dashboard. It has not yet run end-to-end (phases 10–14). The installer ISO
+Mijn Bureau's deployment starts by itself and has passed phase 12 of 14 on real
+hardware, including the full `helmfile apply`, certificates and the OIDC
+restarts; the health check saw a healthy dashboard. It has not yet run
+end-to-end (phases 13–14). The installer ISO
 (Slices 1–2) installs the same host to an explicitly confirmed disk. Details
 per slice: `docs/roadmap.md`; the live USB: [`docs/live-usb.md`](docs/live-usb.md).
 Running Mijn Bureau needs a large host (see below).
@@ -131,7 +132,9 @@ Running Mijn Bureau needs a large host (see below).
 markers surviving a driver update (#131); upstream defaults that fail on a
 laptop: Velero backups (#127) and Drive/Conversations (#134, found by an
 offline `helmfile template` pre-flight); a KWallet wizard at autologin (#128);
-the status page not showing progress (#132, #143). Upstream issues stay in our
+the status page not showing progress (#132, #143); our digest check's
+environment (#140); Collabora's liveness probe under the laptop profile's
+limits, diagnosed from the guest disk copied off the stick (#150). Upstream issues stay in our
 tracker (label `upstream`, U-rows in [`docs/deviations.md`](docs/deviations.md)).
 
 ## Verification
