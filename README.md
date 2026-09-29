@@ -47,7 +47,19 @@ Deze demonstrator installeert een compleet ecosysteem op **één enkele test-lap
 - Stap 8 stopte bij een back-uponderdeel dat Mijn Bureau standaard aanzet, maar
   dat een back-upsysteem (Velero) nodig heeft dat op de laptop niet bestaat.
   Back-ups staan voor deze demo nu uit
-  ([#127](https://github.com/EduardWitteveen/dawo-appliance/issues/127)).
+  ([#127](https://github.com/EduardWitteveen/dawo-appliance/issues/127)). Die
+  oplossing kwam de vorige keer nog niet aan, omdat de stick de al gedane stappen
+  niet opnieuw deed; dat gebeurt nu wel na een update
+  ([#131](https://github.com/EduardWitteveen/dawo-appliance/issues/131)).
+- Door de hele installatie van tevoren na te bootsen vonden we de volgende
+  struikelsteen al: twee extra apps die Mijn Bureau standaard aanzet (Drive en
+  Conversations) passen niet op de laptop en hebben een fout in hun
+  configuratie. Die staan nu uit
+  ([#134](https://github.com/EduardWitteveen/dawo-appliance/issues/134)).
+- De statuspagina laat nu duidelijk zien dat hij bezig is (draaiend
+  symbooltje, laatste activiteit) of dat er iets mis ging (rode balk), en de
+  laptop gaat tijdens de installatie niet meer slapen
+  ([#132](https://github.com/EduardWitteveen/dawo-appliance/issues/132)).
 - Mijn Bureau bleef eerder twee keer steken bij stap 3. De oorzaak was de klok: de
   laptop liep na het opstarten 2 uur voor, en van die tijdsprong raakte
   Kubernetes in de war. Dat is opgelost
