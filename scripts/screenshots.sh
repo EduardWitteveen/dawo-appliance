@@ -41,7 +41,14 @@ if [[ "${1:-}" == "--stick" ]]; then
   # wide screen (ImageMagick gravity; default center).
   gravity="${CROP_GRAVITY:-center}"
   [[ "${gravity}" =~ ^(center|west|east)$ ]] || { echo "CROP_GRAVITY must be center, west or east" >&2; exit 1; }
-  "${magick_bin}" "${src}" -gravity "${gravity}" -crop "${cw}x${h}+0+0" +repage -resize 1280x -strip "${out_dir}/${dest}"
+  # CROP=WxH+X+Y takes one screen out of a multi-monitor screenshot (e.g. the
+  # laptop's own 1920x1080 panel at +0+0); it overrides CROP_GRAVITY.
+  if [[ -n "${CROP:-}" ]]; then
+    [[ "${CROP}" =~ ^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$ ]] || { echo "CROP must look like 1920x1080+0+0" >&2; exit 1; }
+    "${magick_bin}" "${src}" -crop "${CROP}" +repage -resize 1280x -strip "${out_dir}/${dest}"
+  else
+    "${magick_bin}" "${src}" -gravity "${gravity}" -crop "${cw}x${h}+0+0" +repage -resize 1280x -strip "${out_dir}/${dest}"
+  fi
   chmod 644 "${out_dir}/${dest}"
   echo "==> ${src} (${w}x${h}) → ${out_dir}/${dest} ($(stat -c %s "${out_dir}/${dest}") bytes)"
   hw="${out_dir}/HARDWARE.md"
