@@ -8,4 +8,5 @@ nothing else. Rules: [`README.md`](README.md).
 
 | Image | Machine | Session (UTC boot time_boot id) | Captured (local time) | Original SHA-256 | What it shows |
 | --- | --- | --- | --- | --- | --- |
-| `live-status-page-dell.png` | Dell Inc. Latitude 5550 | `20260928T181335Z_f2a3b727` | 2026-09-28 20:18:20 | `3648a47073615ba4…` | The live USB on a Dell Latitude 5550: the status page while Mijn Bureau deploys at step 8 of 14 (helmfile apply), after steps 1-7 passed. |
+| `live-status-page-dell.png` | Dell Inc. Latitude 5550 | `20260929T144234Z_5f4f1f4d` | 2026-09-29 16:52:37 | `32c3641e6e58db7e…` | The live USB on a Dell Latitude 5550 (USB SSD): the status page at step 10 of 14 (waiting for certificates) with the attempt counter and the latest log line; steps 1-9, including installing all apps, passed. |
+| `live-status-deploying.png` | Dell Inc. Latitude 5550 | `20260929T144234Z_5f4f1f4d` | 2026-09-29 16:47:23 | `fb4c048c2a5e7bff…` | The same session while Mijn Bureau installs its apps (step 8 of 14): spinner, time since the last activity, latest log line. |

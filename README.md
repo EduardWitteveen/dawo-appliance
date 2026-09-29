@@ -16,70 +16,44 @@
 ### 🇳🇱 Voor Gemeenten en Overheidsinstellingen (NL)
 *(English technical documentation continues below)*
 
-Gemeenten worstelen met *vendor lock-in* (zoals Microsoft 365) en strenge BIO-compliancy eisen rondom data in de cloud. Dit open-source project maakt "Digitale Soevereiniteit" tastbaar. 
+Gemeenten worstelen met *vendor lock-in* (zoals Microsoft 365) en strenge BIO-eisen rond data in de cloud. Dit open-source project maakt digitale soevereiniteit tastbaar: **steek een USB-schijf in een gewone laptop, zet hem aan, en je werkt op een complete overheidswerkplek.** Er verandert niets op de laptop zelf.
 
-Deze demonstrator installeert een compleet ecosysteem op **één enkele test-laptop**:
-1. **De Werkplek (DAWO):** Een veilig alternatief voor Windows, precies zoals gebruikt in de huidige BZK-pilots.
-2. **De Samenwerkingssuite (Mijn Bureau):** Een lokaal draaiend alternatief voor OneDrive, Word en Excel (Nextcloud & Collabora).
+Op de USB-schijf staat alles:
+1. **De werkplek (DAWO):** het veilige Linux-bureaublad uit de BZK-pilots, met dezelfde programma's.
+2. **De samenwerkingssuite (Mijn Bureau):** een lokaal draaiend alternatief voor OneDrive, Teams en Office (Nextcloud, Collabora, Element), met één inlog.
 
-**Het grote voordeel:** Alle documenten en data blijven 100% lokaal op de laptop staan. Er gaat geen enkele byte naar commerciële cloud-providers. Je kunt dit systeem volledig risicovrij [uitproberen via een opstartbare USB-stick](docs/demo-hardware.md). 
+**Het grote voordeel:** alle documenten en data blijven op de USB-schijf. Er gaat geen byte naar commerciële cloud-providers.
+
+#### In beeld (echte schermafbeeldingen van een testlaptop)
+
+| Mijn Bureau installeert zichzelf | De voortgang, stap voor stap |
+| --- | --- |
+| [![De statuspagina terwijl Mijn Bureau zijn apps installeert: draaiend symbool, laatste activiteit en de laatste regel van het logboek](docs/screenshots/live-status-deploying.png)](docs/screenshots/live-status-deploying.png) | [![De statuspagina bij stap 10 van 14: stap 1 tot en met 9, waaronder de installatie van alle apps, zijn gelukt](docs/screenshots/live-status-page-dell.png)](docs/screenshots/live-status-page-dell.png) |
+| Na het opstarten opent een statuspagina die laat zien wat werkt en waar het systeem op wacht. | Stap 1 tot en met 9 lukten op de testlaptop; stap 8, de installatie van alle apps, duurde 6 minuten. |
+
+<sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
+
+#### Stand van zaken (29 september 2026)
+
+| | |
+| --- | --- |
+| ✅ **Werkt** | Opstarten van USB zonder de laptop te veranderen · werkplek na 20 seconden · virtuele machine en Kubernetes binnen een minuut · gegevens blijven bewaard · netjes afsluiten · statuspagina met voortgang |
+| ✅ **Werkt** | Mijn Bureau installeert zichzelf: stap 1 tot en met 9 van 14 gelukt, inclusief alle apps |
+| 🔄 **Bezig** | Stap 10 tot en met 14 (certificaten, inloggen koppelen): de laatste fout is gevonden en opgelost; de volgende sessie op de testlaptop moet het bevestigen |
+| ⏭️ **Daarna** | Inloggen in Mijn Bureau en het dashboard in de browser, met schermafbeeldingen |
+
+De technische details per stap staan hieronder in het Engelse deel en in de [issues op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues).
+
+#### Wat heb je nodig?
+
+- Een laptop met **32 GB geheugen** en virtualisatie aan in de BIOS (met 8 GB start alleen de werkplek).
+- Een **USB-SSD van 64 GB of meer**. Een gewone USB-stick slijt snel van het schrijfwerk van de virtuele machine.
+- **Internet**, de eerste keer, om Mijn Bureau te downloaden (ongeveer 10 minuten).
+- Meer: [hardware-vereisten](docs/demo-hardware.md) en [de USB-schijf maken](docs/live-usb.md).
 
 **Veelgestelde vragen:**
-- *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) gebaseerd op de officiële broncode van de Rijksoverheid.
-- *Kan dit morgen in productie?* Nee, dit is bedoeld voor evaluatie en bestuurlijke demo's. 
-
-**Stand van zaken (28 september 2026)**
-
-*Wat al werkt, op een gewone laptop (Dell Latitude 5550):*
-- De USB-stick start de laptop zonder iets op de harde schijf te veranderen. Na
-  20 seconden staat de DAWO-werkplek klaar; binnen een minuut draaien de
-  virtuele machine en Kubernetes (K3s).
-- Een statuspagina in de browser laat zien wat werkt en waar we op wachten, met
-  een voortgangsbalk voor Mijn Bureau.
-- Gegevens blijven op de stick bewaard: de volgende keer gaat hij verder waar hij
-  was.
-- Afsluiten gaat netjes (ook met de aan/uit-knop), en Windows heeft daarna de
-  juiste tijd.
-- Mijn Bureau rolt zichzelf uit zodra er internet is. De laatste sessie kwam tot
-  stap 8 van 14: de eigenlijke installatie van de apps.
-
-*Waar we nu mee bezig zijn:*
-- Stap 8 stopte bij een back-uponderdeel dat Mijn Bureau standaard aanzet, maar
-  dat een back-upsysteem (Velero) nodig heeft dat op de laptop niet bestaat.
-  Back-ups staan voor deze demo nu uit
-  ([#127](https://github.com/EduardWitteveen/dawo-appliance/issues/127)). Die
-  oplossing kwam de vorige keer nog niet aan, omdat de stick de al gedane stappen
-  niet opnieuw deed; dat gebeurt nu wel na een update
-  ([#131](https://github.com/EduardWitteveen/dawo-appliance/issues/131)).
-- Door de hele installatie van tevoren na te bootsen vonden we de volgende
-  struikelsteen al: twee extra apps die Mijn Bureau standaard aanzet (Drive en
-  Conversations) passen niet op de laptop en hebben een fout in hun
-  configuratie. Die staan nu uit
-  ([#134](https://github.com/EduardWitteveen/dawo-appliance/issues/134)).
-- De statuspagina laat nu duidelijk zien dat hij bezig is (draaiend
-  symbooltje, laatste activiteit) of dat er iets mis ging (rode balk), en de
-  laptop gaat tijdens de installatie niet meer slapen
-  ([#132](https://github.com/EduardWitteveen/dawo-appliance/issues/132)).
-- Mijn Bureau bleef eerder twee keer steken bij stap 3. De oorzaak was de klok: de
-  laptop liep na het opstarten 2 uur voor, en van die tijdsprong raakte
-  Kubernetes in de war. Dat is opgelost
-  ([#124](https://github.com/EduardWitteveen/dawo-appliance/issues/124)); stap 3
-  tot en met 7 gaan nu goed.
-- De melding van de KDE-wachtwoordkluis (KWallet) komt niet meer
-  ([#128](https://github.com/EduardWitteveen/dawo-appliance/issues/128)).
-- De virtuele machine start zichzelf opnieuw op als zijn Linux-kernel crasht,
-  en de logboeken op de stick bevatten nu altijd zijn scherm-uitvoer
-  ([#119](https://github.com/EduardWitteveen/dawo-appliance/issues/119)).
-- Er is een hulpmiddel om de stick te maken, bij te werken en de logboeken uit te
-  lezen, op Windows en Linux ([#97](https://github.com/EduardWitteveen/dawo-appliance/issues/97)).
-
-*Volgende stap:* Mijn Bureau volledig uitgerold op de laptop en het dashboard
-open in de browser.
-
-![De statuspagina van de live-USB op een Dell Latitude 5550: internet, opslag op de stick, virtuele machine, Mijn Bureau bij stap 8 van 14](docs/screenshots/live-status-page-dell.png)
-
-*Echte schermafbeelding van de testlaptop, gemaakt door de debug-modus van de stick
-(herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).*
+- *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) op basis van de officiële broncode van de Rijksoverheid.
+- *Kan dit morgen in productie?* Nee, het is bedoeld voor evaluatie en bestuurlijke demo's. Wachtwoorden staan leesbaar op de schijf en er is geen versleuteling.
 
 ---
 
@@ -114,7 +88,9 @@ boot test; the password in the picture is the test suite's throwaway one.*
 steps that would run, and "NO DISK WRITES PERFORMED".*
 
 Both pictures are captured by the automated boot tests of the pinned
-configuration (software-rendered VM), never by hand. Provenance and rules:
+configuration (software-rendered VM), never by hand. The live USB on real
+hardware is shown in the Dutch section above (debug-mode screenshots from the
+stick, only cropped). Provenance and rules:
 [`docs/screenshots/`](docs/screenshots/README.md).
 
 ## Status
@@ -132,21 +108,31 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Boot-tested (`test-guest-boot`, live tests); runs on real hardware (Dell, guest SSH after 26 s); firmware-crash reset under nested KVM (#24) |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
-| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up; on the Dell (2026-09-28 evening) phases 1–7 ran and phase 8 (`helmfile apply`) stopped at `openproject-backups`, which needs Velero (upstream default `backup.enabled: true`; now off, #127, U2). Earlier stops at phase 3 were caused by a 2 h clock jump (#124, fixed). Mijn Bureau has not run end-to-end yet |
-| 7 | Health check + auto-open browser, offline-tested | Runs on the desktop (seen in VirtualBox 2026-09-27); two start-up bugs fixed (#98, #100) and guarded by `checks.health-selfcontained`; never observed a real Mijn Bureau deployment |
-| Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-28 evening: desktop 21 s, guest SSH 34 s, K3s Ready 42 s (data reused from the stick, clock right after #124); the status page shows the progress; Mijn Bureau deployed itself through phase 7 and stopped in phase 8 (#127). Dynabook (8 GB): desktop only, guest skipped as designed. Screenshot: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up. Dell, 2026-09-29 (USB SSD): phases 1–9 passed, phase 8 (`helmfile apply`, 13 releases) in 338 s; phase 10 stopped in our own digest check after all 6 certificates were ready (#140, fixed). Phases 11–14 not yet seen |
+| 7 | Health check + auto-open browser, offline-tested | First real pass on the Dell 2026-09-29: all 9 checks OK after 552 s. On the live USB the browser now opens only when the deployment is done (#143) |
+| Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-29, fresh USB SSD: desktop 23 s, guest SSH 37 s, K3s Ready 49 s; Mijn Bureau through phase 9 (see row 6). Dynabook (8 GB): desktop only, guest skipped as designed. The first SanDisk USB stick died after two days of VM writes (#139): use a USB SSD. Screenshots: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
 
 **What works today:** the **live USB** boots an existing laptop without touching
 its disk: the DAWO workplace (SDDM + KDE Plasma 6, the pilot app set, nl_NL)
 comes up in about 20 s, the Ubuntu guest and single-node K3s in under a minute
 on a 32 GB laptop, and a self-updating status page shows what works and what
 we are waiting for. Data (the guest disk) persists on the stick across boots.
-Mijn Bureau's deployment starts by itself and has reached phase 8 of 14 (the
-actual `helmfile apply`) on real hardware; it has not yet run end-to-end, and the health check has not yet seen
-a real dashboard. The installer ISO (Slices 1–2) installs the same host to an
-explicitly confirmed disk. Details per slice: `docs/roadmap.md`; the live USB:
-[`docs/live-usb.md`](docs/live-usb.md). Running Mijn Bureau needs a large host
-(see below).
+Mijn Bureau's deployment starts by itself and has passed phase 9 of 14 on real
+hardware, including the full `helmfile apply`; the health check saw a healthy
+dashboard. It has not yet run end-to-end (phases 10–14). The installer ISO
+(Slices 1–2) installs the same host to an explicitly confirmed disk. Details
+per slice: `docs/roadmap.md`; the live USB: [`docs/live-usb.md`](docs/live-usb.md).
+Running Mijn Bureau needs a large host (see below).
+
+**Found on real hardware, fixed with a check each** (live USB, Dell Latitude
+5550, 2026-09-27..29): shutdown hang via Plasma's power-key handling (#115); a
+2 h clock jump from `rtc_cmos` undoing the local-time RTC warp, which broke K3s
+(#124); guest firmware/kernel crashes under nested KVM (#24, #119); phase
+markers surviving a driver update (#131); upstream defaults that fail on a
+laptop: Velero backups (#127) and Drive/Conversations (#134, found by an
+offline `helmfile template` pre-flight); a KWallet wizard at autologin (#128);
+the status page not showing progress (#132, #143). Upstream issues stay in our
+tracker (label `upstream`, U-rows in [`docs/deviations.md`](docs/deviations.md)).
 
 ## Verification
 
