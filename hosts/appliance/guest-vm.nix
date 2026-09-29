@@ -495,7 +495,8 @@ in
 
     # The guest now and then dies while booting under nested KVM: its UEFI
     # firmware (OVMF) with a General Protection fault before Linux starts
-    # (#24), or its kernel with an Oops early in boot (#119). The domain stays
+    # (#24), its kernel with an Oops early in boot (#119), or its boot loader
+    # with a corrupt kernel image ("Failed to decompress kernel", #150). The domain stays
     # "running" but never comes up. Watch the serial console until the guest's
     # login prompt (at most 10 minutes) and reset the guest, at most twice,
     # when either happens; a reset boots it again. Not a oneshot: it must not
@@ -515,7 +516,7 @@ in
         for _ in $(seq 1 300); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
           # The console log spans resets (same QEMU process): count crashes.
-          crashes="$(grep -acE 'X64 Exception Type|Oops: |Kernel panic' "$log" 2>/dev/null || true)"
+          crashes="$(grep -acE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' "$log" 2>/dev/null || true)"
           if [ "''${crashes:-0}" -gt "$resets" ]; then
             if [ "$resets" -ge 2 ]; then
               echo "dawo-appliance-guest-fwwatch: $name crashed again after $resets resets; giving up" >&2
@@ -523,11 +524,11 @@ in
             fi
             resets=$((resets + 1))
             echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of 2"
-            grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: ' "$log" | tail -n 3 || true
+            grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: |Failed to decompress kernel' "$log" | tail -n 3 || true
             virsh reset "$name"
           else
             # Booted to the login prompt after the last crash, if any: done.
-            last="$(grep -aE 'X64 Exception Type|Oops: |Kernel panic| login:' "$log" 2>/dev/null | tail -n 1 || true)"
+            last="$(grep -aE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel| login:' "$log" 2>/dev/null | tail -n 1 || true)"
             case "$last" in *" login:"*) exit 0 ;; esac
           fi
           sleep 2
