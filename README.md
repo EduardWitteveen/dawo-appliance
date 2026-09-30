@@ -56,6 +56,8 @@ De technische details per stap staan hieronder in het Engelse deel en in de [iss
 - **Internet**, de eerste keer, om Mijn Bureau te downloaden (ongeveer 10 minuten).
 - Meer: [hardware-vereisten](docs/demo-hardware.md) en [de USB-schijf maken](docs/live-usb.md).
 
+Hoe de onderdelen samenhangen en waar je gegevens staan, lees je in de [functionele architectuur](docs/audience/functionele-architectuur.md).
+
 **Veelgestelde vragen:**
 - *Is dit officieel?* Nee, dit is een onafhankelijk experiment (v0.1) op basis van de officiële broncode van de Rijksoverheid.
 - *Kan dit morgen in productie?* Nee, het is bedoeld voor evaluatie en bestuurlijke demo's. Wachtwoorden staan leesbaar op de schijf en er is geen versleuteling.

@@ -23,6 +23,7 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | --- | --- |
 | [`demo-script.md`](demo-script.md) | A 5-minute meeting demonstration script for municipal decision makers, highlighting sovereignty and local processing. |
 | [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
+| [`audience/functionele-architectuur.md`](audience/functionele-architectuur.md) | For architects, information managers and functional administrators: the components in plain terms, the user journey, where data lands, and what "local" means (first draft, #162). |
 | [`audience/bio-compliance.md`](audience/bio-compliance.md) | For CISOs: explains the security boundaries of the demo vs. the hardened DAWO production stack (LUKS, TPM). |
 | [`audience/integratie-visie.md`](audience/integratie-visie.md) | For IT Architects: explains identity federation (SAML/OIDC) and NixOS declarative fleet management. |
 | [`audience/adoptie-gids.md`](audience/adoptie-gids.md) | For End Users: a simple cheat sheet translating M365 concepts to Mijn Bureau apps. |
