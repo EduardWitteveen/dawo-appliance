@@ -1021,6 +1021,9 @@ phase_trust() {
   patch_deploy_trust mb-docs docs-backend SSL_CERT_FILE REQUESTS_CA_BUNDLE       # Python/Django (requests, httpx)
   patch_deploy_trust mb-meet meet-backend SSL_CERT_FILE REQUESTS_CA_BUNDLE       # Python/Django
   patch_deploy_trust mb-element synapse SSL_CERT_FILE REQUESTS_CA_BUNDLE         # Python/Twisted (OpenSSL default paths)
+  # Python/FastAPI, authlib on httpx 0.28 (default context honours SSL_CERT_FILE):
+  # without it the OIDC callback cannot redeem the code at Keycloak (#163).
+  patch_deploy_trust mb-bureaublad bureaublad-backend SSL_CERT_FILE REQUESTS_CA_BUNDLE
 
   # Nextcloud (PHP/curl): import into its own certificate store, persisted in
   # the data volume. Idempotent: same file name replaces the same entry.
@@ -1051,7 +1054,7 @@ phase_trust() {
   # Exact knobs, from the pinned charts (ADR 0004):
   todo "Keycloak back-channel calls: chart value trustedCertsExistingSecret (mounted, KC_TRUSTSTORE_PATHS) -> Secret with ca.crt in mb-keycloak via helmfile/apps/keycloak values"
   todo "Collabora WOPI to https://nextcloud.${MB_DOMAIN}: add --o:ssl.ca_file_path=${CA_MOUNT_PATH}/ca.crt to the container args of patch_collabora_args (extra_params is ignored, #154) plus the CA volume and mount"
-  todo "Docs celery worker / y-provider (deploy/docs-celery-worker, deploy/docs-y-provider) and Bureaublad backend (deploy/bureaublad-backend): same env pattern once their runtimes' TLS calls are confirmed"
+  todo "Docs celery worker / y-provider (deploy/docs-celery-worker, deploy/docs-y-provider): same env pattern once their runtimes' TLS calls are confirmed"
   todo "Move the env/volume additions from kubectl patches into chart values (extraEnvVars, extraVolumes, extraVolumeMounts) so a re-run of helmfile apply cannot revert them"
 }
 
