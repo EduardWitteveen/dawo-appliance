@@ -668,8 +668,14 @@ w4_line="$(grep -n 'DRY-RUN: bash .*04-nextcloud-office.sh' <<<"${out}" | head -
 if [[ "${rc}" -eq 0 && -n "${cm_line}" && -n "${w4_line}" && "${cm_line}" -gt "${w4_line}" ]] \
   && grep -q 'patch statefulset/keycloak-keycloak --type strategic: mount ConfigMap dawo-autologin-theme at /opt/bitnami/keycloak/themes/dawo-autologin' <<<"${out}" \
   && grep -q 'rollout status statefulset/keycloak-keycloak --timeout=600s' <<<"${out}" \
-  && grep -q 'admin/realms/mijnbureau {.*"rememberMe":true,"loginTheme":"dawo-autologin"}' <<<"${out}"; then
+  && grep -q 'admin/realms/mijnbureau {.*"rememberMe":true,"loginTheme":"dawo-autologin",' <<<"${out}"; then
   ok "laptop-demo: phase 13 mounts the auto-login theme after upstream 04 and waits for Keycloak; phase 14 sets loginTheme dawo-autologin"
+else
+  bad "laptop-demo auto-login dry-run (rc=${rc})"; dump "${out}"
+fi
+if grep -q '"internationalizationEnabled":true,"supportedLocales":\["nl","en"\],"defaultLocale":"nl"}' <<<"${out}" \
+  && grep -q 'nextcloud occ config:system:set default_language nl; default_locale nl_NL' <<<"${out}"; then
+  ok "laptop-demo: Dutch sign-in pages (realm defaultLocale nl) and Nextcloud default language nl (#180)"
 else
   bad "laptop-demo auto-login dry-run (rc=${rc})"; dump "${out}"
 fi
@@ -682,8 +688,9 @@ out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' MB_PROFILE=ful
   FAKE_HELM_DIFF_VERSION="${p_helmdiff_ver#v}" \
   bash "${DEPLOY}" --dry-run 2>&1)" || rc=$?
 if [[ "${rc}" -eq 0 ]] && ! grep -q 'dawo-autologin' <<<"${out}" && ! grep -q 'loginTheme' <<<"${out}" \
+  && ! grep -q 'defaultLocale' <<<"${out}" && ! grep -q 'default_language' <<<"${out}" \
   && grep -q 'admin/realms/mijnbureau {.*"rememberMe":true}' <<<"${out}"; then
-  ok "full profile: no auto-login theme, no loginTheme"
+  ok "full profile: no auto-login theme, no loginTheme, upstream languages"
 else
   bad "full profile auto-login check (rc=${rc})"; dump "${out}"
 fi
