@@ -31,10 +31,13 @@ Op de USB-schijf staat alles:
 | [![De statuspagina terwijl Mijn Bureau zijn apps installeert: draaiend symbool, laatste activiteit en de laatste regel van het logboek](docs/screenshots/live-status-deploying.png)](docs/screenshots/live-status-deploying.png) | [![De statuspagina als Mijn Bureau klaar is: alle onderdelen groen en een knop Open Mijn Bureau](docs/screenshots/live-status-page-dell.png)](docs/screenshots/live-status-page-dell.png) |
 | Na het opstarten opent een statuspagina die laat zien wat werkt en waar het systeem op wacht. | Alle 14 stappen lukten op de testlaptop, in ongeveer 8 minuten. Daarna opent de knop Mijn Bureau. |
 
-| Ingelogd in Mijn Bureau | |
+| Inloggen, één keer | Het dashboard Mijn Bureaublad |
 | --- | --- |
-| [![Het dashboard Mijn Bureaublad na het inloggen als dawo, met tabbladen voor Element (chat) en Nextcloud (bestanden)](docs/screenshots/live-bureaublad-dell.png)](docs/screenshots/live-bureaublad-dell.png) | |
-| Inloggen met `dawo` / `dawo` opent het dashboard. Vanaf daar werken bestanden (Nextcloud) en chat (Element) met dezelfde inlog. | |
+| [![Het inlogscherm van Mijn Bureau met gebruikersnaam dawo](docs/screenshots/live-login-dell.png)](docs/screenshots/live-login-dell.png) | [![Het dashboard Mijn Bureaublad na het inloggen, met tabbladen voor Element en Nextcloud](docs/screenshots/live-bureaublad-dell.png)](docs/screenshots/live-bureaublad-dell.png) |
+| Inloggen met `dawo` / `dawo`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
+| **Bestanden (Nextcloud)** | **Chat (Element)** |
+| [![Nextcloud Bestanden, nog leeg, na het inloggen via Mijn Bureau](docs/screenshots/live-nextcloud-dell.png)](docs/screenshots/live-nextcloud-dell.png) | [![Element chat met het welkomstscherm voor DAWO Demo en de ruimte welkom](docs/screenshots/live-element-dell.png)](docs/screenshots/live-element-dell.png) |
+| Het alternatief voor OneDrive. Documenten openen in Collabora (schermafbeelding volgt). | Het alternatief voor Teams-chat, op de open standaard Matrix. |
 
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 
