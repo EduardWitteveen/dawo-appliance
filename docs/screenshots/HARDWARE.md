@@ -14,3 +14,4 @@ nothing else. Rules: [`README.md`](README.md).
 | `live-login-dell.png` | Dell Inc. Latitude 5550 | `20260930T111822Z_ec4e1ce7` | 2026-09-30 13:39:44 | `100dd8c4217d6282…` | Mijn Bureau sign-in page (Keycloak, realm mijnbureau) with the demo user dawo |
 | `live-nextcloud-dell.png` | Dell Inc. Latitude 5550 | `20260930T111822Z_ec4e1ce7` | 2026-09-30 13:42:16 | `04db6f766b4b03ee…` | Nextcloud Files after single sign-on from Bureaublad (empty home, 10 GB quota) |
 | `live-element-dell.png` | Dell Inc. Latitude 5550 | `20260930T111822Z_ec4e1ce7` | 2026-09-30 13:41:46 | `1a24f78259b559af…` | Element chat after single sign-on: Welcome DAWO Demo, room #welkom |
+| `live-collabora-dell.png` | Dell Inc. Latitude 5550 | `20260930T185043Z_63d69852` | 2026-09-30 21:02:29 | `12e94bfc95ed2eda…` | Collabora Online editing Document.docx inside Nextcloud after automatic sign-in (branch test/iso-173-176-177) |

@@ -37,7 +37,10 @@ Op de USB-schijf staat alles:
 | Inloggen met `dawo` / `dawo`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
 | **Bestanden (Nextcloud)** | **Chat (Element)** |
 | [![Nextcloud Bestanden, nog leeg, na het inloggen via Mijn Bureau](docs/screenshots/live-nextcloud-dell.png)](docs/screenshots/live-nextcloud-dell.png) | [![Element chat met het welkomstscherm voor DAWO Demo en de ruimte welkom](docs/screenshots/live-element-dell.png)](docs/screenshots/live-element-dell.png) |
-| Het alternatief voor OneDrive. Documenten openen in Collabora (schermafbeelding volgt). | Het alternatief voor Teams-chat, op de open standaard Matrix. |
+| Het alternatief voor OneDrive. | Het alternatief voor Teams-chat, op de open standaard Matrix. |
+| **Documenten bewerken (Collabora)** | |
+| [![Een Word-document dat in de browser wordt bewerkt met Collabora Online, geopend vanuit Nextcloud](docs/screenshots/live-collabora-dell.png)](docs/screenshots/live-collabora-dell.png) | |
+| Een Word-document maken en bewerken in de browser, vanuit Nextcloud. De menu's zijn nog Engels ([#180](https://github.com/EduardWitteveen/dawo-appliance/issues/180)). | |
 
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 

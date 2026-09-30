@@ -34,7 +34,7 @@ Mijn Bureau is een samenwerkingssuite van open-source apps, samengesteld door he
 
 ## Documenten bewerken (Collabora Online)
 
-*Schermafbeelding volgt na de volgende proefronde.*
+[![Een Word-document dat in de browser wordt bewerkt met Collabora Online, geopend vanuit Nextcloud](../screenshots/live-collabora-dell.png)](../screenshots/live-collabora-dell.png)
 
 **Wat het is:** een kantoorpakket in de browser voor teksten, spreadsheets en presentaties. Het opent `.docx`-, `.xlsx`- en `.pptx`-bestanden, en meerdere mensen kunnen tegelijk in één document werken.
 **Vergelijkbaar met:** Word, Excel en PowerPoint online.
