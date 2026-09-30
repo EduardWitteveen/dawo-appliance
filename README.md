@@ -31,6 +31,11 @@ Op de USB-schijf staat alles:
 | [![De statuspagina terwijl Mijn Bureau zijn apps installeert: draaiend symbool, laatste activiteit en de laatste regel van het logboek](docs/screenshots/live-status-deploying.png)](docs/screenshots/live-status-deploying.png) | [![De statuspagina als Mijn Bureau klaar is: alle onderdelen groen en een knop Open Mijn Bureau](docs/screenshots/live-status-page-dell.png)](docs/screenshots/live-status-page-dell.png) |
 | Na het opstarten opent een statuspagina die laat zien wat werkt en waar het systeem op wacht. | Alle 14 stappen lukten op de testlaptop, in ongeveer 8 minuten. Daarna opent de knop Mijn Bureau. |
 
+| Ingelogd in Mijn Bureau | |
+| --- | --- |
+| [![Het dashboard Mijn Bureaublad na het inloggen als dawo, met tabbladen voor Element (chat) en Nextcloud (bestanden)](docs/screenshots/live-bureaublad-dell.png)](docs/screenshots/live-bureaublad-dell.png) | |
+| Inloggen met `dawo` / `dawo` opent het dashboard. Vanaf daar werken bestanden (Nextcloud) en chat (Element) met dezelfde inlog. | |
+
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 
 #### Stand van zaken (30 september 2026)
@@ -39,8 +44,8 @@ Op de USB-schijf staat alles:
 | --- | --- |
 | ✅ **Werkt** | Opstarten van USB zonder de laptop te veranderen · werkplek na 20 seconden · virtuele machine en Kubernetes binnen een minuut · gegevens blijven bewaard · netjes afsluiten · statuspagina met voortgang |
 | ✅ **Werkt** | Mijn Bureau installeert zichzelf helemaal: alle 14 stappen gelukt (ongeveer 8 minuten als de apps al gedownload zijn), inloggen werkt en het dashboard opent |
-| 🔄 **Bezig** | Makkelijker maken: inloggen met gebruikersnaam `dawo` en wachtwoord `dawo`, en Mijn Bureau opent pas in een nieuw tabblad als je op de knop klikt |
-| ⏭️ **Daarna** | Schermafbeeldingen van het dashboard en de apps; de demo doorlopen met het [demoscript](docs/demo-script.md) |
+| ✅ **Werkt** | Inloggen met gebruikersnaam `dawo` en wachtwoord `dawo`; het dashboard Mijn Bureaublad, bestanden (Nextcloud) en chat (Element) openen met één inlog |
+| ⏭️ **Daarna** | De demo doorlopen met het [demoscript](docs/demo-script.md) en schermafbeeldingen van de apps zelf |
 
 De technische details per stap staan hieronder in het Engelse deel en in de [issues op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues).
 
@@ -108,7 +113,7 @@ independently runnable. Session handoff: [`docs/STATUS.md`](docs/STATUS.md).
 | 4a | Ubuntu 24.04 VM: libvirt network + guest domain + cloud-init (`hosts/appliance/guest-vm.nix`) | Boot-tested (`test-guest-boot`, live tests); runs on real hardware (Dell, guest SSH after 26 s); firmware-crash reset under nested KVM (#24) |
 | 4b | Per-install appliance CA + host/browser trust (`hosts/appliance/appliance-ca.nix`); CA cert+key transported into the guest at `/etc/dawo-appliance/{ca.crt,ca.key}` (issue #6) | Built 2026-09-25; guest CA transport added 2026-09-26, `nix flake check` passes; boot-test assertions written for both, not yet run on a KVM machine |
 | 5 | Single-node K3s installer, pinned + offline-tested (`k8s/bootstrap/install-k3s.sh`) | Air-gap install boot-tested 2026-09-26: node Ready in the guest after 227 s (`test-guest-boot`, #7) |
-| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up. Dell, 2026-09-30 night (USB SSD): phases 1–13 passed (phase 8 `helmfile apply` 67–338 s, phase 11 in-cluster trust 148–405 s, phase 13 30 s once Collabora got its options as container args, #154). Phase 14 first got a 401 from Keycloak (our script sent the admin password with a trailing newline, #156); 2026-09-30 morning: **all 14 phases passed** in 438 s, login and dashboard work |
+| 6 | Mijn Bureau deploy driver (Helmfile, pinned rev) | Laptop profile (five core apps, `micro` preset; ADR 0007). On the live USB it deploys itself once K3s and internet are up. Dell, 2026-09-30 night (USB SSD): phases 1–13 passed (phase 8 `helmfile apply` 67–338 s, phase 11 in-cluster trust 148–405 s, phase 13 30 s once Collabora got its options as container args, #154). Phase 14 first got a 401 from Keycloak (our script sent the admin password with a trailing newline, #156); 2026-09-30 morning: **all 14 phases passed** in 438 s; 2026-09-30 afternoon (main ad68322, Bureaublad trusts the appliance CA, #163): 475 s, login as `dawo`/`dawo` reaches the Bureaublad dashboard, Nextcloud and Element via single sign-on |
 | 7 | Health check + auto-open browser, offline-tested | First real pass on the Dell 2026-09-29: all 9 checks OK after 552 s. On the live USB the browser now opens only when the deployment is done (#143) |
 | Live | Live USB: boot an existing laptop, disk untouched, data and debug logs on a `DAWO_LOGS` stick (ADR 0006, accepted) | KVM tests green 2026-09-28 (`test-live-iso-boot`, `test-live-iso-persist`: data reused across boots, clean power-off). Real hardware, Dell Latitude 5550, 2026-09-29, fresh USB SSD: desktop 23 s, guest SSH 37 s, K3s Ready 49 s; Mijn Bureau complete, all 14 phases (see row 6); a whole session writes about 1 GB to the stick (`io.txt`, #147). Dynabook (8 GB): desktop only, guest skipped as designed. The first SanDisk USB stick died after two days of VM writes (#139): use a USB SSD. Screenshots: [`HARDWARE.md`](docs/screenshots/HARDWARE.md) |
 
