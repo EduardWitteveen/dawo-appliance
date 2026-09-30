@@ -1069,10 +1069,11 @@ phase_sessions() {
   # kc_pass and the resulting bearer token never touch argv (visible to any
   # local user via `ps`/`/proc/<pid>/cmdline`): the password goes to curl via
   # --data-urlencode's "@-" stdin form, the token via a -K config on stdin.
-  token="$(curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" \
+  # printf is a builtin (not in argv) and, unlike a here-string, adds no
+  # newline: "@-" encodes stdin as-is, a trailing %0A fails the login (#156).
+  token="$(printf '%s' "${kc_pass}" | curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" \
     "https://id.${MB_DOMAIN}/realms/master/protocol/openid-connect/token" \
     -d grant_type=password -d client_id=admin-cli -d username=admin --data-urlencode "password@-" \
-    <<<"${kc_pass}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')"
   [[ "${token}" != *$'\n'* && "${token}" != *'"'* ]] || die "unexpected characters in Keycloak access token"
   curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" -X PUT "https://id.${MB_DOMAIN}/admin/realms/mijnbureau" \
