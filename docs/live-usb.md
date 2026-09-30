@@ -6,11 +6,19 @@ The live USB boots an existing machine into the DAWO appliance without
 installing anything: the machine's own disk is never written (ADR 0006,
 issue #93). Power off and remove the stick, and the machine is as it was.
 
-**What this first version shows:** the DAWO workplace (Plasma desktop, logged
-in automatically as `dawo`), the Ubuntu 24.04 guest VM and single-node K3s in
-that guest. **Mijn Bureau is not in it yet**: that needs a data partition on
-the stick and the laptop profile (next slices of #93). Everything runs in
-RAM, so nothing survives a reboot.
+**What it shows:** the DAWO workplace (Plasma desktop, logged in
+automatically as `dawo`), the Ubuntu 24.04 guest VM with single-node K3s, and
+Mijn Bureau in the laptop profile (ADR 0007: Keycloak, Bureaublad, Nextcloud,
+Collabora, Element), which deploys itself once K3s and internet are up. A
+status page opens at login and shows the progress. On the Dell Latitude 5550
+(2026-09-30, USB SSD): desktop in about 20 s, K3s in about 50 s, Mijn Bureau
+in about 8 minutes once its images are on the stick; login as `dawo` /
+`dawo` reaches the Bureaublad dashboard, Nextcloud and Element.
+
+With a `DAWO_LOGS` partition that has room, the guest disk and the appliance's
+keys are kept on the stick and reused on the next boot ("Data that survives a
+reboot" below). The desktop itself, including the home folder, runs in RAM and
+starts clean every time.
 
 ## What you need
 
