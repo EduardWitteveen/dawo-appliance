@@ -522,6 +522,7 @@ if [[ "${rc}" -eq 0 ]] \
   && grep -q 'patch deploy/collabora-online --type strategic: container collabora args \["--o:ssl.enable=false","--o:ssl.termination=true",.*"--o:storage.wopi.alias_groups.group\[0\].host=https://nextcloud.dawo.internal"' <<<"${out}" \
   && [[ "$(grep -n 'container collabora args' <<<"${out}" | cut -d: -f1)" -lt "$(grep -n 'rollout status deploy/collabora-online' <<<"${out}" | cut -d: -f1)" ]] \
   && ! grep -q 'resourcesPresetPerApp' <<<"${out}" \
+  && grep -q 'kubectl -n mb-bureaublad patch deploy/bureaublad-backend --type strategic: .*env SSL_CERT_FILE,REQUESTS_CA_BUNDLE=' <<<"${out}" \
   && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     username: dawo' \
   && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     password: dawo' \
   && [[ "$(grep -c '|     username: ' <<<"${out}")" -eq 1 ]] \
@@ -532,7 +533,7 @@ if [[ "${rc}" -eq 0 ]] \
   && grep -q 'kubectl create namespace mb-grist' <<<"${out}" \
   && ! grep -q 'DRY-RUN: bash .*03-restart-oidc-apps.sh' <<<"${out}" \
   && [[ ! -e "${state_lap}" ]]; then
-  ok "laptop-demo dry-run: micro preset, no per-app override, grist/docs/meet/livekit off, drive/conversations off (#134), backup off (#127), Collabora 2 CPU/2 GiB, args patched before the phase-13 wait (#150, #154), one demo user dawo/dawo (#159), 05/06 skipped, own 03 steps, namespaces ensured"
+  ok "laptop-demo dry-run: micro preset, no per-app override, grist/docs/meet/livekit off, drive/conversations off (#134), backup off (#127), Collabora 2 CPU/2 GiB, args patched before the phase-13 wait (#150, #154), one demo user dawo/dawo (#159), Bureaublad backend trusts the CA (#163), 05/06 skipped, own 03 steps, namespaces ensured"
 else
   bad "laptop-demo dry-run (rc=${rc})"; dump "${out}"
 fi
