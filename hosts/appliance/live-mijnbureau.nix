@@ -166,8 +166,19 @@ in
 
   # The status window mentions the automatic deployment (welcome script).
   environment.etc."dawo-appliance/mijnbureau-auto".text = "laptop-demo\n";
-  # The dashboard opener waits long enough for a first deployment from a stick,
-  # and opens the browser only when the deployment above says "klaar" (#143).
+  # No automatic dashboard tab on the live USB (#159): a tab that opened by
+  # itself left people unsure what to do. The live status page (live.nix)
+  # already opens at login and, once the deployment says "klaar", offers
+  # "Open Mijn Bureau" in a new tab with the demo login next to it. The
+  # installed appliance has no status page and keeps its opener.
+  environment.etc."xdg/autostart/dawo-appliance-open-dashboard.desktop".text = lib.mkForce ''
+    [Desktop Entry]
+    Type=Application
+    Name=DAWO appliance: open Mijn Bureau (live USB: the status page's button instead)
+    Hidden=true
+  '';
+  # For a manual `dawo-appliance-open-dashboard`: wait long enough for a first
+  # deployment from a stick, and open only when it says "klaar" (#143).
   environment.etc."dawo-appliance/dashboard.env".text = ''
     DASHBOARD_TIMEOUT=14400
     DASHBOARD_WAIT_STATUS=${status}

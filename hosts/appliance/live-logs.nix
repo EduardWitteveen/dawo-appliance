@@ -22,7 +22,7 @@
 #                    guest QEMU process (#139, #147)
 #     guest-console.txt the guest's serial console and qemu log (always,
 #                    also at shutdown; #119)
-#     health.log     the desktop's health check and dashboard opener log
+#     health.log     the dashboard opener's health log (installed appliance; the live USB has no opener, #159)
 #     mijnbureau.txt the Mijn Bureau deployment, phase by phase (#111)
 #     network.txt    NetworkManager connections/devices, addresses, DNS, internet check
 #     hardware.txt   model, firmware, CPU, memory, disks (once per boot)

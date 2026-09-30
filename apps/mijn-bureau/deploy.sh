@@ -540,11 +540,23 @@ phase_values() {
     # failed its liveness probe while forking its kits and restarted in a
     # loop on the Dell (#150); upstream's own VPS setup runs it without
     # limits. Explicit resources override the preset.
+    # Upstream's demo users (environments/default/user.yaml.gotmpl, demo
+    # environment only: johndoe/janedoe, myStrongPassword123) were too hard to
+    # type at a demo; one account with the workplace's own demo login instead
+    # (#159, D34). A published demo password, not a secret: the status page
+    # shows it, like the workplace password. Helmfile replaces lists whole.
     extra_resources='
 resource:
   collabora:
     requests: { cpu: "500m", memory: "1Gi" }
     limits: { cpu: "2", memory: "2Gi" }
+
+user:
+  - email: dawo@example.com
+    username: dawo
+    firstname: DAWO
+    lastname: Demo
+    password: dawo
 '
   else
     presets='  resourcesPreset: "none"
