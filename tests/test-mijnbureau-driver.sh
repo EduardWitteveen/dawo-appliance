@@ -605,6 +605,45 @@ EOF2
   fi
 fi
 
+# phase_sessions (#156): the Keycloak admin password must reach curl on stdin
+# byte for byte. A here-string added a newline, which --data-urlencode "@-"
+# encoded as %0A (401 on the Dell). Run without --dry-run against a fake
+# kubectl and a fake curl that records its stdin and argv.
+if [[ -z "${py}" ]]; then
+  echo "  SKIP phase_sessions: no working python3/python here"
+else
+  ps_bin="${tmp}/psbin"; ps_rec="${tmp}/psrec"; mkdir -p "${ps_bin}" "${ps_rec}"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "${py}" >"${ps_bin}/python3"
+  cat >"${ps_bin}/kubectl" <<'EOF2'
+#!/usr/bin/env bash
+case "$*" in
+  *"get node"*) echo "192.168.150.10" ;;
+  *"secret keycloak-keycloak"*) printf '%s' 's3cr3t' | base64 ;;
+esac
+EOF2
+  cat >"${ps_bin}/curl" <<'EOF2'
+#!/usr/bin/env bash
+n=0; while [[ -e "${PS_REC}/argv.${n}" ]]; do n=$((n + 1)); done
+printf '%s\n' "$@" >"${PS_REC}/argv.${n}"
+cat >"${PS_REC}/stdin.${n}"
+[[ "$*" == *openid-connect/token* ]] && echo '{"access_token":"tok123"}'
+exit 0
+EOF2
+  chmod +x "${ps_bin}"/*
+  ps_fn="$(sed -n '/^phase_sessions() {/,/^}/p' "${DEPLOY}")"
+  po=""; prc=0
+  po="$(env PATH="${ps_bin}:${PATH}" PS_REC="${ps_rec}" bash -c 'set -euo pipefail; DRY_RUN=0; MB_DOMAIN=dawo.internal; CA_CRT=/nonexistent/ca.crt
+    log() { echo "==> $*"; }; info() { echo "    $*"; }; die() { echo "ERROR: $*"; exit 1; }; require_ca_files() { :; }
+    '"${ps_fn}"'; phase_sessions' 2>&1)" || prc=$?
+  if [[ -n "${ps_fn}" && "${prc}" -eq 0 && -s "${ps_rec}/stdin.0" ]] && cmp -s "${ps_rec}/stdin.0" <(printf '%s' 's3cr3t') \
+      && ! grep -q 's3cr3t' "${ps_rec}/argv.0" "${ps_rec}/argv.1" \
+      && grep -q 'Authorization: Bearer tok123' "${ps_rec}/stdin.1" && ! grep -q 'tok123' "${ps_rec}/argv.1"; then
+    ok "phase_sessions: the Keycloak password reaches curl on stdin without a trailing newline; password and token stay out of argv (#156)"
+  else
+    bad "phase_sessions (rc=${prc})"; dump "${po}"; od -c "${ps_rec}/stdin.0" 2>/dev/null | head -3
+  fi
+fi
+
 echo
 echo "test-mijnbureau-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
