@@ -119,6 +119,7 @@ in
     ./live-logs.nix
     ./live-data.nix
     ./live-mijnbureau.nix
+    ./live-dutch.nix
   ];
 
   image.baseName = lib.mkForce "dawo-appliance-live";

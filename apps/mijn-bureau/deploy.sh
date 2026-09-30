@@ -939,6 +939,23 @@ patch_keycloak_autologin() {
   info "Keycloak login theme ${AUTOLOGIN_THEME} mounted (sha256 ${sum:0:12})"
 }
 
+# Dutch defaults for Nextcloud (laptop profile, #180): users without a
+# language of their own get Dutch (and Collabora, which follows the Nextcloud
+# language, Dutch menus); dates and numbers in the Dutch format.
+nextcloud_dutch_defaults() {
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: nextcloud occ config:system:set default_language nl; default_locale nl_NL; default_phone_region NL
+'
+    return 0
+  fi
+  local kv k v
+  for kv in default_language=nl default_locale=nl_NL default_phone_region=NL; do
+    k="${kv%%=*}"; v="${kv#*=}"
+    kubectl exec -n mb-nextcloud deploy/nextcloud -- php occ config:system:set "${k}" --value="${v}"
+  done
+  info "Nextcloud defaults: language nl, locale nl_NL"
+}
+
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
   patch_collabora_args
@@ -950,7 +967,7 @@ phase_post_fixes() {
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
   # Last, so the Keycloak restart it may cause comes after everything that
   # talks to Keycloak; phase 14 then selects the theme on the realm.
-  if [[ "${MB_PROFILE}" == laptop-demo ]]; then patch_keycloak_autologin; fi
+  if [[ "${MB_PROFILE}" == laptop-demo ]]; then nextcloud_dutch_defaults; patch_keycloak_autologin; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -1158,7 +1175,8 @@ phase_trust() {
 # loginTheme, so a later keycloak-config-cli run leaves it alone.
 realm_settings_json() {
   local theme=""
-  if [[ "${MB_PROFILE:-full}" == laptop-demo ]]; then theme=",\"loginTheme\":\"${AUTOLOGIN_THEME}\""; fi
+  # Dutch sign-in pages (#180): the laptop profile is a Dutch demo.
+  if [[ "${MB_PROFILE:-full}" == laptop-demo ]]; then theme=",\"loginTheme\":\"${AUTOLOGIN_THEME}\",\"internationalizationEnabled\":true,\"supportedLocales\":[\"nl\",\"en\"],\"defaultLocale\":\"nl\""; fi
   printf '{"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true%s}' "${theme}"
 }
 
