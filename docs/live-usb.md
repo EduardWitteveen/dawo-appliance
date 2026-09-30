@@ -210,7 +210,7 @@ Every 30 seconds, and once more at shutdown, it writes to
 | `journal.txt` | the full system log of that boot |
 | `guest.txt` | guest status, the guest's serial console, cloud-init and K3s logs |
 | `hardware.txt` | model, firmware, CPU, memory, disks |
-| `health.log` | the desktop health check and dashboard opener log |
+| `health.log` | the dashboard opener's health log; absent on the live USB, which opens Mijn Bureau from the status page instead (#159) |
 | `network.txt` | Wi-Fi/network connections, addresses, DNS, and whether flathub is reachable |
 | `screens/` | debug mode: a desktop screenshot every 30 seconds |
 

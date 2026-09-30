@@ -94,9 +94,9 @@ fi
 # 2. done.
 printf 'klaar: Mijn Bureau is uitgerold (1800s)\n' >"${tmp}/mb"
 p="$(FAKE_NET=up render 2)"
-if grep -q "href='https://bureaublad.dawo.internal'" <<<"$p" && grep -q 'Mijn Bureau staat klaar' <<<"$p" \
-   && grep -q '<b>johndoe</b>' <<<"$p" && grep -q 'myStrongPassword123' <<<"$p"; then
-  ok "done: 'Open Mijn Bureau' links to the dashboard and the demo login is shown"
+if grep -q "href='https://bureaublad.dawo.internal' target='_blank' rel='noopener'" <<<"$p" && grep -q 'Mijn Bureau staat klaar' <<<"$p" \
+   && grep -q 'gebruikersnaam <b>dawo</b>, wachtwoord <code>dawo</code>' <<<"$p" && ! grep -q 'johndoe' <<<"$p"; then
+  ok "done: 'Open Mijn Bureau' opens the dashboard in a new tab and the demo login dawo/dawo is shown (#159)"
 else
   bad "done"; echo "$p"
 fi
