@@ -23,6 +23,7 @@ let
   driverSum = builtins.substring 0 16 (builtins.hashFile "sha256" driver);
   status = "/run/dawo-appliance/mijnbureau";
   logFile = "/var/log/dawo-appliance-mijnbureau.log";
+  domain = (builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json)).mijn_bureau.base_domain.value;
 
   runner = pkgs.writeShellApplication {
     name = "dawo-appliance-mijnbureau";
@@ -93,6 +94,29 @@ let
         return 0
       }
 
+      # The Dell's guest collapsed after ~48 min with every process faulting
+      # on its shadow stack at the same address (#176): the host kernel
+      # (6.18) offers CET to the guest, but our QEMU does not know CET and
+      # does not keep its state. Run the guest without user shadow stacks
+      # (kernel parameter `nousershstk`, as on CPUs without CET). Takes one
+      # guest reboot the first time; persistent on the guest disk.
+      if ! g grep -qw nousershstk /proc/cmdline; then
+        # The literal $GRUB_CMDLINE_LINUX_DEFAULT is for grub's shell (SC2016).
+        # shellcheck disable=SC2016
+        if printf 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT nousershstk"\n' \
+             | g "sudo tee /etc/default/grub.d/90-dawo-appliance-cet.cfg >/dev/null && sudo update-grub" >> ${logFile} 2>&1; then
+          log "guest: nousershstk added to the kernel command line (#176); rebooting the guest once"
+          state "de virtuele machine herstart eenmalig (instelling)"
+          g sudo systemctl reboot || true
+          sleep 20
+          wait_guest || log "guest: not back after the nousershstk reboot"
+        else
+          log "guest: could not set nousershstk (#176)"
+        fi
+      else
+        log "guest: runs with nousershstk (#176)"
+      fi
+
       # 2. Internet (upstream charts and images are downloaded).
       waited=0
       until g curl -sS -o /dev/null --max-time 10 https://github.com 2>/dev/null; do
@@ -144,6 +168,24 @@ let
           notify "Mijn Bureau: uitrol mislukt" "Stap $n van $total ($name) is drie keer mislukt. De details staan in mijnbureau.txt op de USB-stick."
           exit 1
         fi
+      done
+      # After a reboot every phase is "already done" in seconds, but the apps
+      # need minutes to start again (#177). Say "klaar" only once they answer
+      # over HTTPS (2xx/3xx through Traefik; 404/502/503 means not yet; -k:
+      # this is a liveness probe, trust is checked elsewhere).
+      state "Mijn Bureau start op: wacht tot de apps reageren (na een herstart een paar minuten)"
+      waited=0
+      for h in id bureaublad nextcloud element; do
+        until code="$(g curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "https://$h.${domain}/" 2>/dev/null)" \
+              && [ "''${code:-000}" -ge 200 ] && [ "''${code:-000}" -lt 400 ]; do
+          if [ "$waited" -ge 1200 ]; then
+            state "mislukt: $h.${domain} reageert niet (HTTP ''${code:-000}); zie mijnbureau.txt op de USB-stick"
+            notify "Mijn Bureau reageert niet" "$h.${domain} gaf na 20 minuten nog geen antwoord."
+            exit 1
+          fi
+          sleep 10; waited=$((waited + 10))
+        done
+        log "app $h.${domain}: HTTP $code after ''${waited}s"
       done
       state "klaar: Mijn Bureau is uitgerold (''${SECONDS}s)"
       notify "Mijn Bureau is uitgerold" "De browser opent het dashboard zodra alles gezond is."
