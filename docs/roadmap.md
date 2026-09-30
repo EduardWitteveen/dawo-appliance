@@ -284,6 +284,25 @@ Parity rule: the host **is** the DAWO pilot workplace, plus additions
 - LUKS (upstream layout), Secure Boot / TPM2 as upstream documents them.
 - Offline install (explicitly out of v0.1 scope).
 
+## After v0.1 — demo platform for Common Ground products (idea, not scheduled)
+
+Maintainer decision 2026-09-30: finish v0.1 first; this goes on the roadmap
+for afterwards. Nothing is built until a scope decision and an ADR. Research
+with sources, RAM estimates and licenses: issue #151.
+
+- **Idea:** install buttons on the status page; Mijn Bureau becomes one
+  catalogue item. Shared services: one Keycloak (a client per product, plus a
+  "citizen" realm with a mock DigiD), one PostGIS Postgres, per-product
+  manifest entries (chart, digests, license, RAM budget, seed script).
+- **Suggested order:** (1) Thematiq + OpenRegister + OpenCatalogi inside the
+  existing Nextcloud; (2) Open Formulieren + Open Zaak + Open Notificaties
+  (~2.5–3 GiB); (3) Valtimo/GZAC as the case-worker screen for the full
+  citizen → case → civil servant chain (needs a ~22 GiB guest VM or a slimmer
+  Mijn Bureau).
+- **Later, as profiles that replace Mijn Bureau:** ZAC, KISS, Signalen,
+  Open Inwoner. **Excluded:** openDesk, Open Webconcept, Open Archiefbeheer
+  (license unconfirmed).
+
 ## Decisions needed (see open-questions.md)
 
 - **OQ-2** large host for the full end-to-end run (slices 4–7). — still open;
