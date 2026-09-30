@@ -1,50 +1,76 @@
-# Gemeentelijk 5-Minuten Pitch Script
+# Demoscript: vijf minuten DAWO appliance
 
-Dit script is ontworpen voor Beleidsadviseurs of Innovatiemanagers die de `dawo-appliance` presenteren aan gemeentelijke beslissers (Wethouders, CISO's of Afdelingshoofden). Het benadrukt digitale soevereiniteit, risicovrij evalueren en de exacte open-source werkplekervaring.
+Dit script is voor wie de `dawo-appliance` laat zien aan gemeentelijke beslissers (wethouders, CISO's, afdelingshoofden, informatiemanagers). Het laat zien dat een complete, open-source werkplek met samenwerkingssuite lokaal op één laptop kan draaien, zonder die laptop te veranderen.
 
-**Voorbereiding:** Een test-laptop geprepareerd volgens de [hardware vereisten](demo-hardware.md) en een opstartbare USB-stick met de appliance ISO.
-
----
-
-## 0:00 – 1:00 | Introductie & Veilig Opstarten
-*Actie: Plaats de USB-stick en start de laptop op in de 'live' omgeving.*
-
-**Gesprekspunten:**
-- "We onderzoeken digitale soevereiniteit en willen onze afhankelijkheid van één leverancier (vendor lock-in zoals Microsoft 365) verminderen, in lijn met de landelijke VNG/BZK-richtlijnen."
-- "Wat ik jullie nu laat zien is de DAWO (Digitale Autonome Werkplek Overheid) demonstrator. Dit draait volledig lokaal op deze afgeschreven machine."
-- "Op dit moment draaien we een 'live' omgeving vanaf de USB. Dit is 100% veilig en overschrijft nog niets op de harde schijf. We kunnen dit zonder risico testen."
-
-## 1:00 – 2:00 | Transparantie & Het Installatieplan
-*Actie: Open de terminal en draai `dawo-appliance-bootstrap plan`.*
-
-**Gesprekspunten:**
-- "Vertrouwen en transparantie zijn de basis van open-source. Voordat we iets installeren, kan dit systeem een 'installatieplan' genereren."
-- *Wijs naar de uitvoer op het scherm:* "Dit toont exact wat er gaat gebeuren. Er zijn geen verborgen processen, geen telemetrie en geen ongevraagde cloud-verbindingen."
-- "Omdat deze hele werkplek in code (NixOS) is vastgelegd, is de inrichting bij elke gemeente exact reproduceerbaar. Geen handmatig beheer meer."
-
-## 2:00 – 3:30 | De Werkplek Ervaring
-*Actie: Start de geïnstalleerde laptop op (in de DAWO desktop).*
-
-**Gesprekspunten:**
-- "Dit is exact de werkomgeving die onze ambtenaren zouden zien. Het is schoon, toegankelijk en voelt vertrouwd aan."
-- *Benoem de welkomstmelding:* "Je ziet hier staan dat het een 'experimentele' demonstrator is. Het toont de onderliggende techniek, niet de definitieve huisstijl van onze gemeente."
-- "Alles wat je hier ziet, is gebaseerd op open standaarden. Wij hebben de volledige controle over de updates en de opslag van onze data."
-
-## 3:30 – 5:00 | Mijn Bureau & Data Soevereiniteit
-*Actie: Open de browser naar het lokale Mijn Bureau dashboard.*
-
-**Gesprekspunten:**
-- "Achter de schermen draait deze laptop nu zijn eigen lokale 'cloud' (via K3s Kubernetes). Wat je hier ziet is de 'Mijn Bureau' samenwerkingssuite."
-- *Klik door Nextcloud, Collabora (office) of Grist (spreadsheets):* "Dit zijn volwaardige, open-source alternatieven voor OneDrive, Word en Excel."
-- "Het cruciale verschil: **Al deze data blijft híer.** Als we hier een document typen of een spreadsheet maken, verlaat dit nooit ons gemeentelijke netwerk. Dit lost onze BIO-compliancy uitdagingen rondom cloud-data in één keer op."
+> **Let op:** dit is een experimentele, onofficiële demonstrator. Het is geen officiële distributie van DAWO, Mijn Bureau of het Ministerie van BZK, en niet bedoeld voor productie. Zeg dat er ook bij.
 
 ---
 
-## FAQ voor de Presentator
+## Voorbereiding (10 minuten vóór de demo)
 
-- **"Kunnen we dit koppelen aan onze Active Directory/Entra ID?"**
-  *Antwoord:* Deze v0.1 demonstrator is standalone, maar de uiteindelijke productie-versies van DAWO ondersteunen uiteraard standaard federatieve identiteitskoppelingen (OIDC/SAML).
+- Een laptop volgens de [hardware-vereisten](demo-hardware.md): 32 GB geheugen, virtualisatie aan, Secure Boot uit (zie [de USB-schijf maken](live-usb.md)).
+- De **USB-SSD** met de appliance. Gebruik geen gewone USB-stick: die slijt te snel.
+- **Internet** (wifi of kabel). De eerste keer downloadt Mijn Bureau zijn apps. Daarna staan die op de USB-SSD en gaat het sneller.
+- Start de laptop **ongeveer 10 minuten van tevoren**: USB-SSD erin, aanzetten, bij het logo **F12** (Dell) en kies de USB-SSD onder *UEFI*. De werkplek staat er na zo'n 20 seconden, Mijn Bureau is na ongeveer 8 minuten klaar. Je volgt dat op de statuspagina die vanzelf opent.
+- Als Mijn Bureau klaar is: klik op **Open Mijn Bureau**, log in met gebruikersnaam **`dawo`** en wachtwoord **`dawo`**, en open vanuit het dashboard één keer Nextcloud en Element. Dan hoef je tijdens de demo niet meer in te loggen.
+- Laat de statuspagina als eerste tabblad openstaan.
+
+---
+
+## 0:00 – 1:00 | Introductie: niets aan de laptop veranderd
+
+*Actie: laat de laptop zien met de USB-SSD erin.*
+
+**Gesprekspunten:**
+- "We onderzoeken hoe we minder afhankelijk kunnen worden van één leverancier. Dit is een demonstrator van een digitale werkplek voor de overheid, gebouwd op open source: DAWO voor de werkplek, Mijn Bureau voor het samenwerken."
+- "Deze laptop start van deze USB-schijf. De harde schijf van de laptop blijft onaangeroerd: haal je de USB-schijf eruit, dan start de laptop weer gewoon zoals voorheen."
+- "Alles wat je gaat zien, draait hier op deze laptop zelf."
+
+## 1:00 – 2:00 | De statuspagina: wat werkt er en waar wacht het op
+
+*Actie: toon het tabblad "DAWO appliance — klaar".*
+
+**Gesprekspunten:**
+- "Na het opstarten opent deze pagina vanzelf. Je ziet per onderdeel of het werkt: internet, opslag, de virtuele machine en Mijn Bureau."
+- "Achter de schermen start de laptop een eigen kleine 'cloud': een virtuele machine met Kubernetes (K3s). Daarin installeert Mijn Bureau zichzelf, in 14 stappen."
+- "Elke versie van elk onderdeel ligt vast in de broncode. Bouw je de USB-schijf opnieuw, dan krijg je precies hetzelfde. Dat is controleerbaar, zonder verborgen handwerk."
+
+## 2:00 – 3:00 | De werkplek
+
+*Actie: laat het bureaublad zien (de KDE Plasma-werkplek van DAWO) en open het startmenu.*
+
+**Gesprekspunten:**
+- "Dit is de werkplek die een medewerker ziet: een gewone, overzichtelijke desktop met een browser, bestanden en instellingen."
+- "Het is de technische basis van DAWO, niet de huisstijl van een gemeente. Kleuren en logo's kun je later zelf inrichten."
+
+## 3:00 – 4:30 | Mijn Bureau: samenwerken met één inlog
+
+*Actie: ga naar het tabblad **Mijn Bureaublad**.*
+
+**Gesprekspunten:**
+- "Dit is Mijn Bureau, de samenwerkingssuite. Eén keer inloggen geeft toegang tot alle apps."
+- *Klik op **NextCloud**:* "Hier staan bestanden, het alternatief voor OneDrive. Documenten openen in Collabora, een open-source kantoorpakket in de browser."
+- *Ga naar het tabblad **Element**:* "En dit is chat, het alternatief voor Teams-chat, gebouwd op de open standaard Matrix."
+- "Deze apps en je gegevens draaien op deze laptop, op de USB-schijf. Ze staan niet bij een clouddienst."
+
+## 4:30 – 5:00 | Afronding
+
+**Gesprekspunten:**
+- "Wat je zag: een complete werkplek met samenwerkingssuite, op één laptop, in een kwartier klaar, zonder de laptop te veranderen."
+- "Het is een experiment om te laten zien wat er kan. Het is nog geen product: er is bijvoorbeeld geen schijfversleuteling en geen koppeling met ons eigen accountbeheer."
+- "De broncode en de voortgang zijn openbaar, op GitHub."
+
+---
+
+## Vragen die je kunt verwachten
+
+- **"Kunnen we dit koppelen aan onze Active Directory of Entra ID?"**
+  *Antwoord:* Niet in deze demonstrator: die heeft één lokale demogebruiker. Mijn Bureau gebruikt Keycloak voor het inloggen, en Keycloak kan in principe koppelen met bestaande accountsystemen. Dat is hier niet gebouwd en niet getest.
 - **"Is het veilig?"**
-  *Antwoord:* Het gebruikt cryptografisch beveiligde code en lokale orkestratie. Zaken als volledige schijfversleuteling (LUKS) zijn voor deze demo even uitgezet voor het gebruiksgemak, maar zijn standaard aanwezig in de productieversie.
+  *Antwoord:* Het is een demo, niet voor echte gegevens. Er is geen schijfversleuteling, de wachtwoorden zijn bewust eenvoudig en staan leesbaar op de machine. De statuspagina zegt dat ook. Wel liggen alle versies vast en is alles na te bouwen uit de openbare broncode.
+- **"Werkt dit zonder internet?"**
+  *Antwoord:* Tijdens het gebruik draaien de apps lokaal. De eerste keer is internet nodig om de apps te downloaden. Een volledig offline installatie valt buiten deze versie.
 - **"Hebben we hier speciale Linux-beheerders voor nodig?"**
-  *Antwoord:* Nee, het onderliggende beheer is geautomatiseerd via code. Als dit centraal door een leverancier of samenwerkingsverband wordt ingericht, is de lokale uitrol en update-cyclus volledig gestandaardiseerd.
+  *Antwoord:* De inrichting staat volledig in code en is reproduceerbaar. Hoe beheer er in de praktijk uitziet, bijvoorbeeld centraal via een samenwerkingsverband, is een vraag voor later. Deze demonstrator beantwoordt die niet.
+- **"Is dit officieel DAWO of Mijn Bureau?"**
+  *Antwoord:* Nee. Het is een onofficieel experiment dat de openbare onderdelen van DAWO en Mijn Bureau combineert, elk op een vaste versie.
