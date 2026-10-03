@@ -29,6 +29,21 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | [`audience/integratie-visie.md`](audience/integratie-visie.md) | For IT Architects: explains identity federation (SAML/OIDC) and NixOS declarative fleet management. |
 | [`audience/adoptie-gids.md`](audience/adoptie-gids.md) | For End Users: a simple cheat sheet translating M365 concepts to Mijn Bureau apps. |
 
+## Governance and community
+
+In the repository root, following the OpenWebconcept / D-OmniTwin layout (draft, #186):
+
+| Document | What it covers |
+| --- | --- |
+| [`GOVERNANCE.md`](../GOVERNANCE.md) | Roles (owner, maintainer, participant, contributor), way of working, decisions (Dutch, English summary). |
+| [`SUPPORT.md`](../SUPPORT.md) | What maintenance to expect and where to go (Dutch, English summary). |
+| [`PARTICIPANTS.md`](../PARTICIPANTS.md) | Participating organisations. |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md) | How to contribute: issues, branches, pull requests, checks. |
+| [`SECURITY.md`](../SECURITY.md) | Reporting vulnerabilities privately; known demo properties. |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Contributor Covenant 2.1. |
+| [`CHANGELOG.md`](../CHANGELOG.md) | Changes per version (Keep a Changelog, SemVer). |
+| [`publiccode.yml`](../publiccode.yml) | Machine-readable description for software catalogues. |
+
 ## Working on it
 
 | Document | What it answers |

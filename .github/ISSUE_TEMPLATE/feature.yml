@@ -1,0 +1,21 @@
+name: Wens / Feature request
+description: An idea or wish for the appliance.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Past het binnen de scope van v0.1 (docs/adr/0001-project-scope.md)? Grotere ideeën komen op de roadmap (docs/roadmap.md).
+        Does it fit the v0.1 scope? Larger ideas go on the roadmap.
+  - type: textarea
+    id: need
+    attributes:
+      label: Wat wil je bereiken? / What do you want to achieve?
+      description: For whom, and why (for example a demo to a municipality).
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idee / Proposal
+      description: How it could work. Optional.
