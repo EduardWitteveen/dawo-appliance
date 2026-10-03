@@ -26,6 +26,7 @@ OUT="${STATUS_OUT:-${XDG_RUNTIME_DIR:-/tmp}/dawo-appliance-status.html}"
 INTERVAL="${STATUS_INTERVAL:-5}"
 PASSWORD_FILE="${STATUS_PASSWORD_FILE:-/var/lib/dawo-appliance/dawo.password.txt}"
 GUEST_SKIPPED="${STATUS_GUEST_SKIPPED:-/run/dawo-appliance/guest-skipped}"
+VERSION_FILE="${STATUS_VERSION_FILE:-/etc/dawo-appliance/version}"
 GUEST_UNIT="${STATUS_GUEST_UNIT:-dawo-appliance-guest.service}"
 DATA_STATUS="${STATUS_DATA:-/run/dawo-appliance/data}"
 MB_STATUS="${STATUS_MB:-/run/dawo-appliance/mijnbureau}"
@@ -186,7 +187,7 @@ render() {
 <p>Ingelogd als <b>dawo</b> &middot; wachtwoord (beheer): <code>$(esc "${pw}")</code></p>
 <table>${rows}</table>
 <p class="note"><b>Experimenteel, onofficieel, niet voor productie.</b> Wachtwoorden staan leesbaar
-op deze machine; er is geen schijfversleuteling. Laatst bijgewerkt: $(date +%H:%M:%S).<br>
+op deze machine; er is geen schijfversleuteling. Versie $(esc "$(cat "${VERSION_FILE}" 2>/dev/null || echo onbekend)"). Laatst bijgewerkt: $(date +%H:%M:%S).<br>
 <small>English: experimental, unofficial demo, not for production. This page shows what works and what
 we are waiting for, and updates itself.</small></p>
 </body></html>

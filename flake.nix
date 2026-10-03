@@ -541,6 +541,10 @@
       nixosConfigurations.appliance-live = mkAppliance [
         ./hosts/appliance/live.nix
         liveInstallerExtras
+        # Which commit this image was built from (#175): shown in the boot
+        # menu and on the status page; "unknown" for a path: flake build.
+        { environment.etc."dawo-appliance/build-rev".text = (self.shortRev or self.dirtyShortRev or "unknown") + "
+"; }
       ];
 
       # Same host, run as a local QEMU VM with a display (hosts/appliance/vm.nix).
