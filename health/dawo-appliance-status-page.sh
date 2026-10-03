@@ -125,7 +125,7 @@ render() {
   mbs="$(cat "${MB_STATUS}" 2>/dev/null || true)"
   case "${mbs}" in
     "klaar"*) row ok "&#10004;" "Mijn Bureau" "uitgerold. <a class='btn' href='${DASHBOARD}' target='_blank' rel='noopener'>Open Mijn Bureau</a>
-      <br>Opent in een nieuw tabblad. Inloggen met gebruikersnaam <b>dawo</b>, wachtwoord <code>dawo</code>."; mb="done" ;;
+      <br>Opent in een nieuw tabblad en logt vanzelf in als <b>dawo</b> (wachtwoord <code>dawo</code>, als je het inlogscherm toch ziet)."; mb="done" ;;
     "mislukt"*) row fail "&#10008;" "Mijn Bureau" "$(esc "${mbs}")<br><small>De uitrol is gestopt. Start de laptop
       opnieuw op om het nog eens te proberen; hij gaat dan verder waar hij was.</small>"; mb="failed" ;;
     "niet mogelijk"*) row warn "&#9888;" "Mijn Bureau" "$(esc "${mbs}")"; mb="no" ;;
