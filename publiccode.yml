@@ -1,0 +1,123 @@
+# publiccode.yml for the DAWO appliance (draft, #186).
+# Standard: https://yml.publiccode.tools/ — validated in CI
+# (.github/workflows/ci.yml) with publiccode-parser.
+#
+# To keep up to date:
+# - url / organisation / legal: change at the handover to the organisation of
+#   Súdwest-Fryslân (GOVERNANCE.md, "Nog open").
+# - softwareVersion / releaseDate: set at each release (docs/releasing.md),
+#   equal to appliance.version in manifest/appliance-manifest.json and the
+#   CHANGELOG section. Left out until the first release.
+# - maintenance: an experiment without a maintenance guarantee (SUPPORT.md);
+#   a maintenance term follows at the handover.
+
+publiccodeYmlVersion: "0"
+
+name: DAWO appliance
+url: "https://github.com/EduardWitteveen/dawo-appliance"
+
+platforms:
+  - linux
+
+categories:
+  - office
+  - collaboration
+  - document-management
+  - instant-messaging
+
+developmentStatus: development
+
+softwareType: "standalone/other"
+
+intendedAudience:
+  countries:
+    - nl
+  scope:
+    - local-authorities
+    - government
+
+description:
+  nl:
+    localisedName: DAWO appliance
+    shortDescription: >-
+      Experimentele demonstrator: een digitale werkplek voor de overheid met
+      samenwerkingssuite, opgestart van een USB-SSD op een bestaande laptop.
+    longDescription: |
+      De DAWO appliance laat zien dat een digitale werkplek voor de overheid
+      met een complete samenwerkingssuite lokaal op één laptop kan draaien,
+      volledig open source en zonder de laptop te veranderen.
+
+      De laptop start van een USB-SSD. Binnen een halve minuut staat de
+      werkplek van DAWO (NixOS met KDE Plasma, op basis van DAWO-Core). Op de
+      achtergrond start een virtuele machine met Ubuntu 24.04 en Kubernetes
+      (K3s), waarin Mijn Bureau zichzelf installeert: inloggen (Keycloak), het
+      dashboard Mijn Bureaublad, bestanden (Nextcloud), documenten bewerken
+      (Collabora Online) en chat (Element met Matrix). Een statuspagina toont
+      de voortgang en opent Mijn Bureau. Gegevens blijven op de USB-SSD.
+
+      Alle onderdelen liggen vast op een exacte versie en zijn reproduceerbaar
+      te bouwen met Nix. De appliance is experimenteel en onofficieel: geen
+      distributie van DAWO, Mijn Bureau of het Ministerie van BZK, en niet
+      bedoeld voor productie of echte gegevens.
+    documentation: "https://github.com/EduardWitteveen/dawo-appliance/blob/main/README.md"
+    features:
+      - Opstarten van een USB-SSD zonder de laptop te veranderen
+      - DAWO-werkplek (NixOS, KDE Plasma)
+      - Mijn Bureau lokaal in Kubernetes (Keycloak, Bureaublad, Nextcloud, Collabora, Element)
+      - Statuspagina met voortgang
+      - Reproduceerbaar en vastgelegd (Nix, manifest met vaste versies)
+  en:
+    localisedName: DAWO appliance
+    shortDescription: >-
+      Experimental demonstrator: a government digital workplace with a
+      collaboration suite, booted from a USB SSD on an existing laptop.
+    longDescription: |
+      The DAWO appliance shows that a government digital workplace with a
+      complete collaboration suite can run locally on one laptop, fully open
+      source and without changing the laptop.
+
+      The laptop boots from a USB SSD into the DAWO workplace (NixOS with KDE
+      Plasma, based on DAWO-Core). In the background an Ubuntu 24.04 virtual
+      machine with Kubernetes (K3s) starts, in which Mijn Bureau installs
+      itself: sign-in (Keycloak), the Mijn Bureaublad dashboard, files
+      (Nextcloud), document editing (Collabora Online) and chat (Element with
+      Matrix). A status page shows the progress and opens Mijn Bureau. Data
+      stays on the USB SSD.
+
+      Every component is pinned to an exact version and builds reproducibly
+      with Nix. The appliance is experimental and unofficial: not a
+      distribution of DAWO, Mijn Bureau or the Dutch Ministry of the Interior,
+      and not meant for production or real data.
+    documentation: "https://github.com/EduardWitteveen/dawo-appliance/blob/main/README.md"
+    features:
+      - Boots from a USB SSD without changing the laptop
+      - DAWO workplace (NixOS, KDE Plasma)
+      - Mijn Bureau locally in Kubernetes (Keycloak, Bureaublad, Nextcloud, Collabora, Element)
+      - Status page with progress
+      - Reproducible and pinned (Nix, manifest with exact versions)
+
+legal:
+  license: EUPL-1.2
+  repoOwner: Eduard Witteveen
+
+maintenance:
+  type: internal
+  contacts:
+    - name: Eduard Witteveen
+
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - nl
+    - en
+
+dependsOn:
+  open:
+    - name: DAWO-Core
+      optional: false
+    - name: Mijn Bureau (mijn-bureau-infra)
+      optional: false
+    - name: NixOS
+      optional: false
+    - name: K3s
+      optional: false

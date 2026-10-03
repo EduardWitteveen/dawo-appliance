@@ -1,0 +1,33 @@
+name: Fout melden / Bug report
+description: Something does not work as described. Not for security problems (see SECURITY.md).
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dank je! Beveiligingsproblemen niet hier melden, maar via SECURITY.md.
+        Thanks! Do not report security problems here; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Versie / Version
+      description: From the boot menu or the status page footer, e.g. "0.1.0-dev (87f677e)".
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Laptop model, memory, USB SSD or stick.
+  - type: textarea
+    id: what
+    attributes:
+      label: Wat gebeurde er? / What happened?
+      description: What you did, what you expected, what you saw. Screenshots welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: If you have them, the session folder from DAWO_LOGS (progress.txt, mijnbureau.txt). Remove anything private first.
