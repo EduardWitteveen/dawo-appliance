@@ -17,8 +17,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      # The same ShellCheck as nixpkgs (0.11.0): Ubuntu's 0.9.0 reports false
+      # SC2317 "unreachable" findings. Pinned by checksum.
       - name: Tools
-        run: sudo apt-get update && sudo apt-get install -y shellcheck jq
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          curl -fsSLO https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  shellcheck-v0.11.0.linux.x86_64.tar.xz" | sha256sum -c -
+          tar -xJf shellcheck-v0.11.0.linux.x86_64.tar.xz
+          sudo install -m 0755 shellcheck-v0.11.0/shellcheck /usr/local/bin/shellcheck
+          shellcheck --version
       - name: make check
         run: make check
 
