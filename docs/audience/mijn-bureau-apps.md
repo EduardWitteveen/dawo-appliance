@@ -14,7 +14,7 @@ Mijn Bureau is een samenwerkingssuite van open-source apps, samengesteld door he
 
 **Wat het is:** de centrale inlog voor alle apps. Na één keer inloggen open je de andere apps zonder opnieuw je wachtwoord te typen ("single sign-on").
 **Vergelijkbaar met:** inloggen met je werkaccount bij Microsoft 365.
-**In de demo:** gebruikersnaam `dawo`, wachtwoord `dawo`. Er is geen koppeling met een bestaand accountsysteem.
+**In de demo:** je wordt vanzelf ingelogd als `dawo`, zodat je dit scherm meestal niet ziet. Zie je het toch, gebruik dan gebruikersnaam `dawo` en wachtwoord `dawo`. Er is geen koppeling met een bestaand accountsysteem.
 
 ## Het dashboard (Mijn Bureaublad)
 

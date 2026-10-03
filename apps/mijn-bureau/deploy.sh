@@ -46,6 +46,11 @@ readonly CLUSTER_ISSUER="dawo-appliance-ca"
 readonly CA_SECRET_NAME="dawo-appliance-ca"
 readonly CA_CONFIGMAP_NAME="dawo-appliance-ca"
 readonly CA_MOUNT_PATH="/etc/dawo-appliance-ca"
+# Laptop profile only (#173): Keycloak login theme that signs in the published
+# demo account (dawo/dawo) by itself. See autologin_theme_* below.
+readonly AUTOLOGIN_THEME="dawo-autologin"
+readonly AUTOLOGIN_CONFIGMAP="dawo-autologin-theme"
+readonly KEYCLOAK_STS="keycloak-keycloak"
 
 readonly HELMFILE_VERSION="1.1.7"
 readonly HELMFILE_URL="https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_amd64.tar.gz"
@@ -182,8 +187,8 @@ readonly PHASES=(
   "10:wait-certs:wait until every cert-manager Certificate is Ready"
   "11:trust:in-cluster trust of the appliance CA (ConfigMap, env, Nextcloud import)"
   "12:oidc-restart:upstream 03-restart-oidc-apps.sh (Nextcloud SSRF/proxies, restarts)"
-  "13:post-fixes:upstream 04-nextcloud-office.sh, 05-docs.sh, 06-grist.sh"
-  "14:sessions:Keycloak session lifetimes (07 equivalent, with --cacert)"
+  "13:post-fixes:upstream 04-nextcloud-office.sh, 05-docs.sh, 06-grist.sh; laptop profile: Keycloak auto-login theme"
+  "14:sessions:Keycloak session lifetimes (07 equivalent, with --cacert); laptop profile: login theme"
 )
 
 # ---------------------------------------------------------------------------
@@ -854,6 +859,86 @@ patch_collabora_args() {
     -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"collabora\",\"args\":${json}}]}}}}"
 }
 
+# Automatic sign-in for the demo (laptop profile only, #173, D36).
+# The workplace, and so Firefox and its cookies, starts clean on every live
+# boot, so the Keycloak login appeared on every "Open Mijn Bureau". A child of
+# Keycloak's stock `keycloak` login theme adds one script that fills in the
+# published demo account from phase 7 (dawo/dawo) and submits it once per
+# browser tab: not after a failed attempt (error shown), not a second time in
+# the same tab (after a logout the form stays, so another account can be
+# used). Why not an X.509 client certificate: the pinned Keycloak 26.3.3 has
+# no Traefik client-certificate lookup (only default/nginx/haproxy/apache),
+# and a client certificate would also need its private key in each boot's
+# fresh Firefox profile. The theme is a ConfigMap mounted into Keycloak's
+# themes directory; a hash annotation restarts Keycloak only when it changes.
+autologin_theme_properties() {
+  cat <<'EOF'
+parent=keycloak
+import=common/keycloak
+scripts=js/dawo-autologin.js
+EOF
+}
+autologin_theme_js() {
+  cat <<'EOF'
+// DAWO appliance (experimental demo, #173): sign in the published demo
+// account dawo/dawo automatically, once per browser tab.
+(function () {
+  "use strict";
+  var KEY = "dawo-autologin-attempted";
+  function run() {
+    var form = document.getElementById("kc-form-login");
+    var user = document.getElementById("username");
+    var pass = document.getElementById("password");
+    var button = document.getElementById("kc-login");
+    if (!form || !user || !pass || !button) { return; }
+    if (document.querySelector(".alert-error, [aria-invalid='true']")) { return; }
+    try {
+      if (window.sessionStorage.getItem(KEY)) { return; }
+      window.sessionStorage.setItem(KEY, "1");
+    } catch (e) { return; }
+    user.value = "dawo";
+    pass.value = "dawo";
+    var remember = document.getElementById("rememberMe");
+    if (remember) { remember.checked = true; }
+    button.click();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
+  }
+})();
+EOF
+}
+
+patch_keycloak_autologin() {
+  local mount="/opt/bitnami/keycloak/themes/${AUTOLOGIN_THEME}" dir sum patch
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl -n mb-keycloak apply ConfigMap %s (login theme %s: theme.properties parent=keycloak, js/dawo-autologin.js)\n' "${AUTOLOGIN_CONFIGMAP}" "${AUTOLOGIN_THEME}"
+    printf 'DRY-RUN: kubectl -n mb-keycloak patch statefulset/%s --type strategic: mount ConfigMap %s at %s; annotation dawo-appliance/autologin-sha256\n' "${KEYCLOAK_STS}" "${AUTOLOGIN_CONFIGMAP}" "${mount}"
+    printf 'DRY-RUN: kubectl -n mb-keycloak rollout status statefulset/%s --timeout=600s\n' "${KEYCLOAK_STS}"
+    return 0
+  fi
+  if ! kubectl -n mb-keycloak get "statefulset/${KEYCLOAK_STS}" >/dev/null 2>&1; then
+    warn "statefulset/${KEYCLOAK_STS} not found in mb-keycloak; skipping the auto-login theme"
+    return 0
+  fi
+  dir="$(mktemp -d)"
+  autologin_theme_properties >"${dir}/theme.properties"
+  autologin_theme_js >"${dir}/dawo-autologin.js"
+  sum="$(cat "${dir}/theme.properties" "${dir}/dawo-autologin.js" | sha256sum | cut -d' ' -f1)"
+  [[ "${sum}" =~ ^[0-9a-f]{64}$ ]] || die "could not hash the auto-login theme"
+  kubectl -n mb-keycloak create configmap "${AUTOLOGIN_CONFIGMAP}" \
+    --from-file=theme.properties="${dir}/theme.properties" \
+    --from-file=dawo-autologin.js="${dir}/dawo-autologin.js" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  rm -rf "${dir}"
+  patch="{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"dawo-appliance/autologin-sha256\":\"${sum}\"}},\"spec\":{\"volumes\":[{\"name\":\"${AUTOLOGIN_CONFIGMAP}\",\"configMap\":{\"name\":\"${AUTOLOGIN_CONFIGMAP}\",\"items\":[{\"key\":\"theme.properties\",\"path\":\"login/theme.properties\"},{\"key\":\"dawo-autologin.js\",\"path\":\"login/resources/js/dawo-autologin.js\"}]}}],\"containers\":[{\"name\":\"keycloak\",\"volumeMounts\":[{\"name\":\"${AUTOLOGIN_CONFIGMAP}\",\"mountPath\":\"${mount}\",\"readOnly\":true}]}]}}}}"
+  kubectl -n mb-keycloak patch "statefulset/${KEYCLOAK_STS}" --type strategic -p "${patch}"
+  kubectl -n mb-keycloak rollout status "statefulset/${KEYCLOAK_STS}" --timeout=600s
+  info "Keycloak login theme ${AUTOLOGIN_THEME} mounted (sha256 ${sum:0:12})"
+}
+
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
   patch_collabora_args
@@ -863,6 +948,9 @@ phase_post_fixes() {
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
+  # Last, so the Keycloak restart it may cause comes after everything that
+  # talks to Keycloak; phase 14 then selects the theme on the realm.
+  if [[ "${MB_PROFILE}" == laptop-demo ]]; then patch_keycloak_autologin; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -1065,13 +1153,22 @@ phase_trust() {
 # https://id.DOMAIN without --cacert and relies on the guest resolver; we pin
 # the CA and resolve the name to the node so the step does not depend on the
 # host-side DNS/trust wiring of Slice 4.
+# Realm settings for phase 14. The laptop profile also selects the auto-login
+# theme mounted in phase 13 (#173); upstream's realm import sets no
+# loginTheme, so a later keycloak-config-cli run leaves it alone.
+realm_settings_json() {
+  local theme=""
+  if [[ "${MB_PROFILE:-full}" == laptop-demo ]]; then theme=",\"loginTheme\":\"${AUTOLOGIN_THEME}\""; fi
+  printf '{"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true%s}' "${theme}"
+}
+
 phase_sessions() {
   log "[14/14] Keycloak session lifetimes on realm mijnbureau (upstream step 7)"
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     # shellcheck disable=SC2016  # literal, meant to print as the command a real run would use
     printf 'DRY-RUN: KC_PASS=$(kubectl -n mb-keycloak get secret keycloak-keycloak -o jsonpath={.data.admin-password} | base64 -d)\n'
     printf 'DRY-RUN: curl --cacert %s --resolve id.%s:443:<node InternalIP> https://id.%s/realms/master/protocol/openid-connect/token (admin-cli) -> token\n' "${CA_CRT}" "${MB_DOMAIN}" "${MB_DOMAIN}"
-    printf 'DRY-RUN: curl -X PUT https://id.%s/admin/realms/mijnbureau {"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}\n' "${MB_DOMAIN}"
+    printf 'DRY-RUN: curl -X PUT https://id.%s/admin/realms/mijnbureau %s\n' "${MB_DOMAIN}" "$(realm_settings_json)"
     return 0
   fi
   require_ca_files
@@ -1093,9 +1190,10 @@ phase_sessions() {
   [[ "${token}" != *$'\n'* && "${token}" != *'"'* ]] || die "unexpected characters in Keycloak access token"
   curl -fsS --cacert "${CA_CRT}" --resolve "${resolve}" -X PUT "https://id.${MB_DOMAIN}/admin/realms/mijnbureau" \
     -K - -H "Content-Type: application/json" \
-    -d '{"accessTokenLifespan":1800,"ssoSessionIdleTimeout":604800,"ssoSessionMaxLifespan":2592000,"rememberMe":true}' \
+    -d "$(realm_settings_json)" \
     <<<"header = \"Authorization: Bearer ${token}\""
   info "realm updated: 30-minute access token, 7-day idle, 30-day max session, remember-me"
+  if [[ "${MB_PROFILE:-full}" == laptop-demo ]]; then info "realm login theme: ${AUTOLOGIN_THEME} (signs in dawo automatically, #173)"; fi
 }
 
 # ---------------------------------------------------------------------------

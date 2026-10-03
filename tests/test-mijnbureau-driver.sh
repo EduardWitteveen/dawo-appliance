@@ -635,9 +635,9 @@ cat >"${PS_REC}/stdin.${n}"
 exit 0
 EOF2
   chmod +x "${ps_bin}"/*
-  ps_fn="$(sed -n '/^phase_sessions() {/,/^}/p' "${DEPLOY}")"
+  ps_fn="$(sed -n '/^realm_settings_json() {/,/^}/p; /^phase_sessions() {/,/^}/p' "${DEPLOY}")"
   po=""; prc=0
-  po="$(env PATH="${ps_bin}:${PATH}" PS_REC="${ps_rec}" bash -c 'set -euo pipefail; DRY_RUN=0; MB_DOMAIN=dawo.internal; CA_CRT=/nonexistent/ca.crt
+  po="$(env PATH="${ps_bin}:${PATH}" PS_REC="${ps_rec}" bash -c 'set -euo pipefail; DRY_RUN=0; MB_DOMAIN=dawo.internal; CA_CRT=/nonexistent/ca.crt; AUTOLOGIN_THEME=dawo-autologin
     log() { echo "==> $*"; }; info() { echo "    $*"; }; die() { echo "ERROR: $*"; exit 1; }; require_ca_files() { :; }
     '"${ps_fn}"'; phase_sessions' 2>&1)" || prc=$?
   if [[ -n "${ps_fn}" && "${prc}" -eq 0 && -s "${ps_rec}/stdin.0" ]] && cmp -s "${ps_rec}/stdin.0" <(printf '%s' 's3cr3t') \
@@ -647,6 +647,143 @@ EOF2
   else
     bad "phase_sessions (rc=${prc})"; dump "${po}"; od -c "${ps_rec}/stdin.0" 2>/dev/null | head -3
   fi
+fi
+
+# Auto-login for the laptop profile (#173): phase 13 mounts a Keycloak login
+# theme (ConfigMap into the StatefulSet), phase 14 selects it on the realm;
+# the full profile does neither. The theme script is run against a stub DOM
+# when node is available.
+echo "  -- 8. auto-login theme (laptop profile) --"
+al_state="${tmp}/state-autologin"
+reset_logs
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' MB_PROFILE=laptop-demo \
+  MB_STATE_DIR="${al_state}" MB_MASTER_PASSWORD_FILE="${al_state}/master-password" \
+  MB_SRC_DIR="${al_state}/mijn-bureau-infra" MB_DOWNLOAD_DIR="${al_state}/downloads" \
+  FAKE_HELM_VERSION="${p_helm_ver}" FAKE_HELMFILE_VERSION="${p_helmfile_ver}" \
+  FAKE_HELM_DIFF_VERSION="${p_helmdiff_ver#v}" \
+  bash "${DEPLOY}" --dry-run 2>&1)" || rc=$?
+cm_line="$(grep -n 'apply ConfigMap dawo-autologin-theme' <<<"${out}" | head -1 | cut -d: -f1)"
+w4_line="$(grep -n 'DRY-RUN: bash .*04-nextcloud-office.sh' <<<"${out}" | head -1 | cut -d: -f1)"
+if [[ "${rc}" -eq 0 && -n "${cm_line}" && -n "${w4_line}" && "${cm_line}" -gt "${w4_line}" ]] \
+  && grep -q 'patch statefulset/keycloak-keycloak --type strategic: mount ConfigMap dawo-autologin-theme at /opt/bitnami/keycloak/themes/dawo-autologin' <<<"${out}" \
+  && grep -q 'rollout status statefulset/keycloak-keycloak --timeout=600s' <<<"${out}" \
+  && grep -q 'admin/realms/mijnbureau {.*"rememberMe":true,"loginTheme":"dawo-autologin"}' <<<"${out}"; then
+  ok "laptop-demo: phase 13 mounts the auto-login theme after upstream 04 and waits for Keycloak; phase 14 sets loginTheme dawo-autologin"
+else
+  bad "laptop-demo auto-login dry-run (rc=${rc})"; dump "${out}"
+fi
+reset_logs
+rc=0
+out="$(run_clean env "${common_env[@]}" MB_DOMAIN='dawo.internal' MB_PROFILE=full \
+  MB_STATE_DIR="${al_state}" MB_MASTER_PASSWORD_FILE="${al_state}/master-password" \
+  MB_SRC_DIR="${al_state}/mijn-bureau-infra" MB_DOWNLOAD_DIR="${al_state}/downloads" \
+  FAKE_HELM_VERSION="${p_helm_ver}" FAKE_HELMFILE_VERSION="${p_helmfile_ver}" \
+  FAKE_HELM_DIFF_VERSION="${p_helmdiff_ver#v}" \
+  bash "${DEPLOY}" --dry-run 2>&1)" || rc=$?
+if [[ "${rc}" -eq 0 ]] && ! grep -q 'dawo-autologin' <<<"${out}" && ! grep -q 'loginTheme' <<<"${out}" \
+  && grep -q 'admin/realms/mijnbureau {.*"rememberMe":true}' <<<"${out}"; then
+  ok "full profile: no auto-login theme, no loginTheme"
+else
+  bad "full profile auto-login check (rc=${rc})"; dump "${out}"
+fi
+
+# patch_keycloak_autologin without --dry-run, against a fake kubectl that
+# records its argv and stdin.
+al_bin="${tmp}/albin"; al_rec="${tmp}/alrec"; mkdir -p "${al_bin}" "${al_rec}"
+cat >"${al_bin}/kubectl" <<'EOF2'
+#!/usr/bin/env bash
+# Unique names: `create configmap | apply -f -` runs two of these at once.
+printf '%s\n' "$@" >"$(mktemp "${AL_REC}/argv.XXXXXX")"
+case "$*" in
+  *"create configmap"*) printf 'apiVersion: v1\nkind: ConfigMap\n' ;;
+  *"apply -f -"*) cat >"$(mktemp "${AL_REC}/stdin.XXXXXX")" ;;
+esac
+exit 0
+EOF2
+# The PATH above has a no-op sha256sum; this one hashes (via the Python 3
+# resolved at the top, before the fakes).
+printf '#!/usr/bin/env bash\nexec "%s" -c "import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest() + \\"  -\\")"\n' "${PY}" >"${al_bin}/sha256sum"
+chmod +x "${al_bin}/kubectl" "${al_bin}/sha256sum"
+al_fn="$(sed -n '/^autologin_theme_properties() {/,/^}$/p; /^autologin_theme_js() {/,/^}$/p; /^patch_keycloak_autologin() {/,/^}$/p' "${DEPLOY}")"
+ao=""; arc=0
+ao="$(env PATH="${al_bin}:${PATH}" AL_REC="${al_rec}" bash -c 'set -euo pipefail; DRY_RUN=0
+  AUTOLOGIN_THEME=dawo-autologin; AUTOLOGIN_CONFIGMAP=dawo-autologin-theme; KEYCLOAK_STS=keycloak-keycloak
+  info() { echo "    $*"; }; warn() { echo "WARNING: $*"; }; die() { echo "ERROR: $*"; exit 1; }
+  '"${al_fn}"'; patch_keycloak_autologin' 2>&1)" || arc=$?
+al_all="$(cat "${al_rec}"/argv.* 2>/dev/null || true)"
+if [[ -n "${al_fn}" && "${arc}" -eq 0 ]] \
+  && grep -q '^--from-file=theme.properties=' <<<"${al_all}" && grep -q '^--from-file=dawo-autologin.js=' <<<"${al_all}" \
+  && grep -q '"path":"login/theme.properties"' <<<"${al_all}" \
+  && grep -q '"path":"login/resources/js/dawo-autologin.js"' <<<"${al_all}" \
+  && grep -q '"mountPath":"/opt/bitnami/keycloak/themes/dawo-autologin","readOnly":true' <<<"${al_all}" \
+  && grep -Eq '"dawo-appliance/autologin-sha256":"[0-9a-f]{64}"' <<<"${al_all}" \
+  && grep -q '^statefulset/keycloak-keycloak$' <<<"${al_all}" \
+  && grep -q 'kind: ConfigMap' "${al_rec}"/stdin.* 2>/dev/null; then
+  ok "patch_keycloak_autologin: ConfigMap with theme.properties and the script, mounted read-only into Keycloak's themes, hash annotation, rollout wait"
+else
+  bad "patch_keycloak_autologin (rc=${arc})"; dump "${ao}"; dump "${al_all}"
+fi
+
+# The theme itself: child of Keycloak's stock theme, one script.
+th="$(bash -c "$(sed -n '/^autologin_theme_properties() {/,/^}$/p' "${DEPLOY}"); autologin_theme_properties")"
+if grep -qx 'parent=keycloak' <<<"${th}" && grep -qx 'scripts=js/dawo-autologin.js' <<<"${th}"; then
+  ok "theme.properties: parent=keycloak, scripts=js/dawo-autologin.js"
+else
+  bad "theme.properties"; dump "${th}"
+fi
+
+# The script against a stub DOM: signs in once; not again in the same tab;
+# not when the page shows an error; nothing on pages without the login form.
+if command -v node >/dev/null 2>&1; then
+  js="${tmp}/dawo-autologin.js"
+  bash -c "$(sed -n '/^autologin_theme_js() {/,/^}$/p' "${DEPLOY}"); autologin_theme_js" >"${js}"
+  cat >"${tmp}/stubdom.js" <<'EOF2'
+const fs = require("fs");
+const vm = require("vm");
+const src = fs.readFileSync(process.argv[2], "utf8");
+function page({ form = true, error = false, store }) {
+  const el = {};
+  let clicks = 0;
+  if (form) {
+    el["kc-form-login"] = {};
+    el["username"] = { value: "" };
+    el["password"] = { value: "" };
+    el["rememberMe"] = { checked: false };
+    el["kc-login"] = { click() { clicks++; } };
+  }
+  const document = {
+    readyState: "complete",
+    getElementById: (id) => el[id] || null,
+    querySelector: () => (error ? {} : null),
+    addEventListener() {},
+  };
+  const sessionStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+  };
+  vm.runInNewContext(src, { document, window: { sessionStorage } });
+  return { clicks, el };
+}
+const results = [];
+const tab = {};
+const a = page({ store: tab });
+results.push(a.clicks === 1 && a.el.username.value === "dawo" && a.el.password.value === "dawo" && a.el.rememberMe.checked === true);
+results.push(page({ store: tab }).clicks === 0);
+results.push(page({ error: true, store: {} }).clicks === 0);
+results.push(page({ form: false, store: {} }).clicks === 0);
+console.log(results.join(" "));
+process.exit(results.every(Boolean) ? 0 : 1);
+EOF2
+  jo=""; jrc=0
+  jo="$(node "${tmp}/stubdom.js" "${js}" 2>&1)" || jrc=$?
+  if [[ "${jrc}" -eq 0 ]]; then
+    ok "auto-login script: fills dawo/dawo and submits once; not again in the same tab; not after an error; nothing without the login form"
+  else
+    bad "auto-login script against a stub DOM (${jo})"
+  fi
+else
+  echo "  SKIP auto-login script behaviour: node not installed here"
 fi
 
 echo

@@ -12,7 +12,7 @@ Dit script is voor wie de `dawo-appliance` laat zien aan gemeentelijke beslisser
 - De **USB-SSD** met de appliance. Gebruik geen gewone USB-stick: die slijt te snel.
 - **Internet** (wifi of kabel). De eerste keer downloadt Mijn Bureau zijn apps. Daarna staan die op de USB-SSD en gaat het sneller.
 - Start de laptop **ongeveer 10 minuten van tevoren**: USB-SSD erin, aanzetten, bij het logo **F12** (Dell) en kies de USB-SSD onder *UEFI*. De werkplek staat er na zo'n 20 seconden, Mijn Bureau is na ongeveer 8 minuten klaar. Je volgt dat op de statuspagina die vanzelf opent.
-- Als Mijn Bureau klaar is: klik op **Open Mijn Bureau**, log in met gebruikersnaam **`dawo`** en wachtwoord **`dawo`**, en open vanuit het dashboard één keer Nextcloud en Element. Dan hoef je tijdens de demo niet meer in te loggen.
+- Als Mijn Bureau klaar is: klik op **Open Mijn Bureau**. Je wordt vanzelf ingelogd als **`dawo`** (wachtwoord **`dawo`**, voor als je het inlogscherm toch ziet). Open vanuit het dashboard één keer Nextcloud en Element.
 - Laat de statuspagina als eerste tabblad openstaan.
 
 ---
@@ -48,7 +48,7 @@ Dit script is voor wie de `dawo-appliance` laat zien aan gemeentelijke beslisser
 *Actie: ga naar het tabblad **Mijn Bureaublad**.*
 
 **Gesprekspunten:**
-- "Dit is Mijn Bureau, de samenwerkingssuite. Eén keer inloggen geeft toegang tot alle apps."
+- "Dit is Mijn Bureau, de samenwerkingssuite. Eén keer inloggen geeft toegang tot alle apps. Voor de demo logt hij vanzelf in."
 - *Klik op **NextCloud**:* "Hier staan bestanden, het alternatief voor OneDrive. Documenten openen in Collabora, een open-source kantoorpakket in de browser."
 - *Ga naar het tabblad **Element**:* "En dit is chat, het alternatief voor Teams-chat, gebouwd op de open standaard Matrix."
 - "Deze apps en je gegevens draaien op deze laptop, op de USB-schijf. Ze staan niet bij een clouddienst."
