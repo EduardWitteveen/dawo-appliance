@@ -12,15 +12,13 @@ First version. Release checklist: [#175](https://github.com/EduardWitteveen/dawo
 - Demo account `dawo`/`dawo` (D34), signed in automatically on the live USB (#173, D36).
 - Per-install appliance CA and local DNS under `dawo.internal` (ADR 0004).
 - Windows tool `scripts/windows/dawo-stick.ps1` to write the image while keeping `DAWO_LOGS`.
+- Version and commit in the boot menu and the status page footer; release candidates `X.Y.Z-rc.N` (#175).
 - Real-hardware screenshots (Dell Latitude 5550) and Dutch documentation for the target audience: demo script, apps tour, functional architecture.
 
 ### Fixed
 - Guest collapse after about 48 minutes on CET-capable CPUs: the guest runs with `nousershstk` (#176, D35). Merged on a short Dell run; a run of more than an hour is still to confirm it.
 - The status page says "klaar" only once the apps answer (#177).
-
-### In review (not yet on `main`)
-- Dutch Firefox, sign-in pages and Nextcloud defaults on the live USB (#180, D37; PR #183; Dell test pending).
-- Version and commit visible in the boot menu and status page; release candidates (#175; PR #185).
+- Dutch Firefox, sign-in pages and Nextcloud defaults on the live USB (#180, D37).
 
 ### Known issues
 - `test-live-iso-boot` does not boot the guest in nested KVM under WSL (#184).
