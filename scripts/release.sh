@@ -14,7 +14,8 @@
 #       maintainer reviews and publishes it on GitHub.
 #
 # Needs git, gh (logged in), python3, and for `publish` Nix + a clean tree.
-# The version must be plain SemVer (no "v", no "-dev").
+# The version must be SemVer X.Y.Z, or a release candidate X.Y.Z-rc.N
+# (no "v", no "-dev"); a release candidate becomes a GitHub pre-release.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -24,7 +25,7 @@ log() { echo "[release] $*"; }
 
 phase="${1:-}"; version="${2:-}"
 [[ "${phase}" == "prepare" || "${phase}" == "publish" ]] || die "usage: $0 prepare|publish X.Y.Z"
-[[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be X.Y.Z (got '${version}')"
+[[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || die "version must be X.Y.Z or X.Y.Z-rc.N (got '${version}')"
 tag="v${version}"
 manifest="manifest/appliance-manifest.json"
 
@@ -80,7 +81,8 @@ if gh release view "${tag}" >/dev/null 2>&1 </dev/null; then
   log "release ${tag} exists; uploading assets again (--clobber)"
   gh release upload "${tag}" "${out}"/* --clobber </dev/null
 else
-  gh release create "${tag}" --draft --verify-tag --title "dawo-appliance ${tag} (experimental, unofficial)" \
+  pre=(); [[ "${version}" == *-rc.* ]] && pre=(--prerelease)
+  gh release create "${tag}" --draft --verify-tag "${pre[@]}" --title "dawo-appliance ${tag} (experimental, unofficial)" \
     --notes "Experimental, unofficial demo appliance; not an official DAWO / Mijn Bureau / BZK distribution. Not for production (see README). Verification: docs/verification-latest.md at ${tag}. Assets: installer ISO, its SHA-256, the release manifest and its SHA-256." \
     "${out}"/* </dev/null
 fi

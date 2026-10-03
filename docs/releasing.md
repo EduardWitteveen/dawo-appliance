@@ -21,6 +21,16 @@ the common GitHub practice (tag + release assets); resolves OQ-8.
 - The ISO is built from the tagged commit, so the manifest version inside the
   ISO equals the tag.
 
+## Versions
+
+SemVer (`X.Y.Z`); `appliance.version` in `manifest/appliance-manifest.json`
+is the single source. Between releases it is the next version with `-dev`
+(now `0.1.0-dev`). A release candidate `X.Y.Z-rc.N` goes through the same
+procedure and becomes a GitHub **pre-release** (e.g. `v0.1.0-rc.1` for the
+build that is tested on real hardware before `v0.1.0`). Every live image shows
+its version and commit in the boot menu and in the status page footer
+(`/etc/dawo-appliance/version`, #175).
+
 ## Procedure
 
 Prerequisites: `verify.sh` green on `main` (`docs/verification-latest.md`),

@@ -100,6 +100,14 @@ if grep -q "href='https://bureaublad.dawo.internal' target='_blank' rel='noopene
 else
   bad "done"; echo "$p"
 fi
+printf '0.1.0-rc.1 (abc1234)\n' >"${tmp}/version"
+p="$(STATUS_VERSION_FILE="${tmp}/version" FAKE_NET=up render 2v)"
+p_unknown="$(STATUS_VERSION_FILE="${tmp}/no-version" FAKE_NET=up render 2u)"
+if grep -q 'Versie 0.1.0-rc.1 (abc1234)\.' <<<"$p" && grep -q 'Versie onbekend\.' <<<"${p_unknown}"; then
+  ok "the footer shows the appliance version and commit, or 'onbekend' (#175)"
+else
+  bad "version in the footer"; echo "$p" | grep -i versie
+fi
 
 # 3. guest skipped.
 printf 'no /dev/kvm: virtualisation is off\n' >"${tmp}/skip"

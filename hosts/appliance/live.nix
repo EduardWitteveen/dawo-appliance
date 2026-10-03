@@ -20,6 +20,10 @@
 { modulesPath, lib, pkgs, config, ... }:
 
 let
+  applianceVersion = (builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json)).appliance.version;
+  buildRev = lib.removeSuffix "
+" (config.environment.etc."dawo-appliance/build-rev".text or "unknown
+");
   manifest = builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json);
   image = manifest.vm.image;
   # The pinned Ubuntu cloud image, verified by its manifest SHA-256 at build
@@ -125,7 +129,11 @@ in
   image.baseName = lib.mkForce "dawo-appliance-live";
   # Boot menu: "DAWO appliance live — NixOS <version>", and the debug entry
   # (specialisation below) says what it does.
-  isoImage.prependToMenuLabel = "DAWO appliance live — ";
+  # The appliance version (manifest, SemVer) and the commit (#175), so it is
+  # visible which build is on a stick.
+  isoImage.prependToMenuLabel = "DAWO appliance live ${applianceVersion} (${buildRev}) — ";
+  environment.etc."dawo-appliance/version".text = "${applianceVersion} (${buildRev})
+";
   isoImage.appendToMenuLabel = " — DEBUG (default for now): logs + screenshots to USB";
   isoImage.volumeID = lib.mkForce "DAWO_LIVE";
   # Boot from USB sticks and DVDs on both UEFI and legacy BIOS machines.
