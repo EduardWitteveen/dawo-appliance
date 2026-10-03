@@ -1,4 +1,4 @@
-# The DAWO / Mijn Bureau ecosystem (as inspected on 2026-09-25)
+# The DAWO / Mijn Bureau ecosystem (as inspected on 2026-09-25; VNG webinar context 2026-09-30)
 
 Background for contributors: which upstream repositories exist, what they are
 for, and which ones this appliance consumes. Facts below were checked on the
@@ -43,6 +43,52 @@ en Office op basis van Linux" (Jasper Bakker, 2026-09-24), and linked sources:
   Element/Synapse, Meet, Docs, Grist, Keycloak, the `bureaublad` dashboard),
   developed with municipalities, provinces and ministries and inspired by
   Germany's openDesk and France's La Suite.
+
+## Context from the VNG webinar (2026-09-30)
+
+VNG webinar "Update Digitale Autonome Werkomgeving Overheid (DAWO): de samenhang
+tussen NDS, ICBR en de gemeentelijke Uitvoeringsstrategie" (VNG / NDS
+Aanjaagteam Cloud en autonome werkomgeving; recording:
+<https://youtu.be/_76KUonxHis>; slides sent to participants, not stored here):
+
+- **Why:** municipalities are the largest executive organisation in the
+  Netherlands (342 municipalities, more than 200,000 workplaces); their digital
+  workplace depends almost entirely on one supplier (Microsoft 365). The risks
+  named: unilateral licence costs, confidentiality under US law (CLOUD Act,
+  FISA 702), and continuity (outage, sanctions, a supplier decision). Guiding
+  principle: public-sector digitalisation is organised independently.
+- **DAWO is goal 3** of the municipal implementation strategy on cloud
+  (VNG, track 2): interadministrative and European cooperation and a broad
+  practical exploration of an autonomous workplace with municipalities.
+- **The ecosystem as presented** (code.overheid.nl in the centre):
+  - *Mijn Bureau* (building block, since January 2025): from BZK, EU
+    cooperation in an EDIC, an open collaboration environment with La Suite,
+    openDesk and Nextcloud; **in transition to SSC-ICT from Q3 2026**.
+  - *SSC-ICT · DAWO* (since 2025): the open-source blueprint: NixOS workplace,
+    IAM, cloud and management.
+  - *VNG and municipalities* (since March 2026): the practical exploration
+    (contact: digitalisering@vng.nl).
+  - *DAWO community* (June 2026): broadening, and exploring a merger of DAWO
+    and Mijn Bureau into one movement.
+  - *Sextant* (summer 2026): fleet management for the workplace, from practice
+    with the community (see DAWO-Sextant above).
+  - *ICBR commission* (July 2026): SSC-ICT, DICTU and DUO-ICT build autonomous
+    workplace services for central government; it funds the base.
+  - *NDS steering group*: a government-wide vision on the autonomous workplace
+    (in progress).
+  - *NL Digitale Dienst* (intended, in time): direction and standards, the
+    long-term home for codebase stewardship.
+- **Agenda:** EU TechFest (27 October 2026), FieldLab Soevereine Basis
+  (23–25 November 2026), OneGov Hackathon and suppliers' meeting (9–10 December
+  2026).
+
+What it means for the appliance: the combination we demonstrate (the DAWO
+workplace plus Mijn Bureau on one machine) matches the announced merger of the
+two tracks, and the practical exploration with municipalities is the audience
+for the demo. Whether to show the appliance at one of the events above is the
+maintainer's call. The pinned upstream locations stay as they are; when Mijn
+Bureau moves to SSC-ICT, its repository location is checked again
+(`scripts/check-upstream.sh`).
 
 Why this matters for the appliance: it confirms the two building blocks we
 combine are the ones being piloted, and that the workplace's user experience
