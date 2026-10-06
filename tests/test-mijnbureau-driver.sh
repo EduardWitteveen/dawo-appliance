@@ -793,6 +793,137 @@ else
   echo "  SKIP auto-login script behaviour: node not installed here"
 fi
 
+# =============================================================================
+# 9. Nextcloud apps (#190): pins equal the manifest; Thematiq in phase 13;
+#    optional apps only on request, with their dependency first; install
+#    logic (fresh, idempotent re-run, upgrade, wrong version) against a
+#    stateful fake kubectl
+# =============================================================================
+echo "  -- 9. Nextcloud apps (#190) --"
+nc_manifest="$("${PY}" -c '
+import json, sys
+apps = json.load(open(sys.argv[1], encoding="utf-8"))["mijn_bureau"]["nextcloud_apps"]["apps"]
+for i, a in apps.items():
+    print("%s %s %s %s %s" % (i, a["install"], a["version"], a["url"], a["sha256"]))
+' "${MANIFEST}" | tr -d '\r')"
+nc_driver="$(run_clean bash "${DEPLOY}" --list-nc-apps | while read -r i ver kind url; do
+  printf '%s %s %s %s %s\n' "${i}" "${kind}" "${ver}" "${url}" "$(get_pin "nc_app_${i}_sha256")"
+done)"
+if [[ -n "${nc_manifest}" && "$(sort <<<"${nc_manifest}")" == "$(sort <<<"${nc_driver}")" ]]; then
+  ok "Nextcloud app pins (id, default/optional, version, URL, sha256) equal manifest mijn_bureau.nextcloud_apps ($(wc -l <<<"${nc_manifest}" | tr -d ' ') apps)"
+else
+  bad "Nextcloud app pins differ from manifest mijn_bureau.nextcloud_apps"
+  dump "manifest:"; dump "${nc_manifest}"; dump "driver:"; dump "${nc_driver}"
+fi
+if grep -q '^thematiq default ' <<<"${nc_driver}" && ! grep -v '^thematiq ' <<<"${nc_driver}" | grep -q ' default '; then
+  ok "Thematiq is the only default Nextcloud app"
+else
+  bad "Thematiq should be the only default Nextcloud app"
+fi
+
+reset_logs
+out="$(run_clean "${common_env[@]}" MB_DOWNLOAD_DIR="${tmp}/dl" bash "${DEPLOY}" --dry-run --phase post-fixes 2>&1)" || true
+if grep -q 'thematiq-1.2.10.tar.gz' <<<"${out}" && grep -q 'occ app:enable thematiq' <<<"${out}" \
+   && ! grep -qE 'openregister|dossiq|pipelinq|portaliq' <<<"${out}" && [[ ! -e "${logs}/unexpected.log" ]]; then
+  ok "phase 13 (dry-run) installs Thematiq only, and runs nothing"
+else
+  bad "phase 13 (dry-run) should install Thematiq only"; dump "${out}"
+fi
+
+reset_logs
+out="$(run_clean "${common_env[@]}" MB_DOWNLOAD_DIR="${tmp}/dl" bash "${DEPLOY}" --dry-run --nc-app portaliq 2>&1)" || true
+first_or="$(grep -n 'app:enable openregister' <<<"${out}" | head -1 | cut -d: -f1)"
+first_pq="$(grep -n 'app:enable portaliq' <<<"${out}" | head -1 | cut -d: -f1)"
+if [[ -n "${first_or}" && -n "${first_pq}" && "${first_or}" -lt "${first_pq}" ]] \
+   && grep -q 'NOTHING WAS CHANGED' <<<"${out}" && [[ ! -e "${logs}/unexpected.log" ]]; then
+  ok "--dry-run --nc-app portaliq installs OpenRegister first, then Portaliq, and runs nothing"
+else
+  bad "--dry-run --nc-app portaliq"; dump "${out}"
+fi
+
+rc=0; out="$(run_clean "${common_env[@]}" bash "${DEPLOY}" --dry-run --nc-app nosuchapp 2>&1)" || rc=$?
+rc2=0; out2="$(run_clean "${common_env[@]}" bash "${DEPLOY}" --dry-run --nc-app dossiq --phase 13 2>&1)" || rc2=$?
+if [[ "${rc}" -ne 0 ]] && grep -q 'unknown Nextcloud app' <<<"${out}" && [[ "${rc2}" -ne 0 ]] && grep -q 'cannot be combined' <<<"${out2}"; then
+  ok "--nc-app refuses an unknown app and refuses to combine with --phase"
+else
+  bad "--nc-app should refuse an unknown app (rc ${rc}) and --phase (rc ${rc2})"; dump "${out}"; dump "${out2}"
+fi
+
+# Stateful fake kubectl: the "tarball" holds "<id> <version>"; tar records
+# what was unpacked; app:enable makes that the installed version.
+ncstate="${tmp}/ncstate"; ncbin="${tmp}/ncbin"; ncdl="${tmp}/ncdl/nextcloud-apps"
+mkdir -p "${ncstate}" "${ncbin}" "${ncdl}"
+cat >"${ncbin}/kubectl" <<'EOF'
+#!/usr/bin/env bash
+set -u
+s="${FAKE_NC_STATE:?}"
+printf '%s\n' "$*" >>"${s}/calls.log"
+args=" $* "
+case "${args}" in
+  *" config:app:get "*" installed_version "*)
+    id="$(sed 's/.* config:app:get \([a-z]*\) installed_version .*/\1/' <<<"${args}")"
+    [[ -f "${s}/${id}.ver" ]] && cat "${s}/${id}.ver" || exit 1 ;;
+  *" config:app:get "*" enabled "*)
+    id="$(sed 's/.* config:app:get \([a-z]*\) enabled .*/\1/' <<<"${args}")"
+    [[ -f "${s}/${id}.ver" ]] && echo yes || exit 1 ;;
+  *" tar -xzf - "*)
+    read -r id ver; printf '%s' "${ver}" >"${s}/${id}.files" ;;
+  *" app:enable "*)
+    id="${args##* app:enable }"; id="${id%% *}"
+    [[ -f "${s}/${id}.files" ]] && cp "${s}/${id}.files" "${s}/${id}.ver" ;;
+esac
+exit 0
+EOF
+chmod +x "${ncbin}/kubectl"
+for a in openregister:2.1.0 dossiq:0.4.0; do
+  printf '%s %s\n' "${a%%:*}" "${a#*:}" >"${ncdl}/${a%%:*}-${a#*:}.tar.gz"
+done
+nc_run() { # nc_run APP -> output; rc in nc_rc
+  nc_rc=0
+  nc_out="$(run_clean "${common_env[@]}" MB_DOWNLOAD_DIR="${tmp}/ncdl" FAKE_NC_STATE="${ncstate}" \
+    PATH="${ncbin}:${PATH}" bash "${DEPLOY}" --nc-app "$1" 2>&1)" || nc_rc=$?
+}
+
+nc_run dossiq
+calls="$(cat "${ncstate}/calls.log" 2>/dev/null || true)"
+t_or="$(grep -n 'tar -xzf' <<<"${calls}" | head -1 | cut -d: -f1)"
+e_or="$(grep -n 'app:enable openregister' <<<"${calls}" | cut -d: -f1)"
+e_dq="$(grep -n 'app:enable dossiq' <<<"${calls}" | cut -d: -f1)"
+if [[ "${nc_rc}" -eq 0 && "$(grep -c 'tar -xzf' <<<"${calls}")" -eq 2 && -n "${t_or}" && -n "${e_or}" && -n "${e_dq}" \
+      && "${e_or}" -lt "${e_dq}" && "$(cat "${ncstate}/dossiq.ver")" == 0.4.0 ]] && ! grep -q ' upgrade' <<<"${calls}"; then
+  ok "--nc-app dossiq (fresh): unpacks and enables OpenRegister, then Dossiq; no upgrade"
+else
+  bad "--nc-app dossiq (fresh), rc ${nc_rc}"; dump "${nc_out}"; dump "${calls}"
+fi
+
+rm -f "${ncstate}/calls.log"
+nc_run dossiq
+calls="$(cat "${ncstate}/calls.log" 2>/dev/null || true)"
+if [[ "${nc_rc}" -eq 0 ]] && ! grep -qE 'tar -xzf|app:enable|rm -rf' <<<"${calls}" && grep -q 'already installed and enabled' <<<"${nc_out}"; then
+  ok "--nc-app dossiq (again): leaves both apps alone"
+else
+  bad "--nc-app dossiq (again) should change nothing, rc ${nc_rc}"; dump "${nc_out}"; dump "${calls}"
+fi
+
+rm -f "${ncstate}/calls.log"; printf '2.0.12' >"${ncstate}/openregister.ver"
+nc_run openregister
+calls="$(cat "${ncstate}/calls.log" 2>/dev/null || true)"
+if [[ "${nc_rc}" -eq 0 ]] && grep -q 'rm -rf /var/www/html/custom_apps/openregister' <<<"${calls}" \
+   && grep -q 'tar -xzf' <<<"${calls}" && grep -q 'occ upgrade' <<<"${calls}" && [[ "$(cat "${ncstate}/openregister.ver")" == 2.1.0 ]]; then
+  ok "--nc-app openregister over 2.0.12: replaces the files, enables, runs occ upgrade"
+else
+  bad "--nc-app openregister upgrade path, rc ${nc_rc}"; dump "${nc_out}"; dump "${calls}"
+fi
+
+rm -f "${ncstate}"/*; printf 'pipelinq 0.4.9\n' >"${ncdl}/pipelinq-0.5.1.tar.gz"
+printf 'openregister 2.1.0\n' >"${ncdl}/openregister-2.1.0.tar.gz"
+nc_run pipelinq
+if [[ "${nc_rc}" -ne 0 ]] && grep -q "installed_version is '0.4.9', expected 0.5.1" <<<"${nc_out}"; then
+  ok "--nc-app pipelinq fails when the enabled app is not the pinned version"
+else
+  bad "--nc-app pipelinq should fail on a version mismatch, rc ${nc_rc}"; dump "${nc_out}"
+fi
+
 echo
 echo "test-mijnbureau-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
