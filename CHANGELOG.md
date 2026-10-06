@@ -14,6 +14,7 @@ First version. Release checklist: [#175](https://github.com/EduardWitteveen/dawo
 - Windows tool `scripts/windows/dawo-stick.ps1` to write the image while keeping `DAWO_LOGS`.
 - Disk image `dawo-appliance-live.img` for Rufus, balenaEtcher or `dd`: the first boot grows its empty `DAWO_LOGS` to the end of the USB disk (#192, D39).
 - Version and commit in the boot menu and the status page footer; release candidates `X.Y.Z-rc.N` (#175).
+- Nextcloud app Thematiq (NL Design System theming) installed by default; OpenRegister, Dossiq, Pipelinq and Portaliq pinned and installable later with `dawo-appliance-nc-app <id>` (#190, D38).
 - Real-hardware screenshots (Dell Latitude 5550) and Dutch documentation for the target audience: demo script, apps tour, functional architecture.
 
 ### Fixed

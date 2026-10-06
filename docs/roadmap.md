@@ -294,6 +294,10 @@ with sources, RAM estimates and licenses: issue #151.
   catalogue item. Shared services: one Keycloak (a client per product, plus a
   "citizen" realm with a mock DigiD), one PostGIS Postgres, per-product
   manifest entries (chart, digests, license, RAM budget, seed script).
+- **Started 2026-10-06 (maintainer request, #190):** Thematiq is installed by
+  default; OpenRegister, Dossiq, Pipelinq and Portaliq are pinned and install
+  on request (`dawo-appliance-nc-app <id>`, D38). Still to do for this step: a
+  demo seed (one request -> case -> portal story) and OpenCatalogi.
 - **Suggested order:** (1) Thematiq + OpenRegister + OpenCatalogi inside the
   existing Nextcloud; (2) Open Formulieren + Open Zaak + Open Notificaties
   (~2.5–3 GiB); (3) Valtimo/GZAC as the case-worker screen for the full
