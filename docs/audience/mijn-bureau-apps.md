@@ -31,6 +31,7 @@ Mijn Bureau is een samenwerkingssuite van open-source apps, samengesteld door he
 **Wat het is:** opslag voor je bestanden en gedeelde mappen. Je kunt bestanden uploaden, in mappen ordenen en delen met collega's.
 **Vergelijkbaar met:** OneDrive en SharePoint.
 **In de demo:** 10 GB ruimte voor de demogebruiker. De bestanden staan op de USB-SSD.
+**Extra in deze demo:** Nextcloud krijgt met de app Thematiq de vormgeving van het NL Design System. Vier andere apps van Conduction kunnen erbij: OpenRegister (gegevensregisters), Dossiq (zaakafhandeling), Pipelinq (klantcontact en verzoeken) en Portaliq (een portaal voor inwoners en bedrijven). Die staan standaard uit, want ze zijn nog volop in ontwikkeling.
 
 ## Documenten bewerken (Collabora Online)
 

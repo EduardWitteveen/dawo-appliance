@@ -13,6 +13,7 @@ First version. Release checklist: [#175](https://github.com/EduardWitteveen/dawo
 - Per-install appliance CA and local DNS under `dawo.internal` (ADR 0004).
 - Windows tool `scripts/windows/dawo-stick.ps1` to write the image while keeping `DAWO_LOGS`.
 - Version and commit in the boot menu and the status page footer; release candidates `X.Y.Z-rc.N` (#175).
+- Nextcloud app Thematiq (NL Design System theming) installed by default; OpenRegister, Dossiq, Pipelinq and Portaliq pinned and installable later with `dawo-appliance-nc-app <id>` (#190, D38).
 - Real-hardware screenshots (Dell Latitude 5550) and Dutch documentation for the target audience: demo script, apps tour, functional architecture.
 
 ### Fixed
