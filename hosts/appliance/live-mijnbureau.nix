@@ -191,6 +191,31 @@ let
       notify "Mijn Bureau is uitgerold" "De browser opent het dashboard zodra alles gezond is."
     '';
   };
+  # Optional Nextcloud apps (#190): `dawo-appliance-nc-app <id>` installs one
+  # of the pinned apps (deploy.sh --nc-app) into the deployed Nextcloud;
+  # without an argument it lists them. Runs as dawo (in libvirtd, so it can
+  # read the guest key), once Mijn Bureau says "klaar".
+  ncApp = pkgs.writeShellApplication {
+    name = "dawo-appliance-nc-app";
+    runtimeInputs = with pkgs; [ coreutils gnugrep openssh ];
+    text = ''
+      key=/var/lib/dawo-appliance/ssh/id_ed25519
+      ssh_opts=(-i "$key" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR)
+      # The command line is meant to expand here, on the host (SC2029).
+      # shellcheck disable=SC2029
+      g() { ssh "''${ssh_opts[@]}" ops@192.168.150.10 "$@"; }
+      if [ $# -eq 0 ]; then
+        echo "Gebruik: dawo-appliance-nc-app <app>   (installeert een Nextcloud-app in Mijn Bureau)"
+        echo
+        g sudo /usr/local/sbin/mb-deploy --list-nc-apps
+        exit 0
+      fi
+      # The name goes through the guest's shell (ssh joins its arguments).
+      case "$1" in *[!a-z]* | "") echo "Onbekende app: $1" >&2; exit 2 ;; esac
+      grep -q '^klaar' ${status} 2>/dev/null || { echo "Mijn Bureau is nog niet klaar ($(cat ${status} 2>/dev/null || echo 'geen status')); probeer het later." >&2; exit 1; }
+      g sudo /usr/local/sbin/mb-deploy --nc-app "$1"
+    '';
+  };
 in
 {
   systemd.services.dawo-appliance-mijnbureau = {
@@ -225,5 +250,5 @@ in
     DASHBOARD_TIMEOUT=14400
     DASHBOARD_WAIT_STATUS=${status}
   '';
-  environment.systemPackages = [ runner ];
+  environment.systemPackages = [ runner ncApp ];
 }
