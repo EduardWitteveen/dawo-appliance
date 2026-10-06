@@ -143,6 +143,26 @@ readonly MB_KNOWN_DIGESTS=(
 )
 
 # ---------------------------------------------------------------------------
+# Nextcloud apps by Conduction (#190), outside upstream's set (D38). MUST equal
+# manifest/appliance-manifest.json mijn_bureau.nextcloud_apps. Each value is
+# "<version> <tarball URL> <sha256>": the app-store release tarball (GitHub
+# release asset), hashed when it was pinned (2026-10-06). All declare
+# Nextcloud 32-34 and PHP >= 8.3. NC_APPS_DEFAULT is installed in phase 13;
+# NC_APPS_OPTIONAL only on request (--nc-app). NC_APP_NEEDS: apps that
+# require another app first (src/manifest.json of each app; app-info.xsd
+# cannot express it).
+# ---------------------------------------------------------------------------
+readonly NC_APP_THEMATIQ="1.2.10 https://github.com/ConductionNL/thematiq/releases/download/v1.2.10/thematiq-1.2.10.tar.gz 0745f26b79b822abb57744962cb8194d9449fcf44001f8da1ed13268c0d3289f"
+readonly NC_APP_OPENREGISTER="2.1.0 https://github.com/ConductionNL/openregister/releases/download/v2.1.0/openregister-2.1.0.tar.gz c55f8e34e08b62da94f0f980b0f837be48eaf5b001b90b27278fd8194875101b"
+readonly NC_APP_DOSSIQ="0.4.0 https://github.com/ConductionNL/dossiq/releases/download/v0.4.0/dossiq-0.4.0.tar.gz db5882979201e31a971acfcc6dff6a64bb458d83f32f64bd64e6c9934086094e"
+readonly NC_APP_PIPELINQ="0.5.1 https://github.com/ConductionNL/pipelinq/releases/download/v0.5.1/pipelinq-0.5.1.tar.gz bbf6aaa443cecf693c20920baa1b3a8681ae005db208e8df62d828a0f5f7cb29"
+readonly NC_APP_PORTALIQ="0.2.0 https://github.com/ConductionNL/portaliq/releases/download/v0.2.0/portaliq-0.2.0.tar.gz 2dd4cbf0c529252ea5b816951b83586039c30742b191287cfe8f2046f41bda06"
+readonly NC_APPS_DEFAULT=(thematiq)
+readonly NC_APPS_OPTIONAL=(openregister dossiq pipelinq portaliq)
+readonly NC_APP_NEEDS=("dossiq:openregister" "pipelinq:openregister" "portaliq:openregister")
+readonly NC_CUSTOM_APPS="/var/www/html/custom_apps"
+
+# ---------------------------------------------------------------------------
 # Environment (all overridable; defaults are the guest paths).
 # ---------------------------------------------------------------------------
 MB_DOMAIN="${MB_DOMAIN:-${MB_DOMAIN_DEFAULT}}"
@@ -170,6 +190,7 @@ readonly MB_NAMESPACES=(mb-keycloak mb-grist mb-element mb-collabora mb-nextclou
 
 DRY_RUN=0
 PHASE=""
+NC_APP_REQUEST=""
 
 # ---------------------------------------------------------------------------
 # Phases (order matters; numbers are stable and documented in README.md).
@@ -187,7 +208,7 @@ readonly PHASES=(
   "10:wait-certs:wait until every cert-manager Certificate is Ready"
   "11:trust:in-cluster trust of the appliance CA (ConfigMap, env, Nextcloud import)"
   "12:oidc-restart:upstream 03-restart-oidc-apps.sh (Nextcloud SSRF/proxies, restarts)"
-  "13:post-fixes:upstream 04-nextcloud-office.sh, 05-docs.sh, 06-grist.sh; laptop profile: Keycloak auto-login theme"
+  "13:post-fixes:upstream 04-nextcloud-office.sh, 05-docs.sh, 06-grist.sh; Nextcloud app Thematiq; laptop profile: Keycloak auto-login theme"
   "14:sessions:Keycloak session lifetimes (07 equivalent, with --cacert); laptop profile: login theme"
 )
 
@@ -956,6 +977,79 @@ nextcloud_dutch_defaults() {
   info "Nextcloud defaults: language nl, locale nl_NL"
 }
 
+# ---------------------------------------------------------------------------
+# Nextcloud apps (#190, D38): pinned tarballs, no app-store access from the pod.
+# ---------------------------------------------------------------------------
+nc_app_pin() { # nc_app_pin ID -> "<version> <url> <sha256>"
+  case "$1" in
+    thematiq) printf '%s' "${NC_APP_THEMATIQ}" ;;
+    openregister) printf '%s' "${NC_APP_OPENREGISTER}" ;;
+    dossiq) printf '%s' "${NC_APP_DOSSIQ}" ;;
+    pipelinq) printf '%s' "${NC_APP_PIPELINQ}" ;;
+    portaliq) printf '%s' "${NC_APP_PORTALIQ}" ;;
+    *) return 1 ;;
+  esac
+}
+
+list_nc_apps() {
+  local id kind ver url sha
+  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}"; do
+    kind=optional
+    [[ " ${NC_APPS_DEFAULT[*]} " == *" ${id} "* ]] && kind=default
+    read -r ver url sha <<<"$(nc_app_pin "${id}")"
+    printf '%-13s %-9s %-8s %s\n' "${id}" "${ver}" "${kind}" "${url}"
+  done
+}
+
+nc_occ() { kubectl exec -n mb-nextcloud deploy/nextcloud -- php occ "$@"; }
+
+# nc_app_install ID: download and verify the pinned tarball, unpack it into
+# custom_apps (on the Nextcloud PVC, so it survives a pod restart), enable it.
+# Idempotent: an app already at the pinned version and enabled is left alone;
+# another version is replaced and `occ upgrade` runs its migrations.
+nc_app_install() {
+  local id="$1" pin ver url sha dest installed enabled
+  pin="$(nc_app_pin "${id}")" || die "internal: no pin for Nextcloud app ${id}"
+  read -r ver url sha <<<"${pin}"
+  dest="${MB_DOWNLOAD_DIR}/nextcloud-apps/${id}-${ver}.tar.gz"
+  download_verified "${url}" "${sha}" "${dest}"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl exec -i -n mb-nextcloud deploy/nextcloud -- tar -xzf - -C %s < %s; occ app:enable %s (want installed_version %s)\n' \
+      "${NC_CUSTOM_APPS}" "${dest}" "${id}" "${ver}"
+    return 0
+  fi
+  installed="$(nc_occ config:app:get "${id}" installed_version 2>/dev/null | tr -d '\r' || true)"
+  enabled="$(nc_occ config:app:get "${id}" enabled 2>/dev/null | tr -d '\r' || true)"
+  if [[ "${installed}" == "${ver}" && "${enabled}" == yes ]]; then
+    info "Nextcloud app ${id} ${ver}: already installed and enabled"
+    return 0
+  fi
+  if [[ "${installed}" != "${ver}" ]]; then
+    kubectl exec -n mb-nextcloud deploy/nextcloud -- rm -rf "${NC_CUSTOM_APPS:?}/${id}"
+    kubectl exec -i -n mb-nextcloud deploy/nextcloud -- tar -xzf - -C "${NC_CUSTOM_APPS}" <"${dest}"
+  fi
+  nc_occ app:enable "${id}"
+  if [[ -n "${installed}" && "${installed}" != "${ver}" ]]; then nc_occ upgrade; fi
+  installed="$(nc_occ config:app:get "${id}" installed_version 2>/dev/null | tr -d '\r' || true)"
+  [[ "${installed}" == "${ver}" ]] || die "Nextcloud app ${id}: installed_version is '${installed}', expected ${ver}"
+  info "Nextcloud app ${id} ${ver}: installed and enabled"
+}
+
+# nc_app_install_with_needs ID: the apps it requires first, then the app.
+nc_app_install_with_needs() {
+  local n
+  for n in "${NC_APP_NEEDS[@]}"; do
+    [[ "${n%%:*}" == "$1" ]] && nc_app_install "${n#*:}"
+  done
+  nc_app_install "$1"
+}
+
+nc_apps_default() {
+  local id
+  wait_rollout mb-nextcloud nextcloud 900s
+  for id in "${NC_APPS_DEFAULT[@]}"; do nc_app_install_with_needs "${id}"; done
+}
+
 phase_post_fixes() {
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
   patch_collabora_args
@@ -965,6 +1059,7 @@ phase_post_fixes() {
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
+  nc_apps_default
   # Last, so the Keycloak restart it may cause comes after everything that
   # talks to Keycloak; phase 14 then selects the theme on the realm.
   if [[ "${MB_PROFILE}" == laptop-demo ]]; then nextcloud_dutch_defaults; patch_keycloak_autologin; fi
@@ -1220,6 +1315,7 @@ phase_sessions() {
 usage() {
   cat <<EOF
 Usage: deploy.sh [--dry-run] [--phase <n|name>] [--list-phases] [--print-pins] [-h]
+       deploy.sh [--dry-run] --nc-app <id> | --list-nc-apps
 
 Deploys Mijn Bureau (mijn-bureau-infra ${MB_REV:0:12}) onto the K3s cluster in
 this guest, per ADR 0004 (base domain ${MB_DOMAIN_DEFAULT}, ClusterIssuer ${CLUSTER_ISSUER}).
@@ -1228,6 +1324,9 @@ this guest, per ADR 0004 (base domain ${MB_DOMAIN_DEFAULT}, ClusterIssuer ${CLUS
   --phase <n|name> run a single phase (see --list-phases)
   --list-phases    list phases and exit
   --print-pins     print the pinned versions/checksums as key=value and exit
+  --nc-app <id>    install one pinned Nextcloud app (and the apps it needs)
+                   into a deployed Mijn Bureau, then exit (#190)
+  --list-nc-apps   list the pinned Nextcloud apps (default/optional) and exit
 
 Environment: APPLIANCE_CA_DIR (${APPLIANCE_CA_DIR}: ca.crt, ca.key), MB_DOMAIN,
 MB_STATE_DIR (${MB_STATE_DIR}), MB_MASTER_PASSWORD_FILE, MB_SRC_DIR, MB_BIN_DIR,
@@ -1298,6 +1397,11 @@ image_digest_bureaublad.backend=${DIGEST_BUREAUBLAD_BACKEND}
 image_digest_bureaublad.frontend=${DIGEST_BUREAUBLAD_FRONTEND}
 image_digest_openproject.openproject=${DIGEST_OPENPROJECT}
 EOF
+  local id ver url sha
+  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}"; do
+    read -r ver url sha <<<"$(nc_app_pin "${id}")"
+    printf 'nc_app_%s_version=%s\nnc_app_%s_url=%s\nnc_app_%s_sha256=%s\n' "${id}" "${ver}" "${id}" "${url}" "${id}" "${sha}"
+  done
 }
 
 run_phase() { # run_phase NUMBER
@@ -1344,6 +1448,9 @@ main() {
       --phase=*) PHASE="${1#--phase=}" ;;
       --list-phases) list_phases; exit 0 ;;
       --print-pins) print_pins; exit 0 ;;
+      --list-nc-apps) list_nc_apps; exit 0 ;;
+      --nc-app) [[ $# -ge 2 ]] || die "--nc-app needs an argument"; NC_APP_REQUEST="$2"; shift ;;
+      --nc-app=*) NC_APP_REQUEST="${1#--nc-app=}" ;;
       -h | --help) usage; exit 0 ;;
       *) usage >&2; die "unknown argument: $1" ;;
     esac
@@ -1352,7 +1459,12 @@ main() {
 
   log "dawo-appliance Mijn Bureau driver: rev ${MB_REV:0:12}, domain ${MB_DOMAIN}, issuer ${CLUSTER_ISSUER}$([[ "${DRY_RUN}" -eq 1 ]] && printf ' [DRY-RUN]')"
 
-  if [[ -n "${PHASE}" ]]; then
+  if [[ -n "${NC_APP_REQUEST}" ]]; then
+    [[ -z "${PHASE}" ]] || die "--nc-app and --phase cannot be combined"
+    nc_app_pin "${NC_APP_REQUEST}" >/dev/null || die "unknown Nextcloud app: ${NC_APP_REQUEST} (see --list-nc-apps)"
+    validate_domain
+    nc_app_install_with_needs "${NC_APP_REQUEST}"
+  elif [[ -n "${PHASE}" ]]; then
     local n
     n="$(resolve_phase "${PHASE}")" || die "unknown phase: ${PHASE} (see --list-phases)"
     run_phase "${n}"
