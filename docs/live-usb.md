@@ -209,6 +209,22 @@ before. Apart from growing the empty `DAWO_LOGS` of the disk image once (section
 nothing is partitioned or formatted: only files are created inside the
 `DAWO_LOGS` filesystem.
 
+## Extra Nextcloud apps (optional)
+
+Nextcloud comes with Conduction's Thematiq (NL Design System look). Four more
+apps are pinned and can be added once the status page says "klaar": open a
+terminal (Konsole) and type
+
+```bash
+dawo-appliance-nc-app            # list the apps
+dawo-appliance-nc-app pipelinq   # install one (OpenRegister comes along)
+```
+
+The choices are `openregister`, `dossiq` (case handling), `pipelinq` (client
+and request management) and `portaliq` (portal for citizens). They stay
+installed on a stick with persistent data. Details: `apps/mijn-bureau/README.md`
+(#190).
+
 ## Debug mode (default for now)
 
 The first boot menu entry, **"DAWO appliance live — … — DEBUG (default for
