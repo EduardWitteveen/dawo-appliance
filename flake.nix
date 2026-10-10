@@ -77,6 +77,14 @@
         # existing machine without touching its disk. Build with:
         #   nix build .#appliance-live-iso
         appliance-live-iso = self.nixosConfigurations.appliance-live.config.system.build.isoImage;
+        # The same live system as one disk image for Rufus (DD mode) / Etcher,
+        # with a small DAWO_LOGS seed that the first boot grows (#192):
+        #   nix build .#appliance-live-img
+        appliance-live-img = import ./nix/live-img.nix {
+          inherit pkgs;
+          iso = self.packages.${system}.appliance-live-iso;
+          seedMiB = self.nixosConfigurations.appliance-live.config.appliance.live.data.seedMiB;
+        };
 
         # Does the Nix sandbox get hardware virtualisation? The VM tests use
         # `accel=kvm:tcg` and silently fall back to slow software emulation when
@@ -115,6 +123,15 @@
         test-live-iso-persist = import ./nix/tests/live-iso-persist.nix {
           inherit pkgs;
           iso = self.packages.${system}.appliance-live-iso;
+        };
+
+        # The disk image as Rufus/Etcher write it: the DAWO_LOGS seed grows to
+        # the end of the USB disk on the first boot, and stays (#192). Needs
+        # KVM; ~10 min.
+        #   nix build .#test-live-img-grow -L
+        test-live-img-grow = import ./nix/tests/live-img-grow.nix {
+          inherit pkgs;
+          img = self.packages.${system}.appliance-live-img;
         };
 
         test-live-iso-boot = import ./nix/tests/live-iso-boot.nix {

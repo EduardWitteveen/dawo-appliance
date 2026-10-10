@@ -195,6 +195,8 @@ in
 
   systemd.services.dawo-appliance-logs = {
     description = "Copy DAWO appliance debug logs to a DAWO_LOGS USB filesystem";
+    # Not while the data service may still grow DAWO_LOGS (#192).
+    after = [ "dawo-appliance-data.service" ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${collect}/bin/dawo-appliance-logs-collect";
