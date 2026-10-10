@@ -2,9 +2,18 @@
 
 > Experimental and unofficial. See `README.md`.
 
-A release is a git tag `vX.Y.Z` plus a GitHub release with four assets: the
-installer ISO, its SHA-256, the release manifest and its SHA-256. This follows
-the common GitHub practice (tag + release assets); resolves OQ-8.
+A release is a git tag `vX.Y.Z` plus a GitHub release with five assets: the
+installer ISO, its SHA-256, the release manifest and its SHA-256, and the
+SHA-256 of the live disk image. This follows the common GitHub practice (tag +
+release assets); resolves OQ-8.
+
+The live disk image itself, `dawo-appliance-live-vX.Y.Z.img` (~7 GB, written
+with Rufus or Etcher, `docs/live-usb.md` 2a), is larger than GitHub's 2 GiB
+per-asset limit. It is published on SourceForge, in
+<https://sourceforge.net/projects/dawo-appliance/files/vX.Y.Z/> (maintainer
+decision 2026-10-10, #192); the release notes link to it with its SHA-256. The
+SourceForge project hosts only these files; code, issues and documentation
+stay on GitHub.
 
 ## How the pieces fit
 
@@ -34,15 +43,22 @@ its version and commit in the boot menu and in the status page footer
 ## Procedure
 
 Prerequisites: `verify.sh` green on `main` (`docs/verification-latest.md`),
-ideally with `E2E=1`; `gh` logged in; Nix for the ISO build.
+ideally with `E2E=1`; `gh` logged in; Nix for the image builds; about 15 GB free for the live image.
 
 1. `bash scripts/release.sh prepare X.Y.Z` — opens a PR that sets the manifest
    version. Merge it through the normal workflow.
 2. `git switch main && git pull --ff-only`
-3. `bash scripts/release.sh publish X.Y.Z` — tags `vX.Y.Z`, builds the ISO from
-   it and creates a **draft** release with the four assets. Re-entrant: a
-   second run reuses the tag and re-uploads the assets.
-4. The maintainer reviews the draft on GitHub and publishes it.
+3. `SF_USER=<sourceforge-user> bash scripts/release.sh publish X.Y.Z` — tags
+   `vX.Y.Z`, builds the installer ISO and the live disk image from it,
+   uploads the image and its `.sha256` to SourceForge with rsync (needs an
+   SSH key on that SourceForge account), and creates a **draft** release with
+   the five assets. Without `SF_USER` the image stays in `RELEASE_OUT`
+   (default `~/dawo-release/vX.Y.Z/`) and the script prints the rsync
+   command; uploading it in the SourceForge web UI (*Files*, *Add Folder*
+   `vX.Y.Z`, *Add File*) works too. Re-entrant: a second run reuses the tag
+   and re-uploads the assets.
+4. The maintainer checks that the image is in the SourceForge folder, reviews
+   the draft on GitHub and publishes it.
 5. Open a PR that sets the manifest version to the next `-dev`
    (e.g. `0.2.0-dev`).
 
