@@ -9,7 +9,9 @@ Deze gids helpt gemeentelijke IT-beheerders, werkplek-engineers en technisch adv
 > - een **USB-SSD van 64 GB of meer** (een SSD in een USB-behuizing, of een draagbare SSD). Een gewone USB-stick raden we af: de virtuele machine schrijft er urenlang naar, waardoor een stick heet wordt en slijt. Een SanDisk-stick ging bij ons na twee dagen kapot ([#139](https://github.com/EduardWitteveen/dawo-appliance/issues/139));
 > - internet bij de eerste keer opstarten (Mijn Bureau downloadt ongeveer 10 minuten).
 >
-> Hoe je de USB-schijf maakt en de laptop voorbereidt: [`live-usb.md`](live-usb.md). De rest van deze gids beschrijft de installatie op de interne schijf van een test-laptop.
+> De USB-schijf maken kan met de bekende gratis programma's **Rufus** (Windows) of **balenaEtcher** (Windows, macOS, Linux): kies het bestand `dawo-appliance-live.img` en de USB-SSD, en schrijf. Alles wat op de USB-SSD stond, wordt gewist. Bij de eerste keer opstarten maakt de appliance de rest van de USB-SSD zelf klaar als opslag voor de demo; de laptop zelf blijft onaangeroerd.
+>
+> Meer over de USB-schijf en het voorbereiden van de laptop: [`live-usb.md`](live-usb.md). De rest van deze gids beschrijft de installatie op de interne schijf van een test-laptop.
 
 ---
 
