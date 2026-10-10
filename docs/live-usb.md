@@ -44,6 +44,29 @@ You see one file, `dawo-appliance-live.iso`. To copy it to Windows:
 cp ~/live-iso/iso/dawo-appliance-live.iso /mnt/c/Users/$USER/Downloads/
 ```
 
+## 2a. The simplest way: the disk image with Rufus or Etcher
+
+`nix build .#appliance-live-img -o ~/live-img` makes
+`dawo-appliance-live.img` (with its `.sha256`): the same ISO plus a small,
+empty `DAWO_LOGS` partition (64 MB) right after it (#192). Write it **as is**
+to the whole USB SSD with a common tool, no administrator PowerShell needed:
+
+- **Rufus** (Windows): select the USB SSD and the `.img`; Rufus writes an
+  `.img` in DD mode by itself. Answer *OK* to the warning that the drive is
+  erased.
+- **balenaEtcher** (Windows, macOS, Linux): *Flash from file*, the `.img`,
+  the USB SSD, *Flash*.
+- `dd` (Linux): `sudo dd if=dawo-appliance-live.img of=/dev/sdX bs=4M conv=fsync status=progress`.
+
+The first boot grows that `DAWO_LOGS` to the end of the USB disk, once, while
+it is still empty (hosts/appliance/live-data.nix; the status page then shows
+the data on the stick). It only does this for a partition of exactly the
+image's seed size with no files on it, only on a USB disk, and never touches
+any other disk; a stick made with the tools below is never changed. After
+that the stick is the same as one made with `create` below, and `write` can
+put a newer image on it while keeping the data. `nix build
+.#test-live-img-grow` checks this (two boots, the internal disk unchanged).
+
 ## 2. Writing the stick
 
 The stick holds two things: the image at the start, and after it a partition
@@ -182,8 +205,9 @@ guest disk, which grows only as the guest writes to it. Later boots reuse
 both, so the guest starts faster and nothing is set up again (#109, #113).
 The status window shows "Opslag: op de USB-stick". Without such a stick, or
 with too little room, everything stays in RAM and is gone after power-off, as
-before. Nothing is ever partitioned or formatted: only files are created
-inside the `DAWO_LOGS` filesystem you prepared (section 2).
+before. Apart from growing the empty `DAWO_LOGS` of the disk image once (section 2a),
+nothing is partitioned or formatted: only files are created inside the
+`DAWO_LOGS` filesystem.
 
 ## Debug mode (default for now)
 
