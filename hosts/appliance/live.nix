@@ -26,6 +26,12 @@ let
 ");
   manifest = builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json);
   image = manifest.vm.image;
+  # /dev/disk/dawo-live: the ISO's partition, or a disk without a partition
+  # table (DVD drive); never a partitioned whole disk (see fileSystems."/iso").
+  liveIsoRule = ''
+    SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="iso9660", ENV{ID_FS_LABEL}=="DAWO_LIVE", ENV{DEVTYPE}=="partition", SYMLINK+="disk/dawo-live"
+    SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="iso9660", ENV{ID_FS_LABEL}=="DAWO_LIVE", ENV{DEVTYPE}=="disk", ENV{ID_PART_TABLE_TYPE}=="", SYMLINK+="disk/dawo-live"
+  '';
   # The pinned Ubuntu cloud image, verified by its manifest SHA-256 at build
   # time and carried on the stick: no 600 MB download on every live boot.
   pinnedImage = pkgs.fetchurl {
@@ -136,6 +142,23 @@ in
 ";
   isoImage.appendToMenuLabel = " — DEBUG (default for now): logs + screenshots to USB";
   isoImage.volumeID = lib.mkForce "DAWO_LIVE";
+  # Mount the ISO from its partition, never from the whole USB disk (#192).
+  # The image's MBR entry 1 starts at sector 0, so both /dev/sdX and
+  # /dev/sdX1 carry the label DAWO_LIVE and /dev/disk/by-label/DAWO_LIVE
+  # points to whichever udev handled last. With the whole disk mounted, the
+  # kernel refuses to open the DAWO_LOGS partition on the same disk ("Device
+  # or resource busy"), so the data stayed in RAM at random. This link only
+  # names the partition, or a disk without a partition table (a DVD drive).
+  boot.initrd.services.udev.rules = liveIsoRule;
+  services.udev.extraRules = liveIsoRule;
+  # The iso-image module defines the whole entry with mkImageMediaOverride,
+  # so replace the whole entry (same fields, other device).
+  fileSystems."/iso" = lib.mkForce {
+    device = "/dev/disk/dawo-live";
+    fsType = "iso9660";
+    neededForBoot = true;
+    noCheck = true;
+  };
   # Boot from USB sticks and DVDs on both UEFI and legacy BIOS machines.
   isoImage.makeEfiBootable = true;
   isoImage.makeUsbBootable = true;
