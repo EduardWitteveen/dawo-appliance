@@ -12,7 +12,7 @@
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
     # The DAWO workplace (ADR 0003). Consumed, not forked.
-    dawo-core.url = "git+https://codeberg.org/DAWO/DAWO-Core?ref=refs/tags/0.1.3";
+    dawo-core.url = "git+https://codeberg.org/DAWO/DAWO-Core?ref=refs/tags/v0.2.0";
     dawo-core.inputs.nixpkgs.follows = "nixpkgs";
     dawo-core.inputs.disko.follows = "disko";
   };
