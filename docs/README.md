@@ -68,7 +68,7 @@ In the repository root, following the OpenWebconcept / D-OmniTwin layout (draft,
 | [`adr/0005-ai-agent-conduct.md`](adr/0005-ai-agent-conduct.md) | **Accepted:** AI agent conduct and multi-agent workflow: GitHub as SSOT, thoughtful investigation, English conventions, safety. |
 | [`adr/0006-live-usb-first.md`](adr/0006-live-usb-first.md) | **Accepted:** live USB first (boot an existing machine, internal disk untouched, data partition with per-boot reports); installing stays optional. |
 | [`adr/0007-mijn-bureau-laptop-profile.md`](adr/0007-mijn-bureau-laptop-profile.md) | **Accepted:** a `laptop-demo` profile for Mijn Bureau (five core apps, micro preset) so it fits a 32 GB laptop from the live USB. |
-| [`adr/0008-launch-components.md`](adr/0008-launch-components.md) | **Accepted:** `launch` with launch kits: one configuration-only directory per demo platform under `launch/`, indexed in `launch/index.toml`, started on demand in one K3s guest; preflight, data location, GUI cards (#193). |
+| [`adr/0008-dawo-apps.md`](adr/0008-dawo-apps.md) | **Accepted:** DAWO apps: a clean DAWO workplace boots, the app catalogue opens and the user starts apps on demand; one configuration-only directory per app (`apps/<id>/app.toml`), indexed in `apps/catalog.toml`; command `dawo-app` (#193). |
 | [`open-questions.md`](open-questions.md) | OQ-1 to OQ-9: blocking and non-blocking unknowns, with resolutions. |
 
 ## Upstream
