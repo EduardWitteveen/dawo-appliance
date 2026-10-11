@@ -104,10 +104,12 @@ pkgs.runCommand "live-iso-boot"
       mcopy -n -i logs.raw "$run/journal.txt" journal.txt 2>/dev/null || true
       if grep -q "DAWO-LIVE: DONE ok" progress.txt 2>/dev/null && [ -s journal.txt ]; then logs_ok=yes; fi
       # The guest's serial console is copied as a local file, independent of
-      # ssh (#119). It holds the console's tail, which ends with Ubuntu's
-      # serial login prompt or cloud-init's messages.
+      # ssh (#119). It holds the console's tail: the login prompt or
+      # cloud-init's messages, or, right after the guest restarted itself
+      # (the one-time nousershstk reboot, D35), the new boot's kernel lines
+      # (#184). Any of them shows the console reached the stick.
       mcopy -n -i logs.raw "$run/guest-console.txt" guest-console.txt 2>/dev/null || true
-      if ! grep -aqE "login:|[Cc]loud-init" guest-console.txt 2>/dev/null; then
+      if ! grep -aqE 'login:|[Cc]loud-init|^\[ *[0-9]+\.[0-9]+\] ' guest-console.txt 2>/dev/null; then
         echo "no guest serial console in guest-console.txt on the stick"; logs_ok=no
       fi
       # guest.txt explains not-ready pods: warning events and their logs (#150).
