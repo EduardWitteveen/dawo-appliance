@@ -127,7 +127,13 @@ let
             [ "$rc" = 3 ] && grep -q -- "--yes" out || fail "start without --yes: exit $rc"
             rc=0; launch mijn-bureau --yes </dev/null >out 2>&1 || rc=$?
             [ "$rc" = 2 ] || fail "start with --yes: exit $rc, want 2"
-            cp ${json} $out
+            # --status (#215): a catalogue whose health URL answers, and one that does not.
+      jq --arg up "file://$PWD/net" '.environments[0].health.url = $up' ${json} > up.json
+      LAUNCH_CATALOG=$PWD/up.json launch --status | grep -q "Mijn Bureau: klaar op file://" || fail "--status answering"
+      [ "$(LAUNCH_CATALOG=$PWD/up.json launch --status --json | jq -r '.[0].answers')" = true ] || fail "--status --json answering"
+      jq --arg down "file://$PWD/no-net" '.environments[0].health.url = $down' ${json} > down.json
+      LAUNCH_CATALOG=$PWD/down.json launch --status | grep -q "Mijn Bureau: niet actief" || fail "--status not answering"
+      cp ${json} $out
     '');
 in
 { inherit catalog json check cli problems; }
