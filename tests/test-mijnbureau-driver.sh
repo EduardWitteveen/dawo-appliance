@@ -829,6 +829,12 @@ if grep -q '^richdocuments repair ' <<<"${nc_driver}" \
    && [[ -s "${tmp}/rd.line" ]] \
    && [[ "$(cat "${tmp}/rd.line")" -lt "$(grep -n '04-nextcloud-office' <<<"${out}" | head -n1 | cut -d: -f1)" ]]; then
   ok "phase 13 ensures richdocuments (pinned, repair) before upstream 04 (#205)"
+  cfg_line="$(grep -n 'if richdocuments has no wopi_url: run upstream hook richdocuments.sh' <<<"${out}" | head -n1 | cut -d: -f1)"
+  if [[ -n "${cfg_line}" && "${cfg_line}" -gt "$(cat "${tmp}/rd.line")"      && "${cfg_line}" -lt "$(grep -n '04-nextcloud-office' <<<"${out}" | head -n1 | cut -d: -f1)" ]]; then
+    ok "phase 13 re-runs upstream's richdocuments hook when wopi_url is empty, before upstream 04 (#205)"
+  else
+    bad "phase 13 should configure richdocuments (upstream hook) between the install and upstream 04"; dump "${out}"
+  fi
 else
   bad "phase 13 should ensure richdocuments before upstream 04 (#205)"; dump "${out}"
 fi
