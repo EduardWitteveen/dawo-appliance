@@ -32,7 +32,11 @@
   Windows quirks handled here: Windows drops raw writes into regions it
   treats as volumes, so on a disk all MBR entry types are first set to 0x00
   (Windows then sees no partitions), the body is written, and the first
-  4 MiB (with entry 3) are written last.
+  4 MiB (with entry 3) are written last, still with the types hidden. The
+  image is verified while Windows sees no partitions; only then is the real
+  MBR sector restored and checked byte for byte. Windows mounts the image's
+  EFI partition as soon as it sees it and changes a few FAT bytes there;
+  verifying before that avoids a false VERIFY FAILED (#165).
 
 .EXAMPLE
   .\scripts\windows\dawo-stick.ps1 -DiskNumber 2
@@ -103,13 +107,19 @@ function Copy-FileTo($fs, [string]$src, [long]$srcOff, [long]$dstOff, [long]$len
     $fs.Flush()
   } finally { $in.Close() }
 }
-# sha256 (hex) of the first $len bytes of a stream, with MBR entry 3 zeroed.
+# sha256 (hex) of the first $len bytes of a stream, with MBR entry 3 and the
+# type bytes of all four entries zeroed (they are hidden while verifying a
+# disk; Restore-Mbr checks the real sector 0 afterwards, #165).
 function Get-ImageHash($s, [long]$len) {
   $h = [Security.Cryptography.SHA256]::Create(); $buf = New-Object byte[] $chunk
   [void]$s.Seek(0, 'Begin'); [long]$done = 0
   while ($done -lt $len) {
     $r = $s.Read($buf, 0, $chunk); if ($r -le 0) { throw "short read while verifying" }
-    if ($done -eq 0) { if ($r -lt $E3 + 16) { throw "short first read while verifying" }; [Array]::Clear($buf, $E3, 16) }
+    if ($done -eq 0) {
+      if ($r -lt 512) { throw "short first read while verifying" }
+      [Array]::Clear($buf, $E3, 16)
+      foreach ($k in 0..3) { $buf[446 + 16 * $k + 4] = 0 }
+    }
     $use = [int][math]::Min([long]$r, $len - $done)
     [void]$h.TransformBlock($buf, 0, $use, $null, 0); $done += $use
   }
@@ -257,10 +267,31 @@ function Write-Iso($info, [byte[]]$head, [long]$exOff, [string]$exFile) {
       Log "writing the exFAT metadata ($exLen bytes) at byte $exOff"
       Copy-FileTo $w $exFile 0 $exOff $exLen
     }
-    Log "writing the first 4 MiB (MBR with entry 3) last"
-    Write-At $w 0 $head $chunk
+    # On a disk the types stay hidden until the image is verified (#165).
+    $first = $head
+    if ($script:IsDisk) {
+      $first = [byte[]]$head.Clone()
+      foreach ($k in 0..3) { $first[446 + 16 * $k + 4] = 0 }
+      Log "writing the first 4 MiB (MBR with entry 3, types still hidden) last"
+    } else {
+      Log "writing the first 4 MiB (MBR with entry 3) last"
+    }
+    Write-At $w 0 $first $chunk
   } finally { $w.Close() }
-  if ($script:IsDisk) { Update-Disk -Number $script:Disk.Number }
+}
+# Write the real MBR sector (types back) and check it byte for byte. After
+# this Windows sees the partitions again and may touch the EFI partition.
+function Restore-Mbr([byte[]]$head) {
+  $fs = Open-Target $true
+  try {
+    if ($script:IsDisk) { Write-At $fs 0 $head 512 }
+    $got = Read-At $fs 0 512
+  } finally { $fs.Close() }
+  for ($i = 0; $i -lt 512; $i++) { if ($got[$i] -ne $head[$i]) { throw "VERIFY FAILED: MBR sector (byte $i)" } }
+  if ($script:IsDisk) {
+    Update-Disk -Number $script:Disk.Number
+    Log "restored the MBR entries (sector 0 checked)"
+  }
 }
 function Assert-Image($info) {
   Log "verifying the image area (sha256 over $($info.Length) bytes, entry 3 excluded)"
@@ -398,11 +429,13 @@ function Do-Write {
   try { $before = Get-BytesHash (Read-At $fs ($p3.Start * 512) $MiB) } finally { $fs.Close() }
   Log ("WILL OVERWRITE bytes 0..{0} of the target (the current image); DAWO_LOGS at byte {1} is kept" -f ($info.Length - 1), ($p3.Start * 512))
   $entry = New-Object byte[] 16; [Array]::Copy($script:Mbr, $E3, $entry, 0, 16)
-  Write-Iso $info (Get-Head $info $entry) 0 ''
+  $head = Get-Head $info $entry
+  Write-Iso $info $head 0 ''
   Assert-Image $info
   $fs = Open-Target $false
   try { $after = Get-BytesHash (Read-At $fs ($p3.Start * 512) $MiB) } finally { $fs.Close() }
   if ($after -ne $before) { throw "VERIFY FAILED: the start of DAWO_LOGS changed" }
+  Restore-Mbr $head
   Log "VERIFY OK: image written, DAWO_LOGS kept"
 }
 
@@ -430,16 +463,17 @@ function Do-Create {
   Log ("WILL ERASE all of the target ({0} bytes){1}" -f $script:TargetSize, $what)
   $entry = New-Entry3 $start $count
   $partOff = $start * 512
-  Write-Iso $info (Get-Head $info $entry) $partOff $exFile
+  $head = Get-Head $info $entry
+  Write-Iso $info $head $partOff $exFile
   Assert-Image $info
   $fs = Open-Target $false
   try {
-    $mbr = Read-At $fs 0 512
-    for ($i = 0; $i -lt 16; $i++) { if ($mbr[$E3 + $i] -ne $entry[$i]) { throw "VERIFY FAILED: MBR entry 3" } }
     $got = Read-At $fs $partOff $exLen
     if ([Text.Encoding]::ASCII.GetString($got, 3, 8) -ne 'EXFAT   ') { throw "VERIFY FAILED: no exFAT signature at the partition" }
     if ((Get-BytesHash $got) -ne (Get-BytesHash ([IO.File]::ReadAllBytes($exFile)))) { throw "VERIFY FAILED: exFAT metadata" }
   } finally { $fs.Close() }
+  # Entry 3 is part of the sector Restore-Mbr writes and checks byte for byte.
+  Restore-Mbr $head
   Log "VERIFY OK: image written, DAWO_LOGS created (entry 3, sector $start, $count sectors)"
 }
 
