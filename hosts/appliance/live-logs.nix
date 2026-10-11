@@ -166,6 +166,10 @@ let
       } > "$dir/guest.txt.new" 2>&1
       mv -f "$dir/guest.txt.new" "$dir/guest.txt"
       fi
+      # The shutdown copy leaves a mark, so a missing one shows (#211).
+      if [ -n "''${DAWO_LOGS_FINAL:-}" ]; then
+        echo "final copy at shutdown $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s" >> "$dir/shutdown.txt"
+      fi
       sync
     '';
   };
@@ -222,6 +226,9 @@ in
   systemd.services.dawo-appliance-logs-final = {
     description = "Final DAWO appliance debug log copy at shutdown";
     wantedBy = [ "multi-user.target" ];
+    # Units stop in reverse order: this copy runs while the DAWO_LOGS stick is
+    # still mounted, before the data service and libvirt go down (#211).
+    after = [ "run-dawo\\x2dlogs.mount" "dawo-appliance-data.service" "libvirtd.service" "libvirt-guests.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

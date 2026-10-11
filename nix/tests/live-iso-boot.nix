@@ -125,6 +125,11 @@ pkgs.runCommand "live-iso-boot"
       if ! grep -q "written_since_boot_GB=[0-9]" io.txt 2>/dev/null; then
         echo "no write counters in io.txt on the stick"; logs_ok=no
       fi
+      # The copy at shutdown reached the stick (#211).
+      mcopy -n -i logs.raw "$run/shutdown.txt" shutdown.txt 2>/dev/null || true
+      if ! grep -q "final copy at shutdown" shutdown.txt 2>/dev/null; then
+        echo "no final copy at shutdown (shutdown.txt) on the stick"; logs_ok=no
+      fi
       # After K3s Ready the Mijn Bureau runner makes the guest reboot itself
       # after a kernel Oops instead of hanging (#119).
       mcopy -n -i logs.raw "$run/mijnbureau.txt" mijnbureau.txt 2>/dev/null || true
