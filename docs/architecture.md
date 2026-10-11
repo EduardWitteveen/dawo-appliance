@@ -117,8 +117,11 @@ v0.1 approach is `tls.selfSigned: true` with local name resolution for a chosen
 base domain (e.g. a `*.dawo.internal` wildcard resolved on the host/VM) and
 the generated CA trusted by the host and its browsers. Decided in ADR 0004 (OQ-3 resolved).
 
-## Extensibility (structure only, not built)
+## Extensibility: DAWO apps (ADR 0008)
 
-`apps/profiles/` is reserved for additional application profiles (e.g. other
-suites). v0.1 ships only the `mijn-bureau` profile. New profiles plug into the
-same manifest + Helmfile driver pattern without changing the host or bootstrap.
+Demo platforms are **apps**: one configuration-only directory per app under
+`apps/<id>/` (`app.toml`, Helm values, manifests), listed in
+`apps/catalog.toml` and validated by the flake check `apps-catalog`
+(`apps/README.md`). v0.1 ships one app, `mijn-bureau`, still deployed by its
+driver. `dawo-app` lists the catalogue; starting apps on demand from an app
+catalogue window follows in phase B of ADR 0008.
