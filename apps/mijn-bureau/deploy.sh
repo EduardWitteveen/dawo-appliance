@@ -1059,6 +1059,32 @@ nc_app_ensure() {
   nc_app_install "${id}"
 }
 
+# nc_richdocuments_config: upstream's post-install hook configures Nextcloud
+# Office (wopi_url, wopi_allowlist) right after installing it, so a failed
+# app-store install left it unconfigured ("Configured WOPI URL:" empty, upstream
+# 04 then fails, Dell 2026-10-11). When wopi_url is empty, run that same hook
+# again, as rendered by upstream's chart into the ConfigMap
+# nextcloud-script-post-install (richdocuments.sh): upstream's values, not ours.
+nc_richdocuments_config() {
+  local url script
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: if richdocuments has no wopi_url: run upstream hook richdocuments.sh from configmap mb-nextcloud/nextcloud-script-post-install in the Nextcloud pod\n'
+    return 0
+  fi
+  url="$(nc_occ config:app:get richdocuments wopi_url 2>/dev/null | tr -d '\r' || true)"
+  if [[ -n "${url}" ]]; then
+    info "Nextcloud Office: wopi_url ${url}"
+    return 0
+  fi
+  script="$(kubectl get configmap -n mb-nextcloud nextcloud-script-post-install -o 'jsonpath={.data.richdocuments\.sh}')"
+  [[ -n "${script}" ]] || die "upstream post-install hook richdocuments.sh not found in configmap mb-nextcloud/nextcloud-script-post-install"
+  warn "Nextcloud Office has no wopi_url (#205); running upstream's post-install hook richdocuments.sh again"
+  kubectl exec -i -n mb-nextcloud deploy/nextcloud -- bash -s <<<"${script}"
+  url="$(nc_occ config:app:get richdocuments wopi_url 2>/dev/null | tr -d '\r' || true)"
+  [[ -n "${url}" ]] || die "Nextcloud Office still has no wopi_url after upstream's hook"
+  info "Nextcloud Office: wopi_url ${url}"
+}
+
 # nc_app_install_with_needs ID: the apps it requires first, then the app.
 nc_app_install_with_needs() {
   local n
@@ -1084,6 +1110,7 @@ phase_post_fixes() {
   # Upstream 04 needs Nextcloud Office; its app-store install may have failed.
   wait_rollout mb-nextcloud nextcloud 900s
   for id in "${NC_APPS_REPAIR[@]}"; do nc_app_ensure "${id}"; done
+  nc_richdocuments_config
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
