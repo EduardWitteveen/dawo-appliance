@@ -27,8 +27,8 @@
       # live-system payload (installer/live-payload.nix).
       bootstrap = pkgs.callPackage ./installer/bootstrap/package.nix { };
 
-      # The DAWO app catalogue (ADR 0008): apps/catalog.toml + apps/<id>/app.toml.
-      dawoApps = import ./nix/apps.nix {
+      # Launch (ADR 0008): environments/catalog.toml + environments/<id>/environment.toml.
+      launch = import ./nix/launch.nix {
         inherit pkgs lib;
         manifest = builtins.fromJSON (builtins.readFile ./manifest/appliance-manifest.json);
       };
@@ -74,8 +74,8 @@
     in
     {
       packages.${system} = {
-        # `dawo-app list` (ADR 0008; start/stop follow in phase B1).
-        dawo-app = dawoApps.cli;
+        # `launch` lists the environments (ADR 0008; starting follows in phase B1).
+        launch = launch.cli;
         default = bootstrap;
         bootstrap = bootstrap;
         # The non-destructive live installer ISO (Slice 1). Build with:
@@ -481,9 +481,9 @@
       };
 
       checks.${system} = {
-        # The DAWO app catalogue is well-formed and its pins match the manifest
-        # (ADR 0008, apps/README.md). Offline, no KVM.
-        apps-catalog = dawoApps.check;
+        # The Launch catalogue is well-formed and its pins match the manifest
+        # (ADR 0008, environments/README.md). Offline, no KVM.
+        environments-catalog = launch.check;
 
         # Run the offline bootstrap dry-run test inside the sandbox.
         bootstrap-dryrun = pkgs.runCommand "bootstrap-dryrun"
