@@ -286,6 +286,17 @@ in
       '';
     };
 
+    fwwatchMaxResets = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 5;
+      description = ''
+        How often dawo-appliance-guest-fwwatch resets a guest whose firmware or
+        kernel crashed while booting before it gives up. Such crashes are rare
+        on real hardware and frequent under nested virtualisation (#24, #119,
+        #184); a reset costs about a minute.
+      '';
+    };
+
     hostReserveMiB = lib.mkOption {
       type = lib.types.ints.positive;
       default = 6144;
@@ -513,23 +524,27 @@ in
         name=${lib.escapeShellArg vmSpec.name}
         log=/var/log/libvirt/qemu/$name-console.log
         resets=0
-        for _ in $(seq 1 300); do
+        # The console log spans resets (same QEMU process). Only the part
+        # after the last reset belongs to the current boot: one crashing boot
+        # often logs several Oops/BUG lines, which must count once (#184).
+        offset=0
+        for _ in $(seq 1 600); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
-          # The console log spans resets (same QEMU process): count crashes.
-          crashes="$(grep -acE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' "$log" 2>/dev/null || true)"
-          if [ "''${crashes:-0}" -gt "$resets" ]; then
-            if [ "$resets" -ge 2 ]; then
+          boot="$(tail -c +$((offset + 1)) "$log" 2>/dev/null || true)"
+          if grep -aqE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' <<<"$boot"; then
+            if [ "$resets" -ge ${toString cfg.fwwatchMaxResets} ]; then
               echo "dawo-appliance-guest-fwwatch: $name crashed again after $resets resets; giving up" >&2
               exit 1
             fi
             resets=$((resets + 1))
-            echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of 2"
-            grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: |Failed to decompress kernel' "$log" | tail -n 3 || true
+            echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of ${toString cfg.fwwatchMaxResets}"
+            grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: |Failed to decompress kernel' <<<"$boot" | tail -n 3 || true
             virsh reset "$name"
-          else
-            # Booted to the login prompt after the last crash, if any: done.
-            last="$(grep -aE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel| login:' "$log" 2>/dev/null | tail -n 1 || true)"
-            case "$last" in *" login:"*) exit 0 ;; esac
+            sleep 1
+            offset="$(stat -c %s "$log" 2>/dev/null || echo 0)"
+          elif grep -aq ' login:' <<<"$boot"; then
+            # This boot reached the login prompt without a crash: done.
+            exit 0
           fi
           sleep 2
         done
