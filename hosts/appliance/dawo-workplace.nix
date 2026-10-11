@@ -68,4 +68,13 @@
     enable = lib.mkForce true;
     user = "dawo";
   };
+
+  # Upstream's flatpak unit (DAWO-Core services-flatpak, nix-flatpak) runs
+  # right at boot, before Wi-Fi is up: "Kan URI https://dl.flathub.org/...
+  # niet laden", a failed unit, a retry 60 s later that works (#218, U6).
+  # Wait for the network instead.
+  systemd.services.flatpak-managed-install = {
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+  };
 }
