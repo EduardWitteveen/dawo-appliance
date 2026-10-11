@@ -1,8 +1,9 @@
-# Mijn Bureau as a DAWO app (ADR 0008). Format: apps/README.md.
+# The Mijn Bureau environment (ADR 0008). Format: environments/README.md.
 #
-# Transitional: Mijn Bureau is still deployed by the driver in this directory
-# (deploy.sh, 14 phases, laptop profile of ADR 0007). Its steps move into
-# values/ and manifests/ here, one at a time, until no script is left.
+# Transitional: Mijn Bureau is still deployed by its driver,
+# apps/mijn-bureau/deploy.sh (14 phases, laptop profile of ADR 0007). Its
+# steps move into values/ and manifests/ here, one at a time, until no script
+# is left.
 
 schema = 1
 id = "mijn-bureau"
@@ -26,15 +27,16 @@ manifest = "mijn_bureau_infra"
 publiccode = "publiccode.yml"
 
 [needs]
-# What the app needs from the laptop (checked before it starts).
+# What the environment needs from the laptop (checked before it starts).
 memory_gib = 16 # for the guest VM; the desktop keeps 6 GiB on top
 cpus = 6
-disk_gib = 25 # guest disk and container images on the data location
+disk_gib = 25 # guest disk and container images on DAWO_LOGS
 kvm = true
 internet = true # the first start downloads the images
 
 [deploy]
-kind = "driver" # transitional: apps/mijn-bureau/deploy.sh
+kind = "driver" # transitional
+driver = "apps/mijn-bureau/deploy.sh"
 profile = "laptop-demo"
 
 [health]

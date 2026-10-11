@@ -117,11 +117,13 @@ v0.1 approach is `tls.selfSigned: true` with local name resolution for a chosen
 base domain (e.g. a `*.dawo.internal` wildcard resolved on the host/VM) and
 the generated CA trusted by the host and its browsers. Decided in ADR 0004 (OQ-3 resolved).
 
-## Extensibility: DAWO apps (ADR 0008)
+## Extensibility: Launch and environments (ADR 0008)
 
-Demo platforms are **apps**: one configuration-only directory per app under
-`apps/<id>/` (`app.toml`, Helm values, manifests), listed in
-`apps/catalog.toml` and validated by the flake check `apps-catalog`
-(`apps/README.md`). v0.1 ships one app, `mijn-bureau`, still deployed by its
-driver. `dawo-app` lists the catalogue; starting apps on demand from an app
-catalogue window follows in phase B of ADR 0008.
+Demo platforms are **environments** (*omgevingen*): one configuration-only
+directory per environment under `environments/<id>/` (`environment.toml`,
+Helm values, manifests), listed in `environments/catalog.toml` and validated
+by the flake check `environments-catalog` (`environments/README.md`). v0.1
+ships one, `mijn-bureau`, still deployed by its driver
+(`apps/mijn-bureau/deploy.sh`). `launch` lists the catalogue; starting an
+environment from the Launcher window follows in phase B of ADR 0008. Launch
+carries no DAWO-specific names, so it can become a project of its own.
