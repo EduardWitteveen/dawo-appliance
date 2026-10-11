@@ -11,107 +11,68 @@ Bureau / BZK distribution (`AGENTS.md`).
 
 ## Now
 
-**Handoff 2026-09-27 (Claude session on the KVM laptop):**
+**Handoff 2026-10-11 (Claude session on the KVM laptop, which is also the
+Dell Latitude 5550 the live USB is tested on):**
 
-- **ADR 0006 accepted; the live USB is the default medium** (PRs #94, #96
-  merged by the maintainer). `.#appliance-live-iso` boots an existing
-  laptop, never writes its disk, and writes logs to a `DAWO_LOGS` USB
-  filesystem. User guide: `docs/live-usb.md`.
-- **Debug mode is the default boot entry for now**: a login dialog says so;
-  a desktop screenshot every 30 s goes to `DAWO_LOGS`; each boot gets its
-  own folder (verified with three VirtualBox boots). The second entry turns
-  the screenshots off.
-- **The guest adapts to the machine** (`appliance.guest.fitToHost`): sized
-  to the RAM and CPUs, or skipped with a reason when there is no `/dev/kvm`
-  or too little memory. The report and a login dialog say why.
-- **Verified:** KVM `test-live-iso-boot` (desktop 19 s, guest 107 s, K3s
-  Ready 174 s, internal disk unchanged, logs on the stick); VirtualBox
-  8 GB / 2 CPUs (desktop about 45 s, guest skipped because Hyper-V blocks
-  VT-x there); `test-appliance-boot`; `checks.health-selfcontained`;
-  `tests/test-health-check.sh` 11/11.
-- **The maintainer's SanDisk stick** holds this build (sha256 `6345b3f0…`)
-  with `DAWO_LOGS` after the image. Next: an older, lighter laptop boots
-  from it; read `DAWO_LOGS/dawo-appliance/*` afterwards.
-- **Next:** Mijn Bureau needs a data partition on the stick and the laptop
-  profile (ADR 0006 follow-ups; #8). A tool to write the stick safely (#97).
+- **Towards v0.1.0** (checklist #175). The live USB works on the Dell: desktop
+  ~20 s, guest ~35 s, K3s ~50 s; Mijn Bureau's 14 phases passed on
+  2026-09-30. A fresh deploy on 2026-10-11 failed phase 13 because upstream
+  installs Nextcloud Office (`richdocuments`) unpinned from the app store and
+  only warns when that fails (#205, U5). Fix + Conduction apps: **PR #206**
+  (needs-kvm), on the USB SSD now (sha `a107ed7b…`); **a Dell run is the
+  next step**, then merge #206.
+- **Releases:** the live **disk image** (`.#appliance-live-img`, Rufus/Etcher,
+  `DAWO_LOGS` grown on the first boot, #192) is hosted on SourceForge
+  (`sourceforge.net/projects/dawo-appliance`, maintainer decision);
+  `scripts/release.sh publish` builds and uploads it (#198).
+- **Merged 2026-10-10/11:** disk image + ISO mounted from its partition
+  (#196, fixes `DAWO_LOGS` staying unused at random), SourceForge release
+  path (#198), DAWO-Core v0.2.0 (#199, nixpkgs kept: D40), atomic log files
+  (#200), ADR 0008 Launch (#201, #202, #207, #208) and the environment
+  catalogue (#204).
+- **Next direction (v0.2, ADR 0008):** **Launch**. A clean workplace boots,
+  the **Launcher** opens and the user starts an **environment** (*omgeving*:
+  Mijn Bureau, Valtimo, Open Zaak, PodiumD, ...) with `launch <id>`; data only
+  on the boot disk's `DAWO_LOGS`; a warning before starting when the laptop
+  falls short. Nothing in Launch says DAWO: it becomes its own project later.
+  Format: `environments/README.md`.
 
-**Handoff 2026-09-26 (evening, Claude session on the KVM laptop):**
+## Next
 
-- **K3s runs in the guest** (air-gap install, #7, PR #77): node Ready about
-  145 s after the guest starts; `test-guest-boot` asserts it.
-- **Live USB first** (superseded by the 2026-09-27 handoff above; ADR 0006 was *Proposed* in PR #94,
-  not merged): PR #96 (open, awaiting ADR review) adds
-  `.#appliance-live-iso`. It boots an existing machine, never writes the
-  internal disk, and writes debug logs to a `DAWO_LOGS` USB filesystem.
-  `test-live-iso-boot` is green on KVM (desktop 19 s, guest 93 s, K3s 145 s).
-  User guide: `docs/live-usb.md`.
-- **The maintainer's SanDisk stick** was written with the live image and
-  verified by hash; `DAWO_LOGS` (exFAT, MBR entry 3) sits after the image.
-  Windows Disk Management must never touch it (#97). The stick holds the
-  image **before** #98/#100; the ISO in the Downloads folder is newer.
-- **VirtualBox VM "DAWO appliance live"** (VirtualBox 7.2, default VM
-  folder): the desktop works. The guest cannot run there because Hyper-V
-  (WSL2) blocks VT-x passthrough, so there is no `/dev/kvm`.
-- **Fixed today via that VM:** #98 (health check exited 127, PR #99) and
-  #100 (`ca.env` unquoted, PR #101); the new check `health-selfcontained`
-  covers both.
-- **Mijn Bureau (#8):** phases 1–7 of `deploy.sh` work on a real cluster.
-  Phase 8 could not be judged in a triple-nested WSL VM. Next: real hardware,
-  or the live USB with a data partition and the laptop profile (ADR 0006
-  follow-ups).
-- **Open for the maintainer:** review ADR 0006 (#94). The main checkout has
-  leftover conflicts from an old stash pop (branch `feat/93-live-image`, all
-  work pushed): run `git reset --hard HEAD` there.
+The live backlog is the GitHub issue tracker; highlights:
 
+1. Dell run with PR #206 on the SSD → merge #206 (#190, #205).
+2. v0.1.0-rc.1 (#175): fresh `REPORT=1 E2E=1 bash scripts/verify.sh`, demo
+   walk-through with `docs/demo-script.md`, `release.sh prepare/publish`,
+   image on SourceForge; then the held-back replies in the DAWO Signal groups.
+3. Launch phase B1 (ADR 0008): `launch <id>` / `--stop` / `--status` with the
+   preflight warning; the guest starts on demand.
+4. `test-live-iso-boot` does not boot the guest under nested KVM in WSL
+   (#184), which weakens the KVM merge gate; under investigation.
 
-- **Slices 0–2 done and verified** (2026-06-22): live ISO, non-destructive
-  bootstrap (`plan`/`verify`), gated `install` (disko, explicit `--target-disk`
-  + `--confirm-destroy`, `--dry-run`), Btrfs + swap, no LUKS.
-- **Slice 2c done** (2026-09-25): upstream refresh to DAWO-Core 0.1.3
-  (Codeberg), nixpkgs 26.05, mijn-bureau-infra `b2ae545…`; ADR 0002/0003,
-  `purpose.md`, `upstream/ecosystem.md`.
-- **Slice 3 built and boot-tested** (2026-09-25): the host is the DAWO
-  workplace (`hosts/appliance/dawo-workplace.nix`, same modules and choices as
-  a pilot client) plus KVM/libvirt, a first-boot password service and a welcome
-  dialog. Recorded deviations (ADR 0003): auto-update off, auto-login on.
-  Parity check `checks.workplace-parity` in `nix flake check`;
-  `nix run .#appliance-vm` for a human look. Visual review still pending.
-- **Docs tidied** (2026-09-25): one index (`docs/README.md`), README as front
-  door with the two screenshots, overlap removed between `development.md`,
-  `nix-setup.md` and `testing.md`; stale statements fixed.
-- **Environment:** more than one machine now works this repo (see the GitHub
-  workflow section below); each has Nix in its own WSL distro (`docs/nix-setup.md`
-  has the per-machine table). Repo is LF-only, `core.filemode=false`. Practical
-  notes (result links, detached VMs): `development.md`.
-- **Slice 4b built (2026-09-25):** per-install appliance CA
-  (`hosts/appliance/appliance-ca.nix`, ADR 0004): `dawo-appliance-ca.service`,
-  Firefox policy `Certificates.Install`, Chromium NSS import per login,
-  `/etc/dawo-appliance/ca.env`; boot-test assertions written
-  (`nix/tests/appliance-ca-assertions.py`) but **not yet pasted into
-  `test-appliance-boot`** (issue #5). Key on disk = demo, not for production.
-- **Slices 4a/5/6/7: code written, offline-tested where a test exists, but
-  none of it has been boot-tested or run end-to-end** (see `roadmap.md` for
-  exact per-item state; do not trust older summaries, this one supersedes
-  them):
-  - 4a — guest VM, network, cloud-init (`hosts/appliance/guest-vm.nix`), now
-    imported into `hosts/appliance/configuration.nix` so `nix flake check`
-    actually evaluates it (it did not before this was noticed and fixed).
-    No guest has ever been booted (issue #4's boot-test half is still open).
-  - 5 — K3s installer (`k8s/bootstrap/install-k3s.sh`, offline-tested,
-    `tests/test-k3s-install.sh`) now wired into the guest's cloud-init; the
-    host-side kubeconfig fetch/rewrite half of issue #7 is not done.
-  - 6 — Mijn Bureau deploy driver (`apps/mijn-bureau/deploy.sh`) now has an
-    offline test (`tests/test-mijnbureau-driver.sh`, 19 assertions); never
-    run against a real cluster (issue #8).
-  - 7 — health check + dashboard opener, offline-tested
-    (`tests/test-health-check.sh`), now wired as XDG autostart
-    (`hosts/appliance/appliance-services.nix`); never boot-tested.
-  - An internal security review of 4a/5/6 found and fixed 5 real issues
-    (credential exposure via `ps`/argv, an SSH host-key check that trusted
-    anything, a TOCTOU on a generated disk file, a validation gap that only
-    ran on one code path) — see git history, no open issue needed.
+## GitHub workflow (since 2026-09-25)
 
-## Verification (2026-09-25, nixos-26.05, DAWO-Core 0.1.3)
+More than one Claude session works on this repo, on different machines —
+see `AGENTS.md`'s "GitHub workflow" section for the issue/branch/PR/merge
+process every change now follows. Known environment difference worth
+recording here because it isn't a per-issue concern: **not every machine has
+usable KVM.** The original laptop does (`docs/nix-setup.md`); a second
+machine used this session is a Nutanix AHV VDI where WSL2 itself reports
+"nested virtualization is not supported" — no `.wslconfig` setting fixes
+that, it depends on the underlying hypervisor exposing nested-virt to the
+Windows guest. `nix flake check` and eval/build-only work still function
+fine there; VM boot tests would have to fall back to slow TCG emulation or
+run on hardware that actually has KVM.
+
+## Blocking decisions
+
+- What v0.1 means for the installed-to-disk path (#16, #17): ship it as
+  experimental, or leave the installer ISO out (ADR 0006 made the live USB
+  the default). Maintainer (#175).
+- ADR 0008 open points: scope (v0.2), phase D (NixOS microVM guest), when
+  Launch moves out, AI-disclosure policy for upstream contributions.
+
+## Verification (historical, 2026-09-25; current: `verification-latest.md`)
 
 `bash scripts/verify.sh`: **all executed checks passed** (7 PASS, 1 SKIP:
 `shellcheck-local`, no shellcheck in WSL, covered by `nix flake check`). The
@@ -143,39 +104,15 @@ Bugs found and turned into checks today (`testing.md`):
 - One `mksquashfs` segfault during an ISO build while a 6 GiB VM was running;
   the retry passed. Watch for it under memory pressure.
 
-## Next
-
-See the GitHub issue tracker (`github.com/EduardWitteveen/dawo-appliance/issues`)
-for the live, per-item backlog — it supersedes any list here. Highlights:
-- **Finish Slice 3:** visual review of `nix run .#appliance-vm` (issue #17).
-- **Boot-test what's wired:** guest VM (#4), CA assertions (#5), a real K3s +
-  Mijn Bureau run (#7, #8), Slice 7 end-to-end (#12) — none of it has run on
-  real hardware or a KVM-capable box yet this session.
-- Remote is `github.com/EduardWitteveen/dawo-appliance` (public, since
-  2026-09-25; OQ-8 partially resolved — release-hosting mechanism still open,
-  issue #21).
-
-## GitHub workflow (since 2026-09-25)
-
-More than one Claude session works on this repo, on different machines —
-see `AGENTS.md`'s "GitHub workflow" section for the issue/branch/PR/merge
-process every change now follows. Known environment difference worth
-recording here because it isn't a per-issue concern: **not every machine has
-usable KVM.** The original laptop does (`docs/nix-setup.md`); a second
-machine used this session is a Nutanix AHV VDI where WSL2 itself reports
-"nested virtualization is not supported" — no `.wslconfig` setting fixes
-that, it depends on the underlying hypervisor exposing nested-virt to the
-Windows guest. `nix flake check` and eval/build-only work still function
-fine there; VM boot tests would have to fall back to slow TCG emulation or
-run on hardware that actually has KVM.
-
-## Blocking decisions
-
-- **OQ-2** — needs a host with >= 16 vCPU / >= 56-64 GiB RAM for the full
-  stack end-to-end (Mijn Bureau alone needs >= 12 vCPU / >= 48 GiB in the
-  guest); neither machine used so far qualifies.
-
 ## Recently done
+
+- 2026-10-06 – 2026-10-11: DAWO community (Signal) feedback → ADR 0008 and
+  the Launch design (#193, two research rounds); disk image + SourceForge
+  (#192, #196, #198); DAWO-Core v0.2.0 (#195); log files written atomically
+  (#197); richdocuments fix and Conduction apps (#205, #206, open).
+- 2026-09-27 – 2026-10-03: live USB on real hardware (Dell, Dynabook), Mijn
+  Bureau end to end on the Dell (#8), Dutch defaults (#180), visible version
+  and release candidates (#175).
 
 - 2026-09-26 (multi-agent orchestration): Formalized `AGENTS.md` and ADR 0005 to manage three concurrent agent sessions. Removed duplicate `CLAUDE.md`. Added `docs/demo-hardware.md` (municipal demo guide). Enforced strict English-only repository content invariant (reverted a Dutch README PR). Added Gemini self-evaluation protocol requiring high-tier reasoning models (`gemini-3.1-pro-high`) to prevent hasty actions. Added rule against autonomous external issue reporting (must be internal GitHub issue first).
 - 2026-09-25 (second machine, the Nutanix AHV VDI, no Nix/make/shellcheck/gh
