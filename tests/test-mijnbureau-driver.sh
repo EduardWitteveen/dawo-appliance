@@ -823,6 +823,15 @@ fi
 
 reset_logs
 out="$(run_clean "${common_env[@]}" MB_DOWNLOAD_DIR="${tmp}/dl" bash "${DEPLOY}" --dry-run --phase post-fixes 2>&1)" || true
+# richdocuments (#205): ensured from its pinned release before upstream 04.
+if grep -q '^richdocuments repair ' <<<"${nc_driver}" \
+   && grep -n 'if Nextcloud app richdocuments is not enabled' <<<"${out}" | head -n1 | cut -d: -f1 >"${tmp}/rd.line" \
+   && [[ -s "${tmp}/rd.line" ]] \
+   && [[ "$(cat "${tmp}/rd.line")" -lt "$(grep -n '04-nextcloud-office' <<<"${out}" | head -n1 | cut -d: -f1)" ]]; then
+  ok "phase 13 ensures richdocuments (pinned, repair) before upstream 04 (#205)"
+else
+  bad "phase 13 should ensure richdocuments before upstream 04 (#205)"; dump "${out}"
+fi
 if grep -q 'thematiq-1.2.10.tar.gz' <<<"${out}" && grep -q 'occ app:enable thematiq' <<<"${out}" \
    && ! grep -qE 'openregister|dossiq|pipelinq|portaliq' <<<"${out}" && [[ ! -e "${logs}/unexpected.log" ]]; then
   ok "phase 13 (dry-run) installs Thematiq only, and runs nothing"
