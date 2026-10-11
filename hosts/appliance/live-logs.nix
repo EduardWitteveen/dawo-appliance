@@ -82,14 +82,19 @@ let
           echo "== disks"; lsblk -o NAME,SIZE,TRAN,TYPE,LABEL,FSTYPE,MODEL
           echo "== pci"; lspci
           echo "== kvm"; ls -l /dev/kvm 2>&1 || true
-        } > "$dir/hardware.txt" 2>&1
+        } > "$dir/hardware.txt.new" 2>&1
+        mv -f "$dir/hardware.txt.new" "$dir/hardware.txt"
       fi
+      # Each file is written next to its final name and then renamed: a copy
+      # that is stopped halfway (the 30 s timer run still busy at shutdown)
+      # leaves the previous complete file instead of a truncated one (#197).
       cp -f /run/dawo-appliance/live-report.txt "$dir/progress.txt" 2>/dev/null || true
       # The Mijn Bureau deployment log (live-mijnbureau.nix, #111).
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
-      journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt" 2>&1 || true
+      journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt.new" 2>&1 || true
+      mv -f "$dir/journal.txt.new" "$dir/journal.txt"
       if [ -z "''${DAWO_LOGS_FINAL:-}" ]; then
       {
         echo "== $(date -u +%FT%TZ) uptime $(cut -d' ' -f1 /proc/uptime)s"
@@ -100,7 +105,8 @@ let
         echo "== dns"; resolvectl status 2>&1 | head -40 || true
         echo "== internet (flathub)"; curl -sS -o /dev/null -w "%{http_code} %{time_total}s
 " --max-time 10 https://dl.flathub.org/repo/flathub.flatpakrepo 2>&1 || true
-      } > "$dir/network.txt" 2>&1
+      } > "$dir/network.txt.new" 2>&1
+      mv -f "$dir/network.txt.new" "$dir/network.txt"
       fi
       # Desktop screenshots (each copied once; see `shots` above).
       for d in /run/user/*/dawo-shots; do
@@ -117,7 +123,8 @@ let
         tail -n 400 /var/log/libvirt/qemu/dawo-appliance-mb-console.log 2>&1 || true
         echo "== guest qemu log (tail)"
         tail -n 60 /var/log/libvirt/qemu/dawo-appliance-mb.log 2>&1 || true
-      } > "$dir/guest-console.txt" 2>&1
+      } > "$dir/guest-console.txt.new" 2>&1
+      mv -f "$dir/guest-console.txt.new" "$dir/guest-console.txt"
       # How much this session wrote to the stick (#139, #147): one line per
       # copy with the stick disk's written sectors since boot (in GB) and the
       # guest QEMU process's write_bytes, so the wear per session is known.
@@ -156,7 +163,8 @@ let
           echo "== guest boots"; g sudo journalctl --list-boots --no-pager 2>&1 | tail -n 5 || true
           echo "== guest previous boot (tail)"; g sudo journalctl -b -1 -n 150 --no-pager 2>&1 || true
         fi
-      } > "$dir/guest.txt" 2>&1
+      } > "$dir/guest.txt.new" 2>&1
+      mv -f "$dir/guest.txt.new" "$dir/guest.txt"
       fi
       sync
     '';

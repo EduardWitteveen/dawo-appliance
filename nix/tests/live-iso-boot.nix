@@ -114,7 +114,9 @@ pkgs.runCommand "live-iso-boot"
       mcopy -n -i logs.raw "$run/guest.txt" guest-final.txt 2>/dev/null || true
       if ! grep -q "== k3s warning events" guest-final.txt 2>/dev/null \
          || ! grep -q "== logs of pods that are not ready" guest-final.txt; then
-        echo "guest.txt lacks the warning events or the not-ready pod logs"; logs_ok=no
+        echo "guest.txt lacks the warning events or the not-ready pod logs; it holds:"
+        head -c 3000 guest-final.txt 2>/dev/null || true
+        logs_ok=no
       fi
       # How much the session wrote to the stick is recorded (#147).
       mcopy -n -i logs.raw "$run/io.txt" io.txt 2>/dev/null || true
