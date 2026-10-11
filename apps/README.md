@@ -17,7 +17,8 @@ apps/
     manifests/*.yaml    # extra Kubernetes objects, incl. post-install Jobs
 ```
 
-No shell scripts in an app directory (ADR 0008). `apps/mijn-bureau/` is the
+No shell scripts in an app directory (ADR 0008). (This replaces the empty
+`apps/profiles/` placeholder of v0.1.) `apps/mijn-bureau/` is the
 exception while its driver (`deploy.sh`) moves into configuration step by
 step.
 
