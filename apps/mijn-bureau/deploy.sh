@@ -159,6 +159,11 @@ readonly NC_APP_PIPELINQ="0.5.1 https://github.com/ConductionNL/pipelinq/release
 readonly NC_APP_PORTALIQ="0.2.0 https://github.com/ConductionNL/portaliq/releases/download/v0.2.0/portaliq-0.2.0.tar.gz 2dd4cbf0c529252ea5b816951b83586039c30742b191287cfe8f2046f41bda06"
 readonly NC_APPS_DEFAULT=(thematiq)
 readonly NC_APPS_OPTIONAL=(openregister dossiq pipelinq portaliq)
+# Upstream installs Nextcloud Office from the app store, unpinned, and only
+# warns when that fails (#205, U5). Phase 13 installs this pinned release when
+# the app is not enabled; an app the store did install is left as it is.
+readonly NC_APP_RICHDOCUMENTS="11.1.2 https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz 96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
+readonly NC_APPS_REPAIR=(richdocuments)
 readonly NC_APP_NEEDS=("dossiq:openregister" "pipelinq:openregister" "portaliq:openregister")
 readonly NC_CUSTOM_APPS="/var/www/html/custom_apps"
 
@@ -987,15 +992,17 @@ nc_app_pin() { # nc_app_pin ID -> "<version> <url> <sha256>"
     dossiq) printf '%s' "${NC_APP_DOSSIQ}" ;;
     pipelinq) printf '%s' "${NC_APP_PIPELINQ}" ;;
     portaliq) printf '%s' "${NC_APP_PORTALIQ}" ;;
+    richdocuments) printf '%s' "${NC_APP_RICHDOCUMENTS}" ;;
     *) return 1 ;;
   esac
 }
 
 list_nc_apps() {
   local id kind ver url sha
-  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}"; do
+  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}" "${NC_APPS_REPAIR[@]}"; do
     kind=optional
     [[ " ${NC_APPS_DEFAULT[*]} " == *" ${id} "* ]] && kind=default
+    [[ " ${NC_APPS_REPAIR[*]} " == *" ${id} "* ]] && kind=repair
     read -r ver url sha <<<"$(nc_app_pin "${id}")"
     printf '%-13s %-9s %-8s %s\n' "${id}" "${ver}" "${kind}" "${url}"
   done
@@ -1035,6 +1042,23 @@ nc_app_install() {
   info "Nextcloud app ${id} ${ver}: installed and enabled"
 }
 
+# nc_app_ensure ID: install the pinned release only when the app is not
+# enabled (a repair app: upstream normally installs it, #205).
+nc_app_ensure() {
+  local id="$1" enabled
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: if Nextcloud app %s is not enabled: install the pinned release (%s)\n' "${id}" "$(nc_app_pin "${id}" | cut -d' ' -f1)"
+    return 0
+  fi
+  enabled="$(nc_occ config:app:get "${id}" enabled 2>/dev/null | tr -d '\r' || true)"
+  if [[ "${enabled}" == yes ]]; then
+    info "Nextcloud app ${id}: enabled (installed by upstream)"
+    return 0
+  fi
+  warn "Nextcloud app ${id} is not enabled (upstream's app-store install failed, #205); installing the pinned release"
+  nc_app_install "${id}"
+}
+
 # nc_app_install_with_needs ID: the apps it requires first, then the app.
 nc_app_install_with_needs() {
   local n
@@ -1051,11 +1075,15 @@ nc_apps_default() {
 }
 
 phase_post_fixes() {
+  local id
   log "[13/14] Post-deploy fixes (upstream 04, 05, 06)"
   patch_collabora_args
   # Upstream 04 waits for Nextcloud, then asks Collabora for its discovery
   # document; wait for Collabora itself first (#150), bounded.
   wait_rollout mb-collabora collabora-online 900s
+  # Upstream 04 needs Nextcloud Office; its app-store install may have failed.
+  wait_rollout mb-nextcloud nextcloud 900s
+  for id in "${NC_APPS_REPAIR[@]}"; do nc_app_ensure "${id}"; done
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
@@ -1398,7 +1426,7 @@ image_digest_bureaublad.frontend=${DIGEST_BUREAUBLAD_FRONTEND}
 image_digest_openproject.openproject=${DIGEST_OPENPROJECT}
 EOF
   local id ver url sha
-  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}"; do
+  for id in "${NC_APPS_DEFAULT[@]}" "${NC_APPS_OPTIONAL[@]}" "${NC_APPS_REPAIR[@]}"; do
     read -r ver url sha <<<"$(nc_app_pin "${id}")"
     printf 'nc_app_%s_version=%s\nnc_app_%s_url=%s\nnc_app_%s_sha256=%s\n' "${id}" "${ver}" "${id}" "${url}" "${id}" "${sha}"
   done

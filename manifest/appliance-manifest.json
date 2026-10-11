@@ -174,7 +174,7 @@
       }
     },
     "nextcloud_apps": {
-      "note": "Conduction's Nextcloud apps (EUPL-1.2), outside upstream's set (#190, D38). Stable app-store releases, all declaring Nextcloud 32-34 and PHP >= 8.3; hashed when pinned (2026-10-06). 'default' is installed in phase 13 of apps/mijn-bureau/deploy.sh; 'optional' only on request (deploy.sh --nc-app <id>, or dawo-appliance-nc-app on the live USB). Must equal the NC_APP_* constants in deploy.sh (tests/test-mijnbureau-driver.sh).",
+      "note": "Conduction's Nextcloud apps (EUPL-1.2), outside upstream's set (#190, D38). Stable app-store releases, all declaring Nextcloud 32-34 and PHP >= 8.3; hashed when pinned (2026-10-06). 'default' is installed in phase 13 of apps/mijn-bureau/deploy.sh; 'repair' (richdocuments, #205/U5) only when upstream's unpinned app-store install left it disabled; 'optional' only on request (deploy.sh --nc-app <id>, or dawo-appliance-nc-app on the live USB). Must equal the NC_APP_* constants in deploy.sh (tests/test-mijnbureau-driver.sh).",
       "license": "EUPL-1.2",
       "apps": {
         "thematiq": {
@@ -211,6 +211,13 @@
           "purpose": "Portal for citizens and businesses; needs openregister",
           "url": "https://github.com/ConductionNL/portaliq/releases/download/v0.2.0/portaliq-0.2.0.tar.gz",
           "sha256": "2dd4cbf0c529252ea5b816951b83586039c30742b191287cfe8f2046f41bda06"
+        },
+        "richdocuments": {
+          "version": "11.1.2",
+          "install": "repair",
+          "purpose": "Nextcloud Office (Collabora integration); upstream installs it from the app store, unpinned; this release is installed only when that failed (#205)",
+          "url": "https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz",
+          "sha256": "96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
         }
       }
     }
