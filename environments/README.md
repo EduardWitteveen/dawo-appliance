@@ -16,6 +16,8 @@ runs at a time.
   every shortfall in plain Dutch. The user may still go ahead: an
   interactive question, or `--yes`. `launch --check <id> [--json]` only
   checks (the Launcher uses the JSON for its cards; exit 3 = shortfalls).
+- `launch --status [--json]` asks each environment's `health.url` and says
+  whether it answers ("klaar op …") or not ("niet actief"). Read-only.
 - The **Launcher** is the window where people choose: one card per
   environment.
 

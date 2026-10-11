@@ -32,7 +32,7 @@ Gebruik:
   launch <omgeving> [--yes]     een omgeving starten (--yes: niet vragen bij een waarschuwing)
   launch --check <omgeving>     alleen controleren of deze laptop genoeg heeft (--json voor de Launcher)
   launch --stop <omgeving>      een omgeving stoppen          (volgt, ADR 0008 fase B1)
-  launch --status               wat draait er en waar         (volgt)
+  launch --status [--json]      welke omgevingen antwoorden, en waar
   launch --list [--json]        de catalogus (--json: voor de Launcher)
 EOF
 }
@@ -106,6 +106,23 @@ check() {
   [[ -z "${out}" ]]
 }
 
+# Whether each environment answers at its health URL (read-only).
+status() {
+  local json="${1:-}" id title url answers out="[]"
+  while IFS=$'	' read -r id title url; do
+    answers=false
+    if curl -sS --max-time 4 -o /dev/null "${url}" 2>/dev/null; then answers=true; fi
+    if [[ "${json}" == "--json" ]]; then
+      out="$(jq --arg id "${id}" --arg url "${url}" --argjson up "${answers}" '. + [{id: $id, url: $url, answers: $up}]' <<<"${out}")"
+    elif [[ "${answers}" == true ]]; then
+      echo "${title}: klaar op ${url}"
+    else
+      echo "${title}: niet actief"
+    fi
+  done < <(jq -r '.environments[] | [.id, .title, .health.url] | @tsv' "$catalog")
+  if [[ "${json}" == "--json" ]]; then jq . <<<"${out}"; fi
+}
+
 start() {
   local id="$1" yes="${2:-}" answer
   require_env "${id}"
@@ -128,7 +145,8 @@ case "${1:-}" in
   "" | --list) list "${2:-}" ;;
   -h | --help) usage ;;
   --check) [[ -n "${2:-}" ]] || { usage >&2; exit 1; }; check "$2" "${3:-}" || exit 3 ;;
-  --stop | --status) echo "launch $1: nog niet beschikbaar (ADR 0008, fase B1)." >&2; exit 2 ;;
+  --status) status "${2:-}" ;;
+  --stop) echo "launch $1: nog niet beschikbaar (ADR 0008, fase B1)." >&2; exit 2 ;;
   -*) usage >&2; exit 1 ;;
   *) start "$1" "${2:-}" ;;
 esac
