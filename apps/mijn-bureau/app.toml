@@ -1,0 +1,41 @@
+# Mijn Bureau as a DAWO app (ADR 0008). Format: apps/README.md.
+#
+# Transitional: Mijn Bureau is still deployed by the driver in this directory
+# (deploy.sh, 14 phases, laptop profile of ADR 0007). Its steps move into
+# values/ and manifests/ here, one at a time, until no script is left.
+
+schema = 1
+id = "mijn-bureau"
+
+# What the user sees on the card (Dutch, for the target audience).
+title = "Mijn Bureau"
+summary = "Samenwerken in de browser: bestanden, documenten samen bewerken en chatten, met één keer inloggen."
+# Mijn Bureau has no release numbers; the version is the pinned date and commit.
+version = "2026-07-27 (b2ae545)"
+url = "https://bureaublad.dawo.internal"
+login = "dawo / dawo"
+license = "EUPL-1.2"
+standards = ["OpenID Connect (NL GOV-profiel)", "OAuth 2.0 (NL GOV-profiel)", "ODF", "TLS", "HTTPS en HSTS"]
+
+[source]
+repo = "https://code.overheid.nl/MinBZK/mijn-bureau-infra"
+rev = "b2ae545013c153b9a3fb0aebcb51d22f348e1573"
+# The same pin as manifest/appliance-manifest.json upstream.mijn_bureau_infra;
+# the catalogue check fails when they differ.
+manifest = "mijn_bureau_infra"
+publiccode = "publiccode.yml"
+
+[needs]
+# What the app needs from the laptop (checked before it starts).
+memory_gib = 16 # for the guest VM; the desktop keeps 6 GiB on top
+cpus = 6
+disk_gib = 25 # guest disk and container images on the data location
+kvm = true
+internet = true # the first start downloads the images
+
+[deploy]
+kind = "driver" # transitional: apps/mijn-bureau/deploy.sh
+profile = "laptop-demo"
+
+[health]
+url = "https://bureaublad.dawo.internal"

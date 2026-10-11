@@ -27,6 +27,12 @@
       # live-system payload (installer/live-payload.nix).
       bootstrap = pkgs.callPackage ./installer/bootstrap/package.nix { };
 
+      # The DAWO app catalogue (ADR 0008): apps/catalog.toml + apps/<id>/app.toml.
+      dawoApps = import ./nix/apps.nix {
+        inherit pkgs lib;
+        manifest = builtins.fromJSON (builtins.readFile ./manifest/appliance-manifest.json);
+      };
+
       # DAWO-Core's modules expect upstream's own `inputs` (including `self`) and
       # a `hostConfig` as specialArgs — exactly what upstream's
       # modules/flake-parts/host-machines.nix passes to its hosts. `dawoCore` is
@@ -68,6 +74,8 @@
     in
     {
       packages.${system} = {
+        # `dawo-app list` (ADR 0008; start/stop follow in phase B1).
+        dawo-app = dawoApps.cli;
         default = bootstrap;
         bootstrap = bootstrap;
         # The non-destructive live installer ISO (Slice 1). Build with:
@@ -473,6 +481,10 @@
       };
 
       checks.${system} = {
+        # The DAWO app catalogue is well-formed and its pins match the manifest
+        # (ADR 0008, apps/README.md). Offline, no KVM.
+        apps-catalog = dawoApps.check;
+
         # Run the offline bootstrap dry-run test inside the sandbox.
         bootstrap-dryrun = pkgs.runCommand "bootstrap-dryrun"
           { nativeBuildInputs = [ pkgs.bash pkgs.coreutils pkgs.jq pkgs.gnused pkgs.gawk pkgs.gnugrep pkgs.mkpasswd ]; }
