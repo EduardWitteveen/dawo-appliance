@@ -1,6 +1,8 @@
 # ADR 0008: `launch`: demo platforms as components started on demand
 
-- Status: **Proposed** (draft for the maintainer; nothing is built yet)
+- Status: **Accepted** (2026-10-11, maintainer: "Ja, ik ga akkoord", with
+  one directory per component, configuration only, and an index; decision
+  2). Open points in "Decisions the maintainer still has to take".
 - Date: 2026-10-11
 - Deciders: maintainer (eywitteveen)
 - Refs: #193 (design and two research rounds), #192 (data location), #151
@@ -57,17 +59,40 @@ Findings (sources in #193):
    (`flake.modules.nixos.services-launch`, options under `dawo.launch.*`)
    so it can be offered upstream later. It works the same on the live USB
    and on an installed workplace.
-2. **A component registry** as Nix attribute sets,
-   `dawo.launch.components.<name>`, exported as JSON. Each component
-   declares:
-   - what to deploy, by reference to upstream's own artifacts: Helm chart or
-     helmfile at a pinned revision, and the image digests (AGENTS rule 4);
-   - its requirements: memory, disk, CPU, KVM, network;
-   - its entry URL, a Dutch name and help text, a health check;
-   - the open standards it shows (for example OpenID.NLGov, ODF) and a link
-     to its `publiccode.yml`.
+2. **Launch kits: one directory per component, configuration only**
+   (maintainer, 2026-10-11). A kit holds everything needed to install that
+   component, and no scripts:
 
-   No new deployment format is invented.
+   ```
+   launch/
+     index.toml            # the kits: name + path; later also url + rev + sha256
+     mijnbureau/
+       kit.toml            # the kit description (below)
+       values/*.yaml       # Helm values, as upstream's charts expect them
+       manifests/*.yaml    # extra Kubernetes objects, incl. post-install Jobs
+     valtimo/
+       kit.toml
+       ...
+   ```
+
+   - `launch/index.toml` lists the kits and where they are. At first every
+     entry points into this repository (`launch/<name>/`); later an entry may
+     point to a kit in another repository, pinned by revision and SHA-256,
+     so a supplier can publish its own kit without a change here.
+   - `kit.toml` (TOML, read by Nix with `builtins.fromTOML`, no extra
+     tooling) declares: what to deploy, by reference to upstream's own
+     artifacts (Helm chart or helmfile at a pinned revision, image digests;
+     AGENTS rule 4); the requirements (memory, disk, CPU, KVM, network); the
+     entry URL, a Dutch name and help text, a health check; the open
+     standards it shows (for example OpenID.NLGov, ODF) and a link to its
+     `publiccode.yml`.
+   - **No shell scripts in a kit.** Generic steps (Helm values, manifests,
+     trusting the appliance CA, waiting for readiness, health checks) are
+     done by `launch` itself, driven by the kit. A step that only one
+     platform needs is a Kubernetes `Job` in `manifests/`, so it is still
+     declared, reviewed and run like any other object.
+   - No new deployment format is invented: the kit only points at and
+     configures upstream's charts.
 3. **One mechanism for Kubernetes stacks:** one shared guest VM with K3s;
    each component is a set of pinned Helm releases in it, with a combined
    resource check. Mijn Bureau's deployment driver (`apps/mijn-bureau/`)
@@ -95,8 +120,13 @@ Findings (sources in #193):
 
 - **A** (done in #192): disk image with a data partition grown on the first
   boot.
-- **B1:** the `launch` CLI and Mijn Bureau as the first component on today's
-  Ubuntu guest; deployed state kept on the data location.
+- **B1:** the `launch` CLI, `launch/index.toml` and the first kit. Mijn
+  Bureau's current driver (`apps/mijn-bureau/deploy.sh`, 14 phases of glue)
+  is not configuration-only yet: it moves into `launch/mijnbureau/` step by
+  step (values and manifests first, post-install steps as Jobs), and the
+  driver shrinks as the engine takes over. A platform whose charts are
+  complete (Open Zaak, Valtimo) may become the first pure kit. Deployed
+  state kept on the data location.
 - **B2:** the GUI cards.
 - **C:** a Common Ground component (Open Zaak / PodiumD charts, or Valtimo
   charts) and the Conduction apps as pinned Nextcloud apps (#151, #190).
@@ -105,9 +135,8 @@ Findings (sources in #193):
 
 ## Decisions the maintainer still has to take
 
-1. **Accept this direction** (one K3s guest + Helm components, no devShell
-   for these suites), which differs from the devShell suggestion in the
-   community chat; the reasons are in Context 3 and 4.
+1. ~~Accept this direction~~ — accepted 2026-10-11, with launch kits
+   (decision 2).
 2. **Scope:** `launch` and more platforms go beyond ADR 0001's v0.1 scope
    ("one Ubuntu 24.04 VM, single-node K3s, Mijn Bureau"). Proposed: v0.2.
 3. **Phase D:** replacing the Ubuntu 24.04 guest by a NixOS microVM
