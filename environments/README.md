@@ -11,6 +11,11 @@ runs at a time.
 
 - `launch valtimo` starts the Valtimo environment; `launch --stop valtimo`
   stops it; `launch` lists what there is.
+- Before starting, Launch checks memory, free space, hardware
+  virtualisation and internet against the environment's `needs` and lists
+  every shortfall in plain Dutch. The user may still go ahead: an
+  interactive question, or `--yes`. `launch --check <id> [--json]` only
+  checks (the Launcher uses the JSON for its cards; exit 3 = shortfalls).
 - The **Launcher** is the window where people choose: one card per
   environment.
 
@@ -74,6 +79,20 @@ request that changes the pins; a release freezes the catalogue. Two major
 versions side by side only as two environments (`valtimo-11` next to
 `valtimo`).
 
+## The `launch` command
+
+The command is `launch/launch.sh`, packaged by `nix/launch.nix`. Nothing in
+it is specific to one workplace; the appliance sets:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LAUNCH_DATA_PATH` | `/var/lib/launch` | Where environments keep their data (free space is checked here) |
+| `LAUNCH_RESERVE_GIB` | `6` | Memory kept for the workplace itself |
+| `LAUNCH_INTERNET_URL` | `https://github.com/` | Reachable when there is internet |
+
+Exit codes: 0 ok, 1 usage or unknown environment, 2 not available yet,
+3 shortfalls and not started.
+
 ## Checks
 
 `nix flake check` runs `environments-catalog` (offline): the catalogue and
@@ -84,4 +103,6 @@ validated, and pins named by `source.manifest` must equal the manifest.
 nix build .#launch && ./result/bin/launch
 ```
 
-Starting and stopping follow in phase B1 (ADR 0008).
+The check also runs the preflight against a fake small and a fake large
+laptop (memory, free space, KVM and internet overrides). Starting and stopping
+themselves follow in phase B1 (ADR 0008).

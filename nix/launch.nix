@@ -79,63 +79,55 @@ let
   };
   json = pkgs.writeText "launch-catalog.json" (builtins.toJSON catalog);
 
+  # The command itself is launch/launch.sh; the package only points it at
+  # the catalogue built above.
   cli = pkgs.writeShellApplication {
     name = "launch";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    runtimeInputs = with pkgs; [ jq coreutils gawk curl ];
     text = ''
-      catalog="''${LAUNCH_CATALOG:-${json}}"
-      usage() {
-        cat <<'EOF'
-      Gebruik:
-        launch                    de omgevingen die je kunt starten
-        launch <omgeving>         een omgeving starten        (volgt, ADR 0008 fase B1)
-        launch --stop <omgeving>  een omgeving stoppen        (volgt)
-        launch --status           wat draait er en waar       (volgt)
-        launch --list [--json]    de catalogus (--json: voor de Launcher)
-      EOF
-      }
-      list() {
-        if [ "''${1:-}" = "--json" ]; then
-          jq . "$catalog"
-        else
-          jq -r '.environments[] | "\(.id)\t\(.title) \(.version)\n\t\(.summary)\n\t\(.url)"' "$catalog"
-        fi
-      }
-      case "''${1:-}" in
-        "" | --list) list "''${2:-}" ;;
-        -h | --help) usage ;;
-        --stop | --status)
-          echo "launch $1: nog niet beschikbaar (ADR 0008, fase B1)." >&2
-          exit 2
-          ;;
-        -*) usage >&2; exit 1 ;;
-        *)
-          if ! jq -e --arg id "$1" '.environments[] | select(.id == $id)' "$catalog" >/dev/null; then
-            echo "launch: onbekende omgeving '$1'. Kies uit:" >&2
-            jq -r '.environments[].id' "$catalog" >&2
-            exit 1
-          fi
-          echo "launch $1: starten is nog niet beschikbaar (ADR 0008, fase B1)." >&2
-          exit 2
-          ;;
-      esac
-    '';
+      export LAUNCH_CATALOG="''${LAUNCH_CATALOG:-${json}}"
+    '' + builtins.readFile ../launch/launch.sh;
   };
 
   check = pkgs.runCommand "environments-catalog"
-    { nativeBuildInputs = [ pkgs.jq cli ]; }
+    { nativeBuildInputs = [ pkgs.jq cli pkgs.gnugrep ]; }
     (if problems != [ ] then ''
       echo "The Launch catalogue has problems:" >&2
       ${lib.concatMapStrings (m: "echo ${lib.escapeShellArg "  - ${m}"} >&2\n") problems}
       exit 1
     '' else ''
-      jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
-      launch | grep -q '^mijn-bureau'
-      [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ]
-      if launch mijn-bureau 2>/dev/null; then echo "starting should not work yet" >&2; exit 1; fi
-      if launch does-not-exist 2>/dev/null; then echo "an unknown environment must fail" >&2; exit 1; fi
-      { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving"
-      cp ${json} $out
+            fail() { echo "FAIL: $*" >&2; exit 1; }
+            jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
+            launch | grep -q '^mijn-bureau' || fail "listing"
+            [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ] || fail "--list --json"
+            if launch does-not-exist 2>/dev/null; then fail "an unknown environment must fail"; fi
+            { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving" || fail "unknown message"
+
+            # Preflight (#212), with a fake laptop: 32 GB, 100 GB free, KVM, internet.
+            printf 'MemTotal:       32768000 kB
+      ' > mem32; printf 'MemTotal:        8192000 kB
+      ' > mem8
+            touch kvm; echo ok > net
+            export LAUNCH_MEMINFO=$PWD/mem32 LAUNCH_FREE_GIB=100 LAUNCH_KVM_DEVICE=$PWD/kvm LAUNCH_INTERNET_URL=file://$PWD/net
+            launch --check mijn-bureau | grep -q "Alles in orde" || fail "check on a good laptop"
+            [ "$(launch --check mijn-bureau --json | jq -r .ok)" = true ] || fail "check --json ok"
+            # A good laptop: preflight passes, starting itself is not there yet (exit 2).
+            rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
+            [ "$rc" = 2 ] || fail "start on a good laptop: exit $rc, want 2"
+
+            # A small laptop: every shortfall is named, in Dutch.
+            export LAUNCH_MEMINFO=$PWD/mem8 LAUNCH_FREE_GIB=4 LAUNCH_KVM_DEVICE=$PWD/no-kvm LAUNCH_INTERNET_URL=file://$PWD/no-net
+            rc=0; launch --check mijn-bureau >out 2>&1 || rc=$?
+            [ "$rc" = 3 ] || fail "check on a small laptop: exit $rc, want 3"
+            grep -q "8 GB geheugen" out || fail "memory warning"; grep -q "nog 4 GB vrij" out || fail "disk warning"
+            grep -q "virtualisatie" out || fail "kvm warning"; grep -q "geen internet" out || fail "internet warning"
+            [ "$(launch --check mijn-bureau --json | jq '.problems | length')" = 4 ] || fail "check --json lists 4 problems"
+            # Without a terminal and without --yes: not started (exit 3); with --yes: goes on (exit 2).
+            rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
+            [ "$rc" = 3 ] && grep -q -- "--yes" out || fail "start without --yes: exit $rc"
+            rc=0; launch mijn-bureau --yes </dev/null >out 2>&1 || rc=$?
+            [ "$rc" = 2 ] || fail "start with --yes: exit $rc, want 2"
+            cp ${json} $out
     '');
 in
 { inherit catalog json check cli problems; }
