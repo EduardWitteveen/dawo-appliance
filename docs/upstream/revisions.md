@@ -12,9 +12,18 @@ review (`docs/adr/0003-workplace-parity.md`). Ecosystem overview:
   0.1.2, 2026-08-14). Backup mirrors:
   <https://code.overheid.nl/MinBZK/DAWO-NixOS>,
   <https://github.com/DAWO-community/DAWO-Core>. Community: <https://dawo.community>.
-- **Pinned: tag `0.1.3`, rev `695f17c05ca9fead89774036ddb1d136e77197e4`**
-  (2026-09-07). Inspected 2026-09-25. `main` was at `4db976f05c50`
-  (2026-09-17, docs/typo commits only after 0.1.3).
+- **Pinned: tag `v0.2.0`, rev `6de0d95e1e2a39e9940e6cecde6a88b23effd7ca`**
+  (2026-10-09). Inspected 2026-10-11 (#195). Breaking for consumers (upstream
+  #175): DAWO-Core's modules take their flake inputs at the flake-parts level
+  and abort on a module argument `inputs`; consumers import only DAWO-Core.
+  Our flake already imports only DAWO-Core's module set and reaches
+  home-manager through `dawo-core.inputs`, so nothing changed on our side; the
+  `inputs` we still pass as a specialArg is no longer read. Other changes:
+  the Plasma Integration XPI is pinned in the Nix store instead of fetched
+  from AMO (#166), a QEMU host and its docs. Tags are now `v`-prefixed
+  (`v0.1.3` is `e5b7d78`).
+- Previously pinned: tag `0.1.3`, rev `695f17c05ca9fead89774036ddb1d136e77197e4`
+  (2026-09-07, inspected 2026-09-25).
 - Releases: `v0.1.0` (2026-06-29, "pilot baseline", first tagged release),
   `v0.1.1` (2026-08-05, audit fixes from the first pilot laptops), `v0.1.2`
   (2026-08-14, first release from Codeberg; all inputs updated), `0.1.3`
@@ -27,7 +36,8 @@ review (`docs/adr/0003-workplace-parity.md`). Ecosystem overview:
   - `nixpkgs` = `github:nixos/nixpkgs/nixos-26.05` rev
     `fcb8fcd6bf2d0adecae5bd491afaaaf8311b758d` (2026-08-09). **We pin the same
     rev.** (`nixos-25.11`, our previous branch, received its last commit on
-    2026-06-30 and is end-of-life.)
+    2026-06-30 and is end-of-life.) DAWO-Core `v0.2.0` locks a newer
+    `nixos-26.05` rev, `7c8764b7c7b0`; we keep `fcb8fcd6bf2d` for now (D40).
   - `nixpkgs-unstable` rev `2fcb964de67f`.
   - `disko` = `github:nix-community/disko/latest` rev
     `de5708739256238fb912c62f03988815db89ec9a` (2026-01-20). **We pin the same
