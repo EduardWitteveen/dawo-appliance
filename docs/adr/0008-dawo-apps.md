@@ -5,7 +5,7 @@
   flow settled the same day). Open points: "Decisions still open".
 - Date: 2026-10-11
 - Deciders: maintainer (eywitteveen)
-- Refs: #193 (design and two research rounds), #192 (data location), #151
+- Refs: #193 (design and two research rounds), #192 (disk image, DAWO_LOGS grown on first boot), #151
   (Common Ground demo platform), #190 (Conduction apps), #195 (DAWO-Core
   v0.2.0); ADR 0001 (scope), ADR 0003 (workplace parity), ADR 0006 (live USB
   first), ADR 0007 (laptop profile)
@@ -63,13 +63,17 @@ Findings (sources in #193):
 2. **The app catalogue opens by itself** after login: one window with a card
    per app (logo, Dutch title, one or two sentences, a *Starten* button). It
    replaces today's status page, which already opens by itself.
-3. **The user picks an app.** The catalogue checks memory, disk, KVM and
-   internet first and says in plain Dutch what is missing, before anything
-   changes (for example: "Mijn Bureau heeft ongeveer 25 GB ruimte nodig.
-   Sluit een USB-schijf van 64 GB of groter aan."). Then it starts the guest
-   (only now) and the app, shows the progress, and offers *Openen*.
-4. **Next time it is quick:** the installed app stays on the data location,
-   so a later start takes tens of seconds, not minutes.
+3. **The user picks an app.** The catalogue checks memory, free space on
+   `DAWO_LOGS`, KVM and internet first. When something falls short it
+   **warns in plain Dutch before anything changes**, and the user may still
+   go ahead (maintainer, 2026-10-11: "als mensen het toch willen proberen,
+   dikke prima, maar dan weten ze het vooraf"). For example: "Er is nog 4 GB
+   vrij op de USB-schijf; Mijn Bureau heeft ongeveer 25 GB nodig. Toch
+   proberen?" (`dawo-app start` asks the same; `--yes` skips the question).
+   Then it starts the guest (only now) and the app, shows the progress, and
+   offers *Openen*.
+4. **Next time it is quick:** the installed app stays on the USB disk, so a
+   later start takes tens of seconds, not minutes.
 
 ### Names
 
@@ -142,10 +146,14 @@ apps/
   started when the first app starts; each app is a set of pinned Helm
   releases in it, with a combined resource check. A program that ships its
   own `nix run` demo may be listed as an external app, not hosted.
-- **Data location, chosen once** (#193): an existing `DAWO_LOGS`, the free
-  rest of the boot stick, or a folder on another USB drive, after a desktop
-  consent dialog; **never the internal disk** (ADR 0006). Images are cached
-  there as K3s airgap tarballs.
+- **Data lives on the boot disk only** (maintainer, 2026-10-11): the
+  `DAWO_LOGS` partition of the USB disk DAWO boots from, as made by
+  `dawo-stick.ps1` / `write-live-stick.sh` or grown on the first boot of the
+  disk image (#192). No data-location chooser, no other USB drives, no
+  consent dialogs, **never the internal disk** (ADR 0006): one layout to
+  understand and to test. Without room there, the warning in point 3 says
+  so; a user who goes ahead anyway may see the app fail on a full disk.
+  Images are cached there as K3s airgap tarballs.
 - Users in a dedicated group may start and stop apps (polkit), without sudo.
 
 ## Phases
