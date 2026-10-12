@@ -39,5 +39,9 @@ in
   programs.firefox.preferences = {
     "intl.locale.requested" = "nl";
     "intl.accept_languages" = "nl-NL, nl, en-US, en";
+    # Some Mijn Bureau pages are English (Bureaublad's sign-in page): no
+    # "Deze pagina vertalen?" pop-up over them during a demo (Dell,
+    # 2026-10-13). The translate button in the address bar stays.
+    "browser.translations.automaticallyPopup" = false;
   };
 }
