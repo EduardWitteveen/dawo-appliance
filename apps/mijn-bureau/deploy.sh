@@ -975,6 +975,68 @@ patch_keycloak_autologin() {
   info "Keycloak login theme ${AUTOLOGIN_THEME} mounted (sha256 ${sum:0:12})"
 }
 
+# Bureaublad in Dutch (laptop profile, #225, U7). Bureaublad's frontend
+# (v0.6.1) is a static export built with Node 22, where navigator.language is
+# "en-US": the build bakes initialLocale "en" into every page, and the browser
+# language only counts once localStorage "preferred-locale" is set, which it
+# never is in the live USB's fresh Firefox. Its nginx (upstream's own
+# frontend/nginx.conf, unchanged otherwise) now sets that key to "nl" before
+# the app's scripts run, unless the user already chose a language, and serves
+# <html lang="nl">.
+BUREAUBLAD_NGINX_CONFIGMAP="dawo-bureaublad-nginx"
+bureaublad_nginx_conf() {
+  cat <<'EOF'
+server {
+    listen       8080;
+    server_name  localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # dawo-appliance (#225): Dutch unless the user picked a language.
+    sub_filter '<head>' '<head><script>try{if(!localStorage.getItem("preferred-locale")){localStorage.setItem("preferred-locale","nl")}}catch(e){}</script>';
+    sub_filter '<html lang="en"' '<html lang="nl"';
+    sub_filter_once on;
+
+    location / {
+        try_files $uri /index.html;
+    }
+
+
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+
+    absolute_redirect off;
+}
+EOF
+}
+
+patch_bureaublad_dutch() {
+  local dir sum patch
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    printf 'DRY-RUN: kubectl -n mb-bureaublad apply ConfigMap %s (upstream nginx.conf + sub_filter: localStorage preferred-locale=nl, html lang=nl)\n' "${BUREAUBLAD_NGINX_CONFIGMAP}"
+    printf 'DRY-RUN: kubectl -n mb-bureaublad patch deployment/bureaublad-frontend --type strategic: mount it at /etc/nginx/conf.d/default.conf; annotation dawo-appliance/nginx-sha256\n'
+    return 0
+  fi
+  if ! kubectl -n mb-bureaublad get deployment/bureaublad-frontend >/dev/null 2>&1; then
+    warn "deployment/bureaublad-frontend not found in mb-bureaublad; Bureaublad stays in its build language"
+    return 0
+  fi
+  dir="$(mktemp -d)"
+  bureaublad_nginx_conf >"${dir}/default.conf"
+  sum="$(sha256sum "${dir}/default.conf" | cut -d' ' -f1)"
+  [[ "${sum}" =~ ^[0-9a-f]{64}$ ]] || die "could not hash the Bureaublad nginx configuration"
+  kubectl -n mb-bureaublad create configmap "${BUREAUBLAD_NGINX_CONFIGMAP}" \
+    --from-file=default.conf="${dir}/default.conf" --dry-run=client -o yaml | kubectl apply -f -
+  rm -rf "${dir}"
+  patch="{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"dawo-appliance/nginx-sha256\":\"${sum}\"}},\"spec\":{\"volumes\":[{\"name\":\"${BUREAUBLAD_NGINX_CONFIGMAP}\",\"configMap\":{\"name\":\"${BUREAUBLAD_NGINX_CONFIGMAP}\"}}],\"containers\":[{\"name\":\"frontend\",\"volumeMounts\":[{\"name\":\"${BUREAUBLAD_NGINX_CONFIGMAP}\",\"mountPath\":\"/etc/nginx/conf.d/default.conf\",\"subPath\":\"default.conf\",\"readOnly\":true}]}]}}}}"
+  kubectl -n mb-bureaublad patch deployment/bureaublad-frontend --type strategic -p "${patch}"
+  kubectl -n mb-bureaublad rollout status deployment/bureaublad-frontend --timeout=600s
+  info "Bureaublad frontend: Dutch by default (nginx sha256 ${sum:0:12})"
+}
+
 # Dutch defaults for Nextcloud (laptop profile, #180): users without a
 # language of their own get Dutch (and Collabora, which follows the Nextcloud
 # language, Dutch menus); dates and numbers in the Dutch format.
@@ -1139,7 +1201,7 @@ phase_post_fixes() {
   nc_apps_default
   # Last, so the Keycloak restart it may cause comes after everything that
   # talks to Keycloak; phase 14 then selects the theme on the realm.
-  if [[ "${MB_PROFILE}" == laptop-demo ]]; then nextcloud_dutch_defaults; patch_keycloak_autologin; fi
+  if [[ "${MB_PROFILE}" == laptop-demo ]]; then nextcloud_dutch_defaults; patch_bureaublad_dutch; patch_keycloak_autologin; fi
 }
 
 # ---------------------------------------------------------------------------
