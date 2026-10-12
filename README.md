@@ -44,14 +44,15 @@ Op de USB-schijf staat alles:
 
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 
-#### Stand van zaken (30 september 2026)
+#### Stand van zaken (13 oktober 2026)
 
 | | |
 | --- | --- |
 | ✅ **Werkt** | Opstarten van USB zonder de laptop te veranderen · werkplek na 20 seconden · virtuele machine en Kubernetes binnen een minuut · gegevens blijven bewaard · netjes afsluiten · statuspagina met voortgang |
-| ✅ **Werkt** | Mijn Bureau installeert zichzelf helemaal: alle 14 stappen gelukt (ongeveer 8 minuten als de apps al gedownload zijn), inloggen werkt en het dashboard opent |
-| ✅ **Werkt** | Inloggen met gebruikersnaam `dawo` en wachtwoord `dawo`; het dashboard Mijn Bureaublad, bestanden (Nextcloud) en chat (Element) openen met één inlog |
-| ⏭️ **Daarna** | De demo doorlopen met het [demoscript](docs/demo-script.md) en schermafbeeldingen van de apps zelf |
+| ✅ **Werkt** | Mijn Bureau installeert zichzelf helemaal: alle 14 stappen gelukt (ongeveer 9 minuten als de apps al gedownload zijn) |
+| ✅ **Werkt** | Eén keer inloggen (`dawo`/`dawo`) voor het dashboard, bestanden (Nextcloud), documenten bewerken (Collabora) en chat (Element), alles in het Nederlands; Nextcloud met het NL Design System-thema (Thematiq) |
+| ✅ **Nieuw** | Te downloaden als schijfbestand voor Rufus of balenaEtcher (`dawo-appliance-live.img`); de eerste start maakt de rest van de USB-SSD zelf klaar als opslag |
+| ⏭️ **Daarna** | Eerste testversie (v0.1.0-rc.1) om te downloaden; daarna **Launch**: een venster waarin je zelf kiest welke omgeving je start (Mijn Bureau, later bijvoorbeeld Valtimo of Open Zaak) |
 
 De technische details per stap staan hieronder in het Engelse deel en in de [issues op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues).
 
