@@ -34,6 +34,17 @@
 let
   mnt = "/run/dawo-logs";
 
+  # Runs in the guest (sent over ssh as stdin): the errors in Nextcloud's own
+  # log, which the pod's stdout does not carry (a transient 'Interne
+  # serverfout' on the first sign-in, Dell 2026-10-13, left no trace).
+  nextcloudLog = pkgs.writeText "dawo-nextcloud-log.sh" ''
+    k3s kubectl -n mb-nextcloud exec deploy/nextcloud -c nextcloud -- sh -c '
+      f=$(php occ config:system:get logfile 2>/dev/null)
+      [ -n "$f" ] || f="$(php occ config:system:get datadirectory 2>/dev/null)/nextcloud.log"
+      tail -n 400 "$f" 2>/dev/null' \
+      | grep -E '"level":(3|4)' | tail -n 20 | cut -c1-700
+  '';
+
   # Runs in the guest (sent over ssh as stdin): the previous container's log
   # of every pod that is not fully ready (#150).
   notReadyLogs = pkgs.writeText "dawo-not-ready-logs.sh" ''
@@ -158,6 +169,9 @@ let
           echo "== logs of pods that are not ready (previous container, tail 30)"
           timeout 90 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
             -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 sudo bash -s < ${notReadyLogs} 2>&1 || true
+          echo "== nextcloud log (errors and fatals, latest 20)"
+          timeout 60 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+            -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 sudo bash -s < ${nextcloudLog} 2>&1 || true
           echo "== cloud-init-output.log (tail)"; g sudo tail -n 300 /var/log/cloud-init-output.log 2>&1 || true
           # If the guest rebooted on its own, its previous boot says why (#119).
           echo "== guest boots"; g sudo journalctl --list-boots --no-pager 2>&1 | tail -n 5 || true
