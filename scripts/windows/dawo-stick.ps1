@@ -188,7 +188,11 @@ function Select-Target {
     return
   }
   if (-not (Test-Admin)) { throw "-DiskNumber needs raw disk access: run this in an Administrator PowerShell window" }
-  $d = Get-Disk -Number $script:DiskNumber
+  $d = Get-Disk -Number $script:DiskNumber -ErrorAction SilentlyContinue
+  if (-not $d) {
+    $seen = (Get-Disk | ForEach-Object { "{0} ({1}, {2})" -f $_.Number, $_.FriendlyName, $_.BusType }) -join '; '
+    throw "disk $($script:DiskNumber) not found; is the USB disk plugged in? Disks Windows sees now: $seen"
+  }
   $script:IsDisk = $true; $script:Disk = $d; $script:TargetPath = "\\.\PhysicalDrive$($d.Number)"; $script:TargetSize = [long]$d.Size
   Log ("target: disk {0} '{1}', bus {2}, {3:N1} GB ({4} bytes), boot {5}, system {6}, read-only {7}, {8} partition(s) visible to Windows" -f `
       $d.Number, $d.FriendlyName, $d.BusType, ($d.Size / 1e9), $d.Size, $d.IsBoot, $d.IsSystem, $d.IsReadOnly, $d.NumberOfPartitions)
