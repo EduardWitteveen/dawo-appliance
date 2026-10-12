@@ -10,7 +10,7 @@
 # `dawoCore` is the pinned DAWO-Core flake (specialArg from flake.nix). Its
 # modules expect upstream's own `inputs` and `hostConfig` as specialArgs, which
 # flake.nix also supplies.
-{ dawoCore, lib, modulesPath, ... }:
+{ dawoCore, lib, pkgs, modulesPath, ... }:
 
 {
   imports = (with dawoCore.modules.nixos; [
@@ -72,9 +72,13 @@
   # Upstream's flatpak unit (DAWO-Core services-flatpak, nix-flatpak) runs
   # right at boot, before Wi-Fi is up: "Kan URI https://dl.flathub.org/...
   # niet laden", a failed unit, a retry 60 s later that works (#218, U6).
-  # Wait for the network instead.
+  # network-online.target alone does not help: NetworkManager-wait-online is
+  # off, so the target is reached 2 s after boot (Dell, 2026-10-13). Wait for
+  # NetworkManager to report a connection first (at most 2 minutes; without
+  # one the unit runs anyway and fails as before).
   systemd.services.flatpak-managed-install = {
-    after = [ "network-online.target" ];
+    after = [ "network-online.target" "NetworkManager.service" ];
     wants = [ "network-online.target" ];
+    serviceConfig.ExecStartPre = [ "-${pkgs.networkmanager}/bin/nm-online -q -t 120" ];
   };
 }
