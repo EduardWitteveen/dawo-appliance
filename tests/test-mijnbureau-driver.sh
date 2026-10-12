@@ -673,6 +673,12 @@ if [[ "${rc}" -eq 0 && -n "${cm_line}" && -n "${w4_line}" && "${cm_line}" -gt "$
 else
   bad "laptop-demo auto-login dry-run (rc=${rc})"; dump "${out}"
 fi
+if grep -q 'kubectl -n mb-bureaublad apply ConfigMap dawo-bureaublad-nginx' <<<"${out}" \
+   && awk '/^bureaublad_nginx_conf\(\) \{/{f=1} f&&/^EOF$/{exit} f&&p{print} f&&/<<.EOF.$/{p=1}' "${DEPLOY}" | grep -q 'localStorage.setItem("preferred-locale","nl")'; then
+  ok "phase 13 (laptop profile) serves Bureaublad in Dutch: nginx sets preferred-locale=nl (#225)"
+else
+  bad "phase 13 should mount the Dutch nginx configuration on Bureaublad's frontend (#225)"; dump "${out}"
+fi
 if grep -q '"internationalizationEnabled":true,"supportedLocales":\["nl","en"\],"defaultLocale":"nl"}' <<<"${out}" \
   && grep -q 'nextcloud occ config:system:set default_language nl; default_locale nl_NL' <<<"${out}"; then
   ok "laptop-demo: Dutch sign-in pages (realm defaultLocale nl) and Nextcloud default language nl (#180)"
