@@ -159,11 +159,21 @@ readonly NC_APP_PIPELINQ="0.5.1 https://github.com/ConductionNL/pipelinq/release
 readonly NC_APP_PORTALIQ="0.2.0 https://github.com/ConductionNL/portaliq/releases/download/v0.2.0/portaliq-0.2.0.tar.gz 2dd4cbf0c529252ea5b816951b83586039c30742b191287cfe8f2046f41bda06"
 readonly NC_APPS_DEFAULT=(thematiq)
 readonly NC_APPS_OPTIONAL=(openregister dossiq pipelinq portaliq)
-# Upstream installs Nextcloud Office from the app store, unpinned, and only
-# warns when that fails (#205, U5). Phase 13 installs this pinned release when
-# the app is not enabled; an app the store did install is left as it is.
+# Upstream's Nextcloud post-install hooks install these apps from the app
+# store, unpinned, and only warn when that fails (#205, U5): a failed download
+# left Mijn Bureau without Office and without single sign-on (Dell,
+# 2026-10-11/12). Phase 13 installs the pinned release of any of them that is
+# not enabled and then runs upstream's own hook for it; an app the store did
+# install is left alone. All declare Nextcloud 34; hashed when pinned
+# (2026-10-12).
+readonly NC_APP_USER_OIDC="8.9.0 https://github.com/nextcloud-releases/user_oidc/releases/download/v8.9.0/user_oidc-v8.9.0.tar.gz e3f8bc89d07e87993a805eab774b49a14c6b732edf5c9f705df2389596ab9e71"
 readonly NC_APP_RICHDOCUMENTS="11.1.2 https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz 96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
-readonly NC_APPS_REPAIR=(richdocuments)
+readonly NC_APP_DRAWIO="4.3.9 https://github.com/arnowelzel/drawio-nextcloud/releases/download/v4.3.9/drawio-v4.3.9.tar.gz 3ac34d75ad538d067c4d119d464281b424c1958a2c7ef114de1d1d52fea8981c"
+readonly NC_APP_DECK="1.18.5 https://github.com/nextcloud-releases/deck/releases/download/v1.18.5/deck-v1.18.5.tar.gz dafec6635ff3af50fb6f73330064ef6153910be2fa434d2edbf8043263122253"
+readonly NC_APP_GROUPFOLDERS="22.0.6 https://github.com/nextcloud-releases/groupfolders/releases/download/v22.0.6/groupfolders-v22.0.6.tar.gz bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b"
+readonly NC_APP_CONTACTS="8.9.1 https://github.com/nextcloud-releases/contacts/releases/download/v8.9.1/contacts-v8.9.1.tar.gz a25cdf448b192631b8e8eb7addc31b40382b33871b10521f4308ac5a6e0457bf"
+readonly NC_APP_FILES_ACCESSCONTROL="5.0.0 https://github.com/nextcloud-releases/files_accesscontrol/releases/download/v5.0.0/files_accesscontrol-v5.0.0.tar.gz 577ded096b7a2b8004aa4237a41494070cd35837436d7404e0a97b671f9557eb"
+readonly NC_APPS_REPAIR=(user_oidc richdocuments drawio deck groupfolders contacts files_accesscontrol)
 readonly NC_APP_NEEDS=("dossiq:openregister" "pipelinq:openregister" "portaliq:openregister")
 readonly NC_CUSTOM_APPS="/var/www/html/custom_apps"
 
@@ -992,7 +1002,13 @@ nc_app_pin() { # nc_app_pin ID -> "<version> <url> <sha256>"
     dossiq) printf '%s' "${NC_APP_DOSSIQ}" ;;
     pipelinq) printf '%s' "${NC_APP_PIPELINQ}" ;;
     portaliq) printf '%s' "${NC_APP_PORTALIQ}" ;;
+    user_oidc) printf '%s' "${NC_APP_USER_OIDC}" ;;
     richdocuments) printf '%s' "${NC_APP_RICHDOCUMENTS}" ;;
+    drawio) printf '%s' "${NC_APP_DRAWIO}" ;;
+    deck) printf '%s' "${NC_APP_DECK}" ;;
+    groupfolders) printf '%s' "${NC_APP_GROUPFOLDERS}" ;;
+    contacts) printf '%s' "${NC_APP_CONTACTS}" ;;
+    files_accesscontrol) printf '%s' "${NC_APP_FILES_ACCESSCONTROL}" ;;
     *) return 1 ;;
   esac
 }
@@ -1042,47 +1058,53 @@ nc_app_install() {
   info "Nextcloud app ${id} ${ver}: installed and enabled"
 }
 
-# nc_app_ensure ID: install the pinned release only when the app is not
-# enabled (a repair app: upstream normally installs it, #205).
-nc_app_ensure() {
-  local id="$1" enabled
+# nc_app_configured ID: the configuration upstream's hook adds beyond
+# install/enable is there (only user_oidc and richdocuments have any).
+nc_app_configured() {
+  case "$1" in
+    richdocuments) [[ -n "$(nc_occ config:app:get richdocuments wopi_url 2>/dev/null | tr -d '\r' || true)" ]] ;;
+    user_oidc)
+      [[ "$(nc_occ config:app:get user_oidc allow_multiple_user_backends 2>/dev/null | tr -d '\r' || true)" == 0 ]] \
+        && nc_occ user_oidc:provider 2>/dev/null | grep -q keycloak
+      ;;
+    *) return 0 ;;
+  esac
+}
+
+# nc_upstream_hook ID: run upstream's post-install hook ID.sh again, as
+# rendered by upstream's chart into the ConfigMap nextcloud-script-post-install
+# (upstream's values, not ours), in the Nextcloud pod.
+nc_upstream_hook() {
+  local script
+  script="$(kubectl get configmap -n mb-nextcloud nextcloud-script-post-install -o "jsonpath={.data.$1\.sh}")"
+  [[ -n "${script}" ]] || die "upstream post-install hook $1.sh not found in configmap mb-nextcloud/nextcloud-script-post-install"
+  kubectl exec -i -n mb-nextcloud deploy/nextcloud -- bash -s <<<"${script}"
+}
+
+# nc_app_repair ID: an app upstream's hook should have installed (#205):
+# install the pinned release when it is not enabled, and run upstream's hook
+# when it was not enabled or its configuration is missing.
+nc_app_repair() {
+  local id="$1" enabled hook=0
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    printf 'DRY-RUN: if Nextcloud app %s is not enabled: install the pinned release (%s)\n' "${id}" "$(nc_app_pin "${id}" | cut -d' ' -f1)"
+    printf 'DRY-RUN: Nextcloud app %s: if not enabled, install the pinned release (%s); if not enabled or not configured, run upstream hook %s.sh\n' \
+      "${id}" "$(nc_app_pin "${id}" | cut -d' ' -f1)" "${id}"
     return 0
   fi
   enabled="$(nc_occ config:app:get "${id}" enabled 2>/dev/null | tr -d '\r' || true)"
-  if [[ "${enabled}" == yes ]]; then
-    info "Nextcloud app ${id}: enabled (installed by upstream)"
-    return 0
+  if [[ "${enabled}" != yes ]]; then
+    warn "Nextcloud app ${id} is not enabled (upstream's app-store install failed, #205); installing the pinned release"
+    nc_app_install "${id}"
+    hook=1
+  elif ! nc_app_configured "${id}"; then
+    hook=1
   fi
-  warn "Nextcloud app ${id} is not enabled (upstream's app-store install failed, #205); installing the pinned release"
-  nc_app_install "${id}"
-}
-
-# nc_richdocuments_config: upstream's post-install hook configures Nextcloud
-# Office (wopi_url, wopi_allowlist) right after installing it, so a failed
-# app-store install left it unconfigured ("Configured WOPI URL:" empty, upstream
-# 04 then fails, Dell 2026-10-11). When wopi_url is empty, run that same hook
-# again, as rendered by upstream's chart into the ConfigMap
-# nextcloud-script-post-install (richdocuments.sh): upstream's values, not ours.
-nc_richdocuments_config() {
-  local url script
-  if [[ "${DRY_RUN}" -eq 1 ]]; then
-    printf 'DRY-RUN: if richdocuments has no wopi_url: run upstream hook richdocuments.sh from configmap mb-nextcloud/nextcloud-script-post-install in the Nextcloud pod\n'
-    return 0
+  if [[ "${hook}" -eq 1 ]]; then
+    warn "running upstream's post-install hook ${id}.sh again"
+    nc_upstream_hook "${id}"
   fi
-  url="$(nc_occ config:app:get richdocuments wopi_url 2>/dev/null | tr -d '\r' || true)"
-  if [[ -n "${url}" ]]; then
-    info "Nextcloud Office: wopi_url ${url}"
-    return 0
-  fi
-  script="$(kubectl get configmap -n mb-nextcloud nextcloud-script-post-install -o 'jsonpath={.data.richdocuments\.sh}')"
-  [[ -n "${script}" ]] || die "upstream post-install hook richdocuments.sh not found in configmap mb-nextcloud/nextcloud-script-post-install"
-  warn "Nextcloud Office has no wopi_url (#205); running upstream's post-install hook richdocuments.sh again"
-  kubectl exec -i -n mb-nextcloud deploy/nextcloud -- bash -s <<<"${script}"
-  url="$(nc_occ config:app:get richdocuments wopi_url 2>/dev/null | tr -d '\r' || true)"
-  [[ -n "${url}" ]] || die "Nextcloud Office still has no wopi_url after upstream's hook"
-  info "Nextcloud Office: wopi_url ${url}"
+  nc_app_configured "${id}" || die "Nextcloud app ${id}: still not configured after upstream's hook"
+  info "Nextcloud app ${id}: enabled and configured"
 }
 
 # nc_app_install_with_needs ID: the apps it requires first, then the app.
@@ -1107,10 +1129,10 @@ phase_post_fixes() {
   # Upstream 04 waits for Nextcloud, then asks Collabora for its discovery
   # document; wait for Collabora itself first (#150), bounded.
   wait_rollout mb-collabora collabora-online 900s
-  # Upstream 04 needs Nextcloud Office; its app-store install may have failed.
+  # Upstream 04 needs Nextcloud Office, and sign-in needs user_oidc; their
+  # app-store installs may have failed (#205).
   wait_rollout mb-nextcloud nextcloud 900s
-  for id in "${NC_APPS_REPAIR[@]}"; do nc_app_ensure "${id}"; done
-  nc_richdocuments_config
+  for id in "${NC_APPS_REPAIR[@]}"; do nc_app_repair "${id}"; done
   run_upstream 04-nextcloud-office.sh
   if [[ "$(app_enabled docs)" == true ]]; then run_upstream 05-docs.sh; else info "05-docs.sh skipped: Docs is not in profile ${MB_PROFILE}"; fi
   if [[ "$(app_enabled grist)" == true ]]; then run_upstream 06-grist.sh; else info "06-grist.sh skipped: Grist is not in profile ${MB_PROFILE}"; fi
