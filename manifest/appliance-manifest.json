@@ -174,7 +174,7 @@
       }
     },
     "nextcloud_apps": {
-      "note": "Conduction's Nextcloud apps (EUPL-1.2), outside upstream's set (#190, D38). Stable app-store releases, all declaring Nextcloud 32-34 and PHP >= 8.3; hashed when pinned (2026-10-06). 'default' is installed in phase 13 of apps/mijn-bureau/deploy.sh; 'repair' (richdocuments, #205/U5) only when upstream's unpinned app-store install left it disabled; 'optional' only on request (deploy.sh --nc-app <id>, or dawo-appliance-nc-app on the live USB). Must equal the NC_APP_* constants in deploy.sh (tests/test-mijnbureau-driver.sh).",
+      "note": "Conduction's Nextcloud apps (EUPL-1.2), outside upstream's set (#190, D38). Stable app-store releases, all declaring Nextcloud 32-34 and PHP >= 8.3; hashed when pinned (2026-10-06). 'default' is installed in phase 13 of apps/mijn-bureau/deploy.sh; 'repair' (the seven apps upstream's post-install hooks install from the app store, #205/U5) only when that left one disabled or unconfigured; 'optional' only on request (deploy.sh --nc-app <id>, or dawo-appliance-nc-app on the live USB). Must equal the NC_APP_* constants in deploy.sh (tests/test-mijnbureau-driver.sh).",
       "license": "EUPL-1.2",
       "apps": {
         "thematiq": {
@@ -215,9 +215,51 @@
         "richdocuments": {
           "version": "11.1.2",
           "install": "repair",
-          "purpose": "Nextcloud Office (Collabora integration); upstream installs it from the app store, unpinned; this release is installed only when that failed (#205)",
+          "purpose": "Nextcloud Office (Collabora); its hook also sets wopi_url and wopi_allowlist (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
           "url": "https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz",
           "sha256": "96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
+        },
+        "user_oidc": {
+          "version": "8.9.0",
+          "install": "repair",
+          "purpose": "Sign-in through Keycloak (OIDC); its hook also configures the provider and switches off Nextcloud's own login form (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/nextcloud-releases/user_oidc/releases/download/v8.9.0/user_oidc-v8.9.0.tar.gz",
+          "sha256": "e3f8bc89d07e87993a805eab774b49a14c6b732edf5c9f705df2389596ab9e71"
+        },
+        "drawio": {
+          "version": "4.3.9",
+          "install": "repair",
+          "purpose": "Diagrams (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/arnowelzel/drawio-nextcloud/releases/download/v4.3.9/drawio-v4.3.9.tar.gz",
+          "sha256": "3ac34d75ad538d067c4d119d464281b424c1958a2c7ef114de1d1d52fea8981c"
+        },
+        "deck": {
+          "version": "1.18.5",
+          "install": "repair",
+          "purpose": "Kanban boards (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/nextcloud-releases/deck/releases/download/v1.18.5/deck-v1.18.5.tar.gz",
+          "sha256": "dafec6635ff3af50fb6f73330064ef6153910be2fa434d2edbf8043263122253"
+        },
+        "groupfolders": {
+          "version": "22.0.6",
+          "install": "repair",
+          "purpose": "Team folders (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/nextcloud-releases/groupfolders/releases/download/v22.0.6/groupfolders-v22.0.6.tar.gz",
+          "sha256": "bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b"
+        },
+        "contacts": {
+          "version": "8.9.1",
+          "install": "repair",
+          "purpose": "Contacts (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/nextcloud-releases/contacts/releases/download/v8.9.1/contacts-v8.9.1.tar.gz",
+          "sha256": "a25cdf448b192631b8e8eb7addc31b40382b33871b10521f4308ac5a6e0457bf"
+        },
+        "files_accesscontrol": {
+          "version": "5.0.0",
+          "install": "repair",
+          "purpose": "File access control rules (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
+          "url": "https://github.com/nextcloud-releases/files_accesscontrol/releases/download/v5.0.0/files_accesscontrol-v5.0.0.tar.gz",
+          "sha256": "577ded096b7a2b8004aa4237a41494070cd35837436d7404e0a97b671f9557eb"
         }
       }
     }
