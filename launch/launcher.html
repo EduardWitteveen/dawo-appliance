@@ -89,6 +89,8 @@ async function act(verb, env) {
   } catch (e) {
     busy[env.id] = "Dat lukte niet: " + e;
   }
+  render(lastData);
+  lastJson = "";
   refresh();
 }
 
@@ -123,10 +125,16 @@ function render(data) {
   grid.replaceChildren(...(data.length ? data.map(card) : [el("p", {}, "Er zijn geen omgevingen.")]));
 }
 
+let lastJson = "";
 async function refresh() {
   try {
     const r = await fetch("/api/environments", { cache: "no-store" });
-    lastData = await r.json();
+    const text = await r.text();
+    // Redraw only when something changed, so a button is not replaced under
+    // the user's pointer every few seconds.
+    if (text === lastJson) return;
+    lastJson = text;
+    lastData = JSON.parse(text);
     render(lastData);
   } catch (e) { /* the next refresh tries again */ }
 }
