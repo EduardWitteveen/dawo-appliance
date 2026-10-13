@@ -20,6 +20,9 @@
       "dawo-appliance-mijnbureau.service"
     ];
     autostart = [ "mijn-bureau" ];
+    # The Launcher window (B2), reachable from the menu; for now Mijn Bureau
+    # still starts at boot and the status page stays what opens at login.
+    launcher.enable = true;
   };
 
   # The desktop user starts and stops environments without sudo (polkit).
