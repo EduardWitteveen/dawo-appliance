@@ -551,11 +551,13 @@ in
         for _ in $(seq 1 600); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
           boot="$(tail -c +$((offset + 1)) "$log" 2>/dev/null || true)"
-          # A boot that printed nothing at all after 3 minutes hangs in the
-          # firmware (seen under nested virtualisation, #184): the kernel
-          # prints on the serial console within seconds. Treat it as a crash.
+          # A boot that has not reached the Linux kernel after 3 minutes hangs
+          # before it (seen under nested virtualisation, #184): silent in the
+          # firmware, or GRUB stopped at "alloc magic is broken ... Aborted.
+          # Press any key". The kernel's timestamped lines ([    1.234567])
+          # reach the serial console within seconds. Treat it as a crash.
           hung=no
-          if [ -z "$boot" ] && [ $((SECONDS - since)) -ge 180 ]; then hung=yes; fi
+          if [ $((SECONDS - since)) -ge 180 ] && ! grep -aqE '^\[ *[0-9]+\.[0-9]+\] ' <<<"$boot"; then hung=yes; fi
           if [ "$hung" = yes ] || grep -aqE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' <<<"$boot"; then
             if [ "$resets" -ge ${toString cfg.fwwatchMaxResets} ]; then
               echo "dawo-appliance-guest-fwwatch: $name crashed again after $resets resets; giving up" >&2
@@ -563,7 +565,7 @@ in
             fi
             resets=$((resets + 1))
             if [ "$hung" = yes ]; then
-              echo "dawo-appliance-guest-fwwatch: $name printed nothing in 3 minutes (firmware hang, #184); reset $resets of ${toString cfg.fwwatchMaxResets}"
+              echo "dawo-appliance-guest-fwwatch: $name did not reach the kernel in 3 minutes (firmware or boot loader hang, #184); reset $resets of ${toString cfg.fwwatchMaxResets}"
             else
               echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of ${toString cfg.fwwatchMaxResets}"
             fi
