@@ -42,8 +42,11 @@
     after = [ "launch-autostart.service" "dawo-appliance-data.service" ];
     serviceConfig = { Type = "oneshot"; RemainAfterExit = true; };
     script = ''
+      # launch-autostart starts with --no-block: a guest that was asked for
+      # may still be a queued job here (state "inactive"); that counts too.
       state="$(${pkgs.systemd}/bin/systemctl is-active dawo-appliance-guest.service || true)"
-      if [ "$state" != active ] && [ "$state" != activating ] && [ ! -s /run/dawo-appliance/guest-skipped ]; then
+      job="$(${pkgs.systemd}/bin/systemctl list-jobs --no-legend dawo-appliance-guest.service || true)"
+      if [ "$state" != active ] && [ "$state" != activating ] && [ -z "$job" ] && [ ! -s /run/dawo-appliance/guest-skipped ]; then
         mkdir -p /run/dawo-appliance
         echo "Er is nog geen omgeving gestart: kies er een in de Launcher." > /run/dawo-appliance/guest-skipped
       fi
