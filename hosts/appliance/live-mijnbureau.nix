@@ -22,12 +22,14 @@ let
   # (phase 7) really reach the guest whose disk persisted on the stick.
   driverSum = builtins.substring 0 16 (builtins.hashFile "sha256" driver);
   status = "/run/dawo-appliance/mijnbureau";
+  # Progress for the Launcher (#232), read by `launch status`.
+  progressFile = "/run/launch/progress/mijn-bureau.json";
   logFile = "/var/log/dawo-appliance-mijnbureau.log";
   domain = (builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json)).mijn_bureau.base_domain.value;
 
   runner = pkgs.writeShellApplication {
     name = "dawo-appliance-mijnbureau";
-    runtimeInputs = with pkgs; [ coreutils gnugrep openssh curl util-linux libnotify systemd ];
+    runtimeInputs = with pkgs; [ coreutils gnugrep gawk jq openssh curl util-linux libnotify systemd ];
     text = ''
       mkdir -p /run/dawo-appliance
       key=/var/lib/dawo-appliance/ssh/id_ed25519
@@ -55,13 +57,49 @@ let
       phases=(preflight tools cert-manager issuer password source values deploy
               networking wait-certs trust oidc-restart post-fixes sessions)
 
+      # Progress for the Launcher (#232): the whole start is one list of steps
+      # (virtual machine, internet, the 14 phases, the apps answering); each
+      # step says how long it took last time on this machine (mb-durations
+      # on the stick), or a typical value. Written as one JSON object.
+      labels=("Controles" "Hulpprogramma's installeren" "Certificaatbeheer installeren"
+              "Certificaatuitgever instellen" "Wachtwoorden maken" "Mijn Bureau ophalen"
+              "Instellingen schrijven" "Apps installeren (downloaden)" "Netwerk instellen"
+              "Wachten op certificaten" "Vertrouwen instellen (apps herstarten)"
+              "Inloggen koppelen" "Apps afronden" "Sessies instellen")
+      steps=$(( ''${#phases[@]} + 3 ))
+      since="$(date +%s)"
+      durations=/var/lib/dawo-appliance/mb-durations
+      last_secs() { awk -v k="$1" '$1 == k { s = $2 } END { if (s != "") print s }' "$durations" 2>/dev/null || true; }
+      typical() { # the status page's typical durations (Dell Latitude 5550)
+        case "$1" in
+          vm) echo 180 ;; net) echo 10 ;; apps) echo 180 ;;
+          8) echo 360 ;; 10) echo 90 ;; 11) echo 420 ;; 13) echo 120 ;; *) echo 45 ;;
+        esac
+      }
+      progress() { # progress STEP LABEL KEY [ERROR]
+        local exp
+        exp="$(last_secs "$3")"; exp="''${exp:-$(typical "$3")}"
+        mkdir -p "$(dirname ${progressFile})"
+        jq -n --argjson step "$1" --argjson steps "$steps" --arg label "$2" \
+          --argjson started "$(date +%s)" --argjson since "$since" --argjson expected "$exp" --arg error "''${4:-}" \
+          '{step: $step, steps: $steps, label: $label, started: $started, since: $since, expected: $expected}
+           + (if $error == "" then {} else {error: $error} end)' \
+          > ${progressFile}.new && mv -f ${progressFile}.new ${progressFile}
+      }
+      failed() { # failed STEP LABEL KEY MESSAGE: keep the step, add the error
+        progress "$1" "$2" "$3" "$4"
+      }
+
       k3s_ready() { g sudo k3s kubectl get node 2>/dev/null | grep -q ' Ready'; }
 
       # 1. Wait for the guest's K3s (bounded by the unit's TimeoutStartSec).
       state "wacht op de virtuele machine en K3s"
+      progress 1 "Virtuele machine en K3s starten" vm
+      vm_t0="$(date +%s)"
       until k3s_ready; do
         if [ -s /run/dawo-appliance/guest-skipped ]; then
           state "niet mogelijk: de virtuele machine is niet gestart"
+          failed 1 "Virtuele machine en K3s starten" vm "De virtuele machine kon niet starten: $(cat /run/dawo-appliance/guest-skipped)"
           exit 0
         fi
         sleep 10
@@ -117,7 +155,10 @@ let
         log "guest: runs with nousershstk (#176)"
       fi
 
+      echo "vm $(( $(date +%s) - vm_t0 ))" >> "$durations" || true
+
       # 2. Internet (upstream charts and images are downloaded).
+      progress 2 "Wachten op internet (wifi Dawo of een netwerkkabel)" net
       waited=0
       until g curl -sS -o /dev/null --max-time 10 https://github.com 2>/dev/null; do
         if [ "$waited" -eq 0 ]; then
@@ -138,6 +179,7 @@ let
       for i in "''${!phases[@]}"; do
         n=$((i + 1)); name="''${phases[$i]}"
         marker="/var/lib/dawo-appliance-mb/phase-$n.done"
+        progress $((n + 2)) "''${labels[$i]}" "$n"
         made_with="$(g sudo cat "$marker" 2>/dev/null || true)"
         if [ "$made_with" = "${driverSum}" ]; then
           log "phase $n/$total $name: already done"
@@ -165,6 +207,7 @@ let
         done
         if [ "$ok" != yes ]; then
           state "mislukt bij stap $n van $total ($name); zie mijnbureau.txt op de USB-stick"
+          failed $((n + 2)) "''${labels[$i]}" "$n" "Deze stap is drie keer mislukt. De details staan in mijnbureau.txt op de USB-schijf."
           notify "Mijn Bureau: uitrol mislukt" "Stap $n van $total ($name) is drie keer mislukt. De details staan in mijnbureau.txt op de USB-stick."
           exit 1
         fi
@@ -174,12 +217,14 @@ let
       # over HTTPS (2xx/3xx through Traefik; 404/502/503 means not yet; -k:
       # this is a liveness probe, trust is checked elsewhere).
       state "Mijn Bureau start op: wacht tot de apps reageren (na een herstart een paar minuten)"
+      progress "$steps" "Mijn Bureau start op (de apps gaan reageren)" apps
       waited=0
       for h in id bureaublad nextcloud element; do
         until code="$(g curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "https://$h.${domain}/" 2>/dev/null)" \
               && [ "''${code:-000}" -ge 200 ] && [ "''${code:-000}" -lt 400 ]; do
           if [ "$waited" -ge 1200 ]; then
             state "mislukt: $h.${domain} reageert niet (HTTP ''${code:-000}); zie mijnbureau.txt op de USB-stick"
+            failed "$steps" "Mijn Bureau start op (de apps gaan reageren)" apps "$h.${domain} reageert na 20 minuten nog niet."
             notify "Mijn Bureau reageert niet" "$h.${domain} gaf na 20 minuten nog geen antwoord."
             exit 1
           fi
@@ -187,6 +232,7 @@ let
         done
         log "app $h.${domain}: HTTP $code after ''${waited}s"
       done
+      echo "apps $waited" >> "$durations" || true
       state "klaar: Mijn Bureau is uitgerold (''${SECONDS}s)"
       notify "Mijn Bureau is uitgerold" "De browser opent het dashboard zodra alles gezond is."
     '';
@@ -227,6 +273,11 @@ in
     serviceConfig = {
       Type = "simple";
       ExecStart = "${runner}/bin/dawo-appliance-mijnbureau";
+      # A stopped environment shows no old progress when it is started again
+      # (#232); after a failure the file stays, so the Launcher shows the error.
+      ExecStopPost = toString (pkgs.writeShellScript "mijnbureau-progress-clear" ''
+        if [ "''${SERVICE_RESULT:-}" = success ]; then rm -f ${progressFile}; fi
+      '');
       StandardOutput = "journal+console";
       StandardError = "journal+console";
     };
