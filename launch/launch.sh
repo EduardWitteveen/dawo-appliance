@@ -6,9 +6,14 @@
 # Launch is meant to become a project of its own: nothing in here is specific
 # to one workplace. Paths and limits come from the environment:
 #   LAUNCH_CATALOG        the catalogue JSON (set by the package)
-#   LAUNCH_DATA_PATH      where environments keep their data (default /var/lib/launch)
-#   LAUNCH_RESERVE_GIB    memory kept for the workplace itself (default 6)
-#   LAUNCH_INTERNET_URL   reachable when there is internet (default https://github.com/)
+#   LAUNCH_CONFIG         this machine's settings, written by the NixOS module
+#                         services.launch (default /etc/launch/config.json):
+#                         dataPath, reserveGiB, internetUrl, and per environment
+#                         the systemd units that start and stop it
+#   LAUNCH_DATA_PATH      where environments keep their data (default: config, else /var/lib/launch)
+#   LAUNCH_RESERVE_GIB    memory kept for the workplace itself (default: config, else 6)
+#   LAUNCH_INTERNET_URL   reachable when there is internet (default: config, else https://github.com/)
+#   LAUNCH_SYSTEMCTL      (tests) instead of systemctl
 #   LAUNCH_MEMINFO        (tests) a meminfo file instead of /proc/meminfo
 #   LAUNCH_KVM_DEVICE     (tests) instead of /dev/kvm
 #   LAUNCH_FREE_GIB       (tests) free space instead of asking df
@@ -19,9 +24,13 @@
 set -euo pipefail
 
 catalog="${LAUNCH_CATALOG:?LAUNCH_CATALOG is not set}"
-data_path="${LAUNCH_DATA_PATH:-/var/lib/launch}"
-reserve_gib="${LAUNCH_RESERVE_GIB:-6}"
-internet_url="${LAUNCH_INTERNET_URL:-https://github.com/}"
+config="${LAUNCH_CONFIG:-/etc/launch/config.json}"
+[[ -r "${config}" ]] || config=/dev/null
+conf() { jq -r "$1 // empty" "${config}" 2>/dev/null || true; }
+data_path="${LAUNCH_DATA_PATH:-$(conf .dataPath)}"; data_path="${data_path:-/var/lib/launch}"
+reserve_gib="${LAUNCH_RESERVE_GIB:-$(conf .reserveGiB)}"; reserve_gib="${reserve_gib:-6}"
+internet_url="${LAUNCH_INTERNET_URL:-$(conf .internetUrl)}"; internet_url="${internet_url:-https://github.com/}"
+systemctl_bin="${LAUNCH_SYSTEMCTL:-systemctl}"
 meminfo="${LAUNCH_MEMINFO:-/proc/meminfo}"
 kvm_device="${LAUNCH_KVM_DEVICE:-/dev/kvm}"
 
@@ -31,7 +40,7 @@ Gebruik:
   launch                        de omgevingen die je kunt starten
   launch <omgeving> [--yes]     een omgeving starten (--yes: niet vragen bij een waarschuwing)
   launch --check <omgeving>     alleen controleren of deze laptop genoeg heeft (--json voor de Launcher)
-  launch --stop <omgeving>      een omgeving stoppen          (volgt, ADR 0008 fase B1)
+  launch --stop <omgeving>      een omgeving stoppen
   launch --status [--json]      welke omgevingen antwoorden, en waar
   launch --list [--json]        de catalogus (--json: voor de Launcher)
 EOF
@@ -106,18 +115,37 @@ check() {
   [[ -z "${out}" ]]
 }
 
-# Whether each environment answers at its health URL (read-only).
+# The systemd units that start and stop an environment on this machine.
+units_of() { jq -r --arg id "$1" '.environments[$id].units[]? // empty' "${config}" 2>/dev/null || true; }
+
+# Whether any of the environment's units is active (starting or running).
+units_active() {
+  local u
+  while IFS= read -r u; do
+    [[ -n "${u}" ]] || continue
+    if "${systemctl_bin}" is-active --quiet "${u}"; then return 0; fi
+  done < <(units_of "$1")
+  return 1
+}
+
+# Whether each environment answers at its health URL; while its units run but
+# it does not answer yet, it is starting.
 status() {
-  local json="${1:-}" id title url answers out="[]"
+  local json="${1:-}" id title url answers state out="[]"
   while IFS=$'	' read -r id title url; do
     answers=false
     if curl -sS --max-time 4 -o /dev/null "${url}" 2>/dev/null; then answers=true; fi
+    if [[ "${answers}" == true ]]; then state=ready
+    elif units_active "${id}"; then state=starting
+    else state=stopped; fi
     if [[ "${json}" == "--json" ]]; then
-      out="$(jq --arg id "${id}" --arg url "${url}" --argjson up "${answers}" '. + [{id: $id, url: $url, answers: $up}]' <<<"${out}")"
-    elif [[ "${answers}" == true ]]; then
-      echo "${title}: klaar op ${url}"
+      out="$(jq --arg id "${id}" --arg url "${url}" --arg st "${state}" --argjson up "${answers}" '. + [{id: $id, url: $url, state: $st, answers: $up}]' <<<"${out}")"
     else
-      echo "${title}: niet actief"
+      case "${state}" in
+        ready) echo "${title}: klaar op ${url}" ;;
+        starting) echo "${title}: wordt gestart" ;;
+        *) echo "${title}: niet actief" ;;
+      esac
     fi
   done < <(jq -r '.environments[] | [.id, .title, .health.url] | @tsv' "$catalog")
   if [[ "${json}" == "--json" ]]; then jq . <<<"${out}"; fi
@@ -137,8 +165,27 @@ start() {
       fi
     fi
   fi
-  echo "launch ${id}: starten is nog niet beschikbaar (ADR 0008, fase B1)." >&2
-  exit 2
+  mapfile -t units < <(units_of "${id}")
+  if (( ${#units[@]} == 0 )); then
+    echo "launch ${id}: starten is op deze machine niet ingericht (geen units in ${LAUNCH_CONFIG:-/etc/launch/config.json})." >&2
+    exit 2
+  fi
+  "${systemctl_bin}" start --no-block "${units[@]}"
+  echo "De $(field "${id}" .title)-omgeving wordt gestart. Volg het met: launch --status"
+  echo "Daarna te openen op $(field "${id}" .url)"
+}
+
+stop() {
+  local id="$1" i
+  require_env "${id}"
+  mapfile -t units < <(units_of "${id}")
+  if (( ${#units[@]} == 0 )); then
+    echo "launch --stop ${id}: stoppen is op deze machine niet ingericht." >&2
+    exit 2
+  fi
+  # Reverse order: what was started last stops first.
+  for (( i = ${#units[@]} - 1; i >= 0; i-- )); do "${systemctl_bin}" stop "${units[i]}"; done
+  echo "De $(field "${id}" .title)-omgeving is gestopt."
 }
 
 case "${1:-}" in
@@ -146,7 +193,7 @@ case "${1:-}" in
   -h | --help) usage ;;
   --check) [[ -n "${2:-}" ]] || { usage >&2; exit 1; }; check "$2" "${3:-}" || exit 3 ;;
   --status) status "${2:-}" ;;
-  --stop) echo "launch $1: nog niet beschikbaar (ADR 0008, fase B1)." >&2; exit 2 ;;
+  --stop) [[ -n "${2:-}" ]] || { usage >&2; exit 1; }; stop "$2" ;;
   -*) usage >&2; exit 1 ;;
   *) start "$1" "${2:-}" ;;
 esac

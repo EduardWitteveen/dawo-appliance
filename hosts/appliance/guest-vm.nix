@@ -272,6 +272,24 @@ in
       description = "Flag the domain for libvirt autostart and start it from dawo-appliance-guest.service.";
     };
 
+    onDemand = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Start the guest only when dawo-appliance-guest.service is started (by
+        Launch, ADR 0008), not at boot: the unit is not wanted by
+        multi-user.target, libvirt's own autostart flag is cleared, and
+        stopping the unit shuts the guest down (ACPI, then forced after
+        `stopTimeoutSec`). The firmware watchdog starts with the guest.
+      '';
+    };
+
+    stopTimeoutSec = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 90;
+      description = "With onDemand: how long a guest shutdown may take before it is forced off.";
+    };
+
     fitToHost = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -514,7 +532,8 @@ in
     # hold up multi-user.target (the desktop) while it watches.
     systemd.services.dawo-appliance-guest-fwwatch = lib.mkIf cfg.autostart {
       description = "Reset the ${vmSpec.name} guest if its firmware or kernel crashes at boot";
-      wantedBy = [ "multi-user.target" ];
+      # With onDemand it starts together with the guest unit (Launch).
+      wantedBy = if cfg.onDemand then [ "dawo-appliance-guest.service" ] else [ "multi-user.target" ];
       after = [ "dawo-appliance-guest.service" ];
       requisite = [ "dawo-appliance-guest.service" ];
       serviceConfig.Type = "simple";
@@ -553,7 +572,7 @@ in
 
     systemd.services.dawo-appliance-guest = {
       description = "Define and start the Ubuntu 24.04 guest (${vmSpec.name}): SSH key, cloud-init seed, libvirt domain";
-      wantedBy = [ "multi-user.target" ];
+      wantedBy = lib.mkIf (!cfg.onDemand) [ "multi-user.target" ];
       requires = [ "libvirtd.service" "dawo-appliance-guest-network.service" ];
       # The CA is optional here (Slice 4b module); the image is needed only to
       # start, not to define.
@@ -567,6 +586,22 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+      } // lib.optionalAttrs cfg.onDemand {
+        # launch --stop: shut the guest down cleanly, forced after the timeout.
+        ExecStop = "${pkgs.writeShellScript "dawo-appliance-guest-stop" ''
+          export LIBVIRT_DEFAULT_URI=qemu:///system
+          name=${lib.escapeShellArg vmSpec.name}
+          virsh=${pkgs.libvirt}/bin/virsh
+          [ "$($virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
+          $virsh shutdown "$name" >/dev/null 2>&1 || true
+          for _ in $(${pkgs.coreutils}/bin/seq 1 ${toString cfg.stopTimeoutSec}); do
+            [ "$($virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
+            ${pkgs.coreutils}/bin/sleep 1
+          done
+          echo "dawo-appliance-guest: $name did not shut down within ${toString cfg.stopTimeoutSec} s; forcing it off" >&2
+          $virsh destroy "$name" >/dev/null 2>&1 || true
+        ''}";
+        TimeoutStopSec = cfg.stopTimeoutSec + 30;
       };
       environment.LIBVIRT_DEFAULT_URI = "qemu:///system";
       path = servicePath;
@@ -756,7 +791,7 @@ in
         echo "$dwant" > "$dstamp"
 
         ${if cfg.autostart then ''
-          virsh autostart "$name" >/dev/null
+          ${if cfg.onDemand then "virsh autostart --disable \"$name\" >/dev/null # started by Launch, not by libvirtd" else "virsh autostart \"$name\" >/dev/null"}
           state="$(virsh domstate "$name")"
           if [ "$state" = "running" ]; then
             echo "dawo-appliance-guest: $name already running"

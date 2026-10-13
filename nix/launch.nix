@@ -96,44 +96,60 @@ let
       ${lib.concatMapStrings (m: "echo ${lib.escapeShellArg "  - ${m}"} >&2\n") problems}
       exit 1
     '' else ''
-            fail() { echo "FAIL: $*" >&2; exit 1; }
-            jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
-            launch | grep -q '^mijn-bureau' || fail "listing"
-            [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ] || fail "--list --json"
-            if launch does-not-exist 2>/dev/null; then fail "an unknown environment must fail"; fi
-            { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving" || fail "unknown message"
+                  fail() { echo "FAIL: $*" >&2; exit 1; }
+                  jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
+                  launch | grep -q '^mijn-bureau' || fail "listing"
+                  [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ] || fail "--list --json"
+                  if launch does-not-exist 2>/dev/null; then fail "an unknown environment must fail"; fi
+                  { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving" || fail "unknown message"
 
-            # Preflight (#212), with a fake laptop: 32 GB, 100 GB free, KVM, internet.
-            printf 'MemTotal:       32768000 kB
-      ' > mem32; printf 'MemTotal:        8192000 kB
-      ' > mem8
-            touch kvm; echo ok > net
+                  # Preflight (#212), with a fake laptop: 32 GB, 100 GB free, KVM, internet.
+                  printf 'MemTotal:       32768000 kB
+            ' > mem32; printf 'MemTotal:        8192000 kB
+            ' > mem8
+                  touch kvm; echo ok > net
+                  export LAUNCH_MEMINFO=$PWD/mem32 LAUNCH_FREE_GIB=100 LAUNCH_KVM_DEVICE=$PWD/kvm LAUNCH_INTERNET_URL=file://$PWD/net
+                  launch --check mijn-bureau | grep -q "Alles in orde" || fail "check on a good laptop"
+                  [ "$(launch --check mijn-bureau --json | jq -r .ok)" = true ] || fail "check --json ok"
+                  # A good laptop: preflight passes, starting itself is not there yet (exit 2).
+                  rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
+                  [ "$rc" = 2 ] || fail "start on a good laptop: exit $rc, want 2"
+
+                  # A small laptop: every shortfall is named, in Dutch.
+                  export LAUNCH_MEMINFO=$PWD/mem8 LAUNCH_FREE_GIB=4 LAUNCH_KVM_DEVICE=$PWD/no-kvm LAUNCH_INTERNET_URL=file://$PWD/no-net
+                  rc=0; launch --check mijn-bureau >out 2>&1 || rc=$?
+                  [ "$rc" = 3 ] || fail "check on a small laptop: exit $rc, want 3"
+                  grep -q "8 GB geheugen" out || fail "memory warning"; grep -q "nog 4 GB vrij" out || fail "disk warning"
+                  grep -q "virtualisatie" out || fail "kvm warning"; grep -q "geen internet" out || fail "internet warning"
+                  [ "$(launch --check mijn-bureau --json | jq '.problems | length')" = 4 ] || fail "check --json lists 4 problems"
+                  # Without a terminal and without --yes: not started (exit 3); with --yes: goes on (exit 2).
+                  rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
+                  [ "$rc" = 3 ] && grep -q -- "--yes" out || fail "start without --yes: exit $rc"
+                  rc=0; launch mijn-bureau --yes </dev/null >out 2>&1 || rc=$?
+                  [ "$rc" = 2 ] || fail "start with --yes: exit $rc, want 2"
+                  # --status (#215): a catalogue whose health URL answers, and one that does not.
+            jq --arg up "file://$PWD/net" '.environments[0].health.url = $up' ${json} > up.json
+            LAUNCH_CATALOG=$PWD/up.json launch --status | grep -q "Mijn Bureau: klaar op file://" || fail "--status answering"
+            [ "$(LAUNCH_CATALOG=$PWD/up.json launch --status --json | jq -r '.[0].answers')" = true ] || fail "--status --json answering"
+            jq --arg down "file://$PWD/no-net" '.environments[0].health.url = $down' ${json} > down.json
+            LAUNCH_CATALOG=$PWD/down.json launch --status | grep -q "Mijn Bureau: niet actief" || fail "--status not answering"
+            # Start and stop through the bound units (#228), with a fake systemctl.
+            printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$FAKE_LOG"' \
+              '[ "$1" = is-active ] && [ -e "$FAKE_ACTIVE" ] && exit 0' \
+              '[ "$1" = is-active ] && exit 3' 'exit 0' > fake-systemctl
+            chmod +x fake-systemctl
+            echo '{"dataPath":"/tmp","reserveGiB":6,"environments":{"mijn-bureau":{"units":["guest.service","deploy.service"]}}}' > config.json
+            export LAUNCH_SYSTEMCTL=$PWD/fake-systemctl LAUNCH_CONFIG=$PWD/config.json FAKE_LOG=$PWD/sc.log FAKE_ACTIVE=$PWD/active
             export LAUNCH_MEMINFO=$PWD/mem32 LAUNCH_FREE_GIB=100 LAUNCH_KVM_DEVICE=$PWD/kvm LAUNCH_INTERNET_URL=file://$PWD/net
-            launch --check mijn-bureau | grep -q "Alles in orde" || fail "check on a good laptop"
-            [ "$(launch --check mijn-bureau --json | jq -r .ok)" = true ] || fail "check --json ok"
-            # A good laptop: preflight passes, starting itself is not there yet (exit 2).
-            rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
-            [ "$rc" = 2 ] || fail "start on a good laptop: exit $rc, want 2"
-
-            # A small laptop: every shortfall is named, in Dutch.
-            export LAUNCH_MEMINFO=$PWD/mem8 LAUNCH_FREE_GIB=4 LAUNCH_KVM_DEVICE=$PWD/no-kvm LAUNCH_INTERNET_URL=file://$PWD/no-net
-            rc=0; launch --check mijn-bureau >out 2>&1 || rc=$?
-            [ "$rc" = 3 ] || fail "check on a small laptop: exit $rc, want 3"
-            grep -q "8 GB geheugen" out || fail "memory warning"; grep -q "nog 4 GB vrij" out || fail "disk warning"
-            grep -q "virtualisatie" out || fail "kvm warning"; grep -q "geen internet" out || fail "internet warning"
-            [ "$(launch --check mijn-bureau --json | jq '.problems | length')" = 4 ] || fail "check --json lists 4 problems"
-            # Without a terminal and without --yes: not started (exit 3); with --yes: goes on (exit 2).
-            rc=0; launch mijn-bureau </dev/null >out 2>&1 || rc=$?
-            [ "$rc" = 3 ] && grep -q -- "--yes" out || fail "start without --yes: exit $rc"
-            rc=0; launch mijn-bureau --yes </dev/null >out 2>&1 || rc=$?
-            [ "$rc" = 2 ] || fail "start with --yes: exit $rc, want 2"
-            # --status (#215): a catalogue whose health URL answers, and one that does not.
-      jq --arg up "file://$PWD/net" '.environments[0].health.url = $up' ${json} > up.json
-      LAUNCH_CATALOG=$PWD/up.json launch --status | grep -q "Mijn Bureau: klaar op file://" || fail "--status answering"
-      [ "$(LAUNCH_CATALOG=$PWD/up.json launch --status --json | jq -r '.[0].answers')" = true ] || fail "--status --json answering"
-      jq --arg down "file://$PWD/no-net" '.environments[0].health.url = $down' ${json} > down.json
-      LAUNCH_CATALOG=$PWD/down.json launch --status | grep -q "Mijn Bureau: niet actief" || fail "--status not answering"
-      cp ${json} $out
+            launch mijn-bureau </dev/null > out || fail "start exit"; grep -q "wordt gestart" out || fail "start message"
+            grep -qx "start --no-block guest.service deploy.service" sc.log || fail "start runs the units in order"
+            : > sc.log; launch --stop mijn-bureau > out || fail "stop exit"; grep -q "is gestopt" out || fail "stop message"
+            [ "$(cat sc.log)" = "$(printf 'stop deploy.service
+      stop guest.service')" ] || fail "stop in reverse order"
+            touch active
+            LAUNCH_CATALOG=$PWD/down.json launch --status > out; grep -q "Mijn Bureau: wordt gestart" out || fail "--status starting"
+            rm -f active
+            cp ${json} $out
     '');
 in
 { inherit catalog json check cli problems; }

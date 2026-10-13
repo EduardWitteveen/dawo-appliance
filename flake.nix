@@ -569,6 +569,9 @@
       # Live USB variant (ADR 0006, #93): same system, iso-image instead of disko.
       nixosConfigurations.appliance-live = mkAppliance [
         ./hosts/appliance/live.nix
+        # Launch (ADR 0008): the generic module and this appliance's binding.
+        (import ./nix/launch-module.nix { inherit launch; })
+        ./hosts/appliance/live-launch.nix
         liveInstallerExtras
         # Which commit this image was built from (#175): shown in the boot
         # menu and on the status page; "unknown" for a path: flake build.
