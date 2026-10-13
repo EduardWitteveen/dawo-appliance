@@ -89,6 +89,8 @@ let
       # that is stopped halfway (the 30 s timer run still busy at shutdown)
       # leaves the previous complete file instead of a truncated one (#197).
       cp -f /run/dawo-appliance/live-report.txt "$dir/progress.txt" 2>/dev/null || true
+      # The Launcher regression run, when launch-selftest.txt asked for it.
+      cp -f /run/dawo-appliance/launch-selftest.txt "$dir/launch-selftest.txt" 2>/dev/null || true
       # The Mijn Bureau deployment log (live-mijnbureau.nix, #111).
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
