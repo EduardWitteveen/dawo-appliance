@@ -89,6 +89,42 @@ let
     '' + builtins.readFile ../launch/launch.sh;
   };
 
+  # The Launcher (ADR 0008, B2): launch/launcher.py serving launch/launcher.html
+  # on 127.0.0.1, running `launch` for the buttons.
+  launcher = pkgs.writeShellApplication {
+    name = "launcher";
+    runtimeInputs = [ pkgs.python3 ];
+    text = ''
+      exec python3 ${../launch/launcher.py} --page ${../launch/launcher.html} --launch ${cli}/bin/launch "$@"
+    '';
+  };
+
+  # The Launcher answers on 127.0.0.1 and refuses actions without its token.
+  launcherCheck = pkgs.runCommand "launcher"
+    { nativeBuildInputs = [ launcher pkgs.curl pkgs.jq pkgs.gnugrep ]; }
+    ''
+            fail() { echo "FAIL: $*" >&2; kill "$pid" 2>/dev/null || true; exit 1; }
+            printf 'MemTotal:       32768000 kB
+      ' > mem32; touch kvm; echo ok > net
+            export LAUNCH_MEMINFO=$PWD/mem32 LAUNCH_FREE_GIB=100 LAUNCH_KVM_DEVICE=$PWD/kvm LAUNCH_INTERNET_URL=file://$PWD/net LAUNCH_CONFIG=/dev/null
+            launcher --port 18790 2> launcher.log & pid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18790/ -o page.html && break; sleep 0.2; done
+            grep -q "<title>Launcher</title>" page.html || fail "page"
+            ! grep -q "__LAUNCHER_TOKEN__" page.html || fail "token placeholder left in the page"
+            token="$(grep -o 'const TOKEN = "[0-9a-f]*"' page.html | grep -o '[0-9a-f]\{32\}')"
+            [ -n "$token" ] || fail "no token in the page"
+            curl -sf http://127.0.0.1:18790/api/environments > envs.json || fail "environments"
+            [ "$(jq -r '.[0].id' envs.json)" = mijn-bureau ] || fail "environments list"
+            [ "$(jq -r '.[0].state' envs.json)" = stopped ] || fail "state"
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18790/api/start/mijn-bureau)"
+            [ "$code" = 403 ] || fail "start without the token answered $code, want 403"
+            curl -s -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18790/api/start/mijn-bureau > start.json
+            # No units on this machine: launch exits 2, the Launcher reports it.
+            [ "$(jq -r '.code' start.json)" = 2 ] || fail "start through the Launcher: $(cat start.json)"
+            kill "$pid"
+            touch $out
+    '';
+
   check = pkgs.runCommand "environments-catalog"
     { nativeBuildInputs = [ pkgs.jq cli pkgs.gnugrep ]; }
     (if problems != [ ] then ''
@@ -152,4 +188,4 @@ let
             cp ${json} $out
     '');
 in
-{ inherit catalog json check cli problems; }
+{ inherit catalog json check cli problems launcher launcherCheck; }
