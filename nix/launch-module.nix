@@ -61,6 +61,14 @@ in
         };
       });
     };
+    launcher = {
+      enable = lib.mkEnableOption "the Launcher window (a local web page with a card per environment)";
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8790;
+        description = "The Launcher listens on 127.0.0.1 at this port.";
+      };
+    };
     autostart = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
@@ -83,7 +91,31 @@ in
         })
         cfg.autostart;
 
-    environment.systemPackages = [ launch.cli ];
+    environment.systemPackages = [ launch.cli ]
+      ++ lib.optionals cfg.launcher.enable [
+      launch.launcher
+      (pkgs.makeDesktopItem {
+        name = "launcher";
+        desktopName = "Launcher";
+        genericName = "Omgevingen starten";
+        comment = "Kies een omgeving om te proberen";
+        exec = "${pkgs.xdg-utils}/bin/xdg-open http://127.0.0.1:${toString cfg.launcher.port}/";
+        icon = "applications-other";
+        categories = [ "Office" ];
+      })
+    ];
+
+    # The Launcher runs in each graphical user session, as that user.
+    systemd.user.services.launcher = lib.mkIf cfg.launcher.enable {
+      description = "Launcher: start, stop and open environments (http://127.0.0.1:${toString cfg.launcher.port}/)";
+      wantedBy = [ "graphical-session.target" ];
+      partOf = [ "graphical-session.target" ];
+      environment.LAUNCH_CONFIG = "/etc/launch/config.json";
+      serviceConfig = {
+        ExecStart = "${launch.launcher}/bin/launcher --port ${toString cfg.launcher.port}";
+        Restart = "on-failure";
+      };
+    };
     environment.etc."launch/config.json".source = configJson;
     users.groups.${cfg.group} = { };
 

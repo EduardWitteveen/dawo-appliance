@@ -76,6 +76,7 @@
       packages.${system} = {
         # `launch` lists the environments (ADR 0008; starting follows in phase B1).
         launch = launch.cli;
+        launcher = launch.launcher;
         default = bootstrap;
         bootstrap = bootstrap;
         # The non-destructive live installer ISO (Slice 1). Build with:
@@ -484,6 +485,8 @@
         # The Launch catalogue is well-formed and its pins match the manifest
         # (ADR 0008, environments/README.md). Offline, no KVM.
         environments-catalog = launch.check;
+        # The Launcher page and its token check (ADR 0008, B2). Offline.
+        launcher = launch.launcherCheck;
 
         # Run the offline bootstrap dry-run test inside the sandbox.
         bootstrap-dryrun = pkgs.runCommand "bootstrap-dryrun"
