@@ -547,20 +547,31 @@ in
         # after the last reset belongs to the current boot: one crashing boot
         # often logs several Oops/BUG lines, which must count once (#184).
         offset=0
+        since=$SECONDS
         for _ in $(seq 1 600); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
           boot="$(tail -c +$((offset + 1)) "$log" 2>/dev/null || true)"
-          if grep -aqE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' <<<"$boot"; then
+          # A boot that printed nothing at all after 3 minutes hangs in the
+          # firmware (seen under nested virtualisation, #184): the kernel
+          # prints on the serial console within seconds. Treat it as a crash.
+          hung=no
+          if [ -z "$boot" ] && [ $((SECONDS - since)) -ge 180 ]; then hung=yes; fi
+          if [ "$hung" = yes ] || grep -aqE 'X64 Exception Type|Oops: |Kernel panic|Failed to decompress kernel' <<<"$boot"; then
             if [ "$resets" -ge ${toString cfg.fwwatchMaxResets} ]; then
               echo "dawo-appliance-guest-fwwatch: $name crashed again after $resets resets; giving up" >&2
               exit 1
             fi
             resets=$((resets + 1))
-            echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of ${toString cfg.fwwatchMaxResets}"
+            if [ "$hung" = yes ]; then
+              echo "dawo-appliance-guest-fwwatch: $name printed nothing in 3 minutes (firmware hang, #184); reset $resets of ${toString cfg.fwwatchMaxResets}"
+            else
+              echo "dawo-appliance-guest-fwwatch: $name crashed while booting (firmware #24 or kernel #119); reset $resets of ${toString cfg.fwwatchMaxResets}"
+            fi
             grep -aE 'X64 Exception Type|Oops: |Kernel panic|BUG: |Failed to decompress kernel' <<<"$boot" | tail -n 3 || true
             virsh reset "$name"
             sleep 1
             offset="$(stat -c %s "$log" 2>/dev/null || echo 0)"
+            since=$SECONDS
           elif grep -aq ' login:' <<<"$boot"; then
             # This boot reached the login prompt without a crash: done.
             exit 0
