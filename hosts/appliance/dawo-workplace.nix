@@ -73,12 +73,23 @@
   # right at boot, before Wi-Fi is up: "Kan URI https://dl.flathub.org/...
   # niet laden", a failed unit, a retry 60 s later that works (#218, U6).
   # network-online.target alone does not help: NetworkManager-wait-online is
-  # off, so the target is reached 2 s after boot (Dell, 2026-10-13). Wait for
-  # NetworkManager to report a connection first (at most 2 minutes; without
-  # one the unit runs anyway and fails as before).
+  # off, so the target is reached 2 s after boot (Dell, 2026-10-13). nm-online
+  # did not help either: it returned before the Wi-Fi was up and the first
+  # attempt still failed (Dell, 2026-10-14). Wait until flathub itself
+  # answers (at most 3 minutes; without an answer the unit runs anyway and
+  # fails as before, and its own retry follows).
   systemd.services.flatpak-managed-install = {
     after = [ "network-online.target" "NetworkManager.service" ];
     wants = [ "network-online.target" ];
-    serviceConfig.ExecStartPre = [ "-${pkgs.networkmanager}/bin/nm-online -q -t 120" ];
+    serviceConfig.ExecStartPre = [
+      "-${pkgs.writeShellScript "flatpak-wait-for-flathub" ''
+        for _ in $(${pkgs.coreutils}/bin/seq 1 36); do
+          ${pkgs.curl}/bin/curl -sf -o /dev/null --max-time 5 https://dl.flathub.org/repo/flathub.flatpakrepo && exit 0
+          ${pkgs.coreutils}/bin/sleep 5
+        done
+        echo "flathub did not answer within 3 minutes" >&2
+        exit 1
+      ''}"
+    ];
   };
 }
