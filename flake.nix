@@ -133,6 +133,13 @@
           inherit pkgs;
           iso = self.packages.${system}.appliance-live-iso;
         };
+        # The Launcher flow (#229): a clean boot, then Starten, Stoppen and
+        # Starten again through the Launcher's API. Needs KVM; ~30-40 min.
+        #   nix build .#test-live-launch -L
+        test-live-launch = import ./nix/tests/live-launch.nix {
+          inherit pkgs;
+          iso = self.packages.${system}.appliance-live-iso;
+        };
 
         # The disk image as Rufus/Etcher write it: the DAWO_LOGS seed grows to
         # the end of the USB disk on the first boot, and stays (#192). Needs
