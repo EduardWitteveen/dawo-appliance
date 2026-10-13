@@ -23,7 +23,7 @@ let
   allUnits = lib.unique (lib.concatMap (e: e.units) (lib.attrValues cfg.environments));
   configJson = pkgs.writeText "launch-config.json" (builtins.toJSON {
     inherit (cfg) dataPath reserveGiB internetUrl;
-    environments = lib.mapAttrs (_: e: { inherit (e) units; }) cfg.environments;
+    environments = lib.mapAttrs (_: e: { inherit (e) units progressFile; }) cfg.environments;
   });
   catalogIds = map (e: e.id) launch.catalog.environments;
 in
@@ -58,6 +58,15 @@ in
         options.units = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           description = "systemd units, started in this order and stopped in reverse.";
+        };
+        options.progressFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            A JSON file the environment writes while it starts:
+            {step, steps, label, started, since, expected, error}. The Launcher shows
+            it as progress (#232).
+          '';
         };
       });
     };

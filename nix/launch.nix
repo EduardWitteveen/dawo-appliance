@@ -184,7 +184,20 @@ let
       stop guest.service')" ] || fail "stop in reverse order"
             touch active
             LAUNCH_CATALOG=$PWD/down.json launch --status > out; grep -q "Mijn Bureau: wordt gestart" out || fail "--status starting"
+            # Progress while starting (#232), from the environment's progressFile.
+            echo '{"step":11,"steps":17,"label":"Vertrouwen instellen","started":1,"since":1,"expected":420}' > progress.json
+            jq --arg f "$PWD/progress.json" '.environments["mijn-bureau"].progressFile = $f' config.json > config2.json
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status > out
+            grep -q "wordt gestart, stap 11 van 17: Vertrouwen instellen" out || fail "--status shows the progress"
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
+            [ "$(jq -r '.[0].progress.step' out.json)" = 11 ] || fail "--status --json has the progress"
+            echo 'not json' > progress.json
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json || fail "--status with a broken progress file"
+            [ "$(jq -r '.[0] | has("progress")' out.json)" = false ] || fail "a broken progress file is ignored"
+            echo '{"step":3,"steps":17,"label":"x","started":1,"expected":45}' > progress.json
             rm -f active
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
+            [ "$(jq -r '.[0] | has("progress")' out.json)" = false ] || fail "no progress when the environment is stopped"
             cp ${json} $out
     '');
 in

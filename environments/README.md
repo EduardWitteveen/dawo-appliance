@@ -105,8 +105,16 @@ order (after the preflight); `launch --stop <id>` stops them in reverse;
 `launch --status` says "wordt gestart" while they run but the environment does
 not answer yet. `services.launch.autostart` starts environments at boot. On
 the live USB (`hosts/appliance/live-launch.nix`) Mijn Bureau is bound to the
-guest and its deployment and still starts at boot until the Launcher window
-exists (ADR 0008, B2).
+guest and its deployment; nothing starts at boot, the Launcher window opens
+at login (ADR 0008, B2).
+
+While an environment starts it may report its progress
+(`services.launch.environments.<id>.progressFile`, #232): a JSON object
+`{step, steps, label, started, since, expected, error}` (times in seconds
+since the epoch; `expected` is how long this step should take, `error` a
+message when it failed). `launch --status` passes it on, and the Launcher
+shows a bar for the whole start and one for the current step. The Mijn Bureau
+runner writes it, with the step durations of the last run on this machine.
 
 ## Checks
 
