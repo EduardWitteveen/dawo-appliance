@@ -307,6 +307,29 @@ with sources, RAM estimates and licenses: issue #151.
   Open Inwoner. **Excluded:** openDesk, Open Webconcept, Open Archiefbeheer
   (license unconfirmed).
 
+## Next — Launch (ADR 0008, `docs/adr/0008-launch-environments.md`)
+
+Maintainer 2026-10-13: first make the live disk work well with Launch.
+
+- **Done:** catalogue format (`environments/`), `launch` listing, preflight
+  warnings (`launch --check`), `launch --status` (#203, #212, #215).
+- **B1 (now):** `launch mijn-bureau` / `launch --stop mijn-bureau` start and
+  stop the environment through systemd (polkit, no sudo); the live USB no
+  longer starts the guest and Mijn Bureau at boot unless the environment is
+  marked to start automatically.
+- **B2:** the Launcher window (a card per environment: Starten, Stoppen,
+  Openen, preflight warning) replaces the status page.
+- **C:** Common Ground environments (below).
+
+## Later — development mode with Claude in the loop (#226)
+
+Maintainer 2026-10-13, on the roadmap after Launch: a separate dev image for
+the maintainer's own SSD in which Claude Code starts by itself on the live
+DAWO system, tests and fixes in place, and controls the whole loop including
+restarts in both directions (one-time firmware BootNext only), with one-time
+logins kept on the SSD's ext4 data file. Everything re-entrant. Never in the
+published image. Design and phases: issue #226.
+
 ## Decisions needed (see open-questions.md)
 
 - **OQ-2** large host for the full end-to-end run (slices 4–7). — still open;
