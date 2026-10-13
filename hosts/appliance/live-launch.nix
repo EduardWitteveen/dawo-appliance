@@ -9,6 +9,8 @@
 { pkgs, ... }:
 
 {
+  imports = [ ./live-launch-selftest.nix ];
+
   appliance.guest.onDemand = true;
 
   services.launch = {
