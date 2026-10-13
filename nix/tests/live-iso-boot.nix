@@ -29,6 +29,9 @@ pkgs.runCommand "live-iso-boot"
     # The debug-log stick the user formatted as DAWO_LOGS (FAT32).
     truncate -s 512M logs.raw
     mkfs.vfat -F 32 -n DAWO_LOGS logs.raw
+    # Launch (ADR 0008): ask for Mijn Bureau at boot, so the guest and K3s run.
+    echo mijn-bureau > launch-autostart.txt
+    mcopy -i logs.raw launch-autostart.txt ::/launch-autostart.txt
 
     cp ${pkgs.OVMF.fd}/FV/OVMF_VARS.fd vars.fd
     chmod u+w vars.fd
