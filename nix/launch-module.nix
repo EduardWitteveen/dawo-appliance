@@ -74,6 +74,14 @@ in
       default = [ ];
       description = "Environments started at boot (launch <id> --yes, after the preflight).";
     };
+    autostartFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        A file read at boot: more environments to start, one id per line
+        (lines starting with # are ignored). Missing file: nothing extra.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -132,7 +140,7 @@ in
       });
     '';
 
-    systemd.services.launch-autostart = lib.mkIf (cfg.autostart != [ ]) {
+    systemd.services.launch-autostart = lib.mkIf (cfg.autostart != [ ] || cfg.autostartFile != null) {
       description = "Launch: start the environments marked to start at boot";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
@@ -141,11 +149,18 @@ in
         RemainAfterExit = true;
       };
       environment.LAUNCH_CONFIG = "/etc/launch/config.json";
-      script = lib.concatMapStrings
-        (id: ''
-          ${launch.cli}/bin/launch ${lib.escapeShellArg id} --yes </dev/null || echo "launch-autostart: ${id} did not start" >&2
-        '')
-        cfg.autostart;
+      script = ''
+        ids=${lib.escapeShellArg (lib.concatStringsSep " " cfg.autostart)}
+        ${lib.optionalString (cfg.autostartFile != null) ''
+          f=${lib.escapeShellArg cfg.autostartFile}
+          if [ -r "$f" ]; then
+            ids="$ids $(${pkgs.gnused}/bin/sed -e 's/#.*//' "$f" | ${pkgs.coreutils}/bin/tr -s ' \t\r\n' ' ')"
+          fi
+        ''}
+        for id in $ids; do
+          ${launch.cli}/bin/launch "$id" --yes </dev/null || echo "launch-autostart: $id did not start" >&2
+        done
+      '';
     };
   };
 }

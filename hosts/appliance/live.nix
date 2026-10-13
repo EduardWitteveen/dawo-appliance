@@ -112,12 +112,15 @@ let
   # Starts the page writer and opens the page once in the browser.
   statusApp = pkgs.writeShellApplication {
     name = "dawo-appliance-status";
-    runtimeInputs = with pkgs; [ coreutils xdg-utils ];
+    runtimeInputs = with pkgs; [ coreutils xdg-utils curl ];
     text = ''
       page="''${XDG_RUNTIME_DIR:-/tmp}/dawo-appliance-status.html"
       ${statusPage}/bin/dawo-appliance-status-page &
       for _ in $(seq 1 20); do [ -s "$page" ] && break; sleep 1; done
       xdg-open "file://$page" >/dev/null 2>&1 || true
+      # The Launcher (ADR 0008) opens last, so it is the tab in front.
+      for _ in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8790/ && break; sleep 1; done
+      xdg-open http://127.0.0.1:8790/ >/dev/null 2>&1 || true
       wait
     '';
   };
