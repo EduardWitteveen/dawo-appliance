@@ -13,7 +13,7 @@
 pkgs.runCommand "live-iso-persist"
 {
   requiredSystemFeatures = [ "kvm" ];
-  nativeBuildInputs = with pkgs; [ qemu_kvm coreutils gnugrep exfatprogs socat ];
+  nativeBuildInputs = with pkgs; [ qemu_kvm coreutils gnugrep exfatprogs socat python3 ];
 }
   ''
     set -euo pipefail
@@ -25,6 +25,9 @@ pkgs.runCommand "live-iso-persist"
     # The prepared stick: exFAT labelled DAWO_LOGS, 48 GiB, sparse.
     truncate -s 48G logs.raw
     mkfs.exfat -L DAWO_LOGS logs.raw >/dev/null
+    # Launch (ADR 0008): ask for Mijn Bureau at boot, so the guest and K3s run.
+    mkdir seed && echo mijn-bureau > seed/launch-autostart.txt
+    python3 ${../../tests/exfat-add-tree.py} logs.raw 0 seed
 
     cp ${pkgs.OVMF.fd}/FV/OVMF_VARS.fd vars.fd
     chmod u+w vars.fd
