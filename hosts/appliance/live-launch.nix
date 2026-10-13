@@ -22,6 +22,8 @@
       "dawo-appliance-guest.service"
       "dawo-appliance-mijnbureau.service"
     ];
+    # Written by the Mijn Bureau runner (live-mijnbureau.nix, #232).
+    environments.mijn-bureau.progressFile = "/run/launch/progress/mijn-bureau.json";
     autostartFile = "/run/dawo-logs/launch-autostart.txt";
     launcher.enable = true;
   };

@@ -73,6 +73,9 @@ def environments():
             "url": env.get("url", ""),
             "login": env.get("login", ""),
             "state": states.get(eid, {}).get("state", "stopped"),
+            # While it starts: {step, steps, label, started, since, expected,
+            # error} as the environment wrote it (#232), else None.
+            "progress": states.get(eid, {}).get("progress"),
             "problems": check.get("problems", []),
         })
     return result

@@ -53,12 +53,31 @@
   .login { color: var(--muted); font-size: .85rem; }
   .message { color: var(--muted); font-size: .85rem; min-height: 1.2em; }
   footer { margin-top: 32px; color: var(--muted); font-size: .85rem; }
+  /* Progress while an environment starts (#232): the whole start on top,
+     the current step below. */
+  .progress { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
+  .prow { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+  .prow b { color: var(--text); font-weight: 600; }
+  .bar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+  .bar.step { height: 6px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); border-radius: inherit;
+               transition: width .8s linear; }
+  .bar.step > div { background: var(--busy); }
+  .bar.waiting > div { width: 35% !important; animation: slide 1.6s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+  .plabel { font-weight: 600; margin-top: 4px; }
+  .ptime { color: var(--muted); font-size: .85rem; }
+  .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
+  @media (prefers-reduced-motion: reduce) {
+    .bar > div { transition: none; }
+    .bar.waiting > div { animation: none; width: 100% !important; opacity: .4; }
+  }
 </style>
 </head>
 <body>
 <main>
   <h1>Launcher</h1>
-  <p class="lead">Kies een omgeving om te proberen. Starten kan de eerste keer een paar minuten duren; daarna gaat het snel.</p>
+  <p class="lead">Kies een omgeving om te proberen. De eerste keer duurt starten lang (alles wordt gedownload: reken op een half uur tot een uur); daarna gaat het veel sneller. Hieronder zie je steeds bij welke stap het is.</p>
   <div class="grid" id="grid" aria-live="polite"><p>Even geduld…</p></div>
   <footer>Experimenteel en onofficieel. Er draait één omgeving tegelijk.</footer>
 </main>
@@ -113,16 +132,70 @@ function card(env) {
       el("div", {}, el("p", { class: "title" }, env.title), el("span", { class: "version" }, env.version))),
     el("p", { class: "summary" }, env.summary),
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
+    env.state === "starting" ? progressBlock(env) : null,
     warn,
     env.state === "ready" && env.login ? el("div", { class: "login" }, "Inloggen: " + env.login) : null,
     el("div", { class: "message" }, busy[env.id] || ""),
     actions);
 }
 
+// "1 min 20 s", "7 min", "45 s"
+function dur(s) {
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return s + " s";
+  const m = Math.floor(s / 60), r = s % 60;
+  return m < 10 && r ? `${m} min ${r} s` : `${Math.round(s / 60)} min`;
+}
+
+// The progress an environment reports while it starts (#232): a bar for the
+// whole start and one for the current step. Before the environment reports
+// anything, a moving bar says that it is being prepared. The times are
+// filled in by tick(), every second, without redrawing the card.
+function progressBlock(env) {
+  const p = env.progress;
+  if (!p) {
+    return el("div", { class: "progress" },
+      el("div", { class: "prow" }, el("b", {}, "Voorbereiden…")),
+      el("div", { class: "bar waiting" }, el("div", {})),
+      el("div", { class: "ptime" }, "De omgeving wordt klaargezet; zo meteen zie je de stappen."));
+  }
+  const box = el("div", { class: "progress", "data-step": p.step, "data-steps": p.steps,
+                          "data-started": p.started, "data-since": p.since || "", "data-expected": p.expected || "" },
+    el("div", { class: "prow" }, el("b", {}, `Stap ${p.step} van ${p.steps}`), el("span", { class: "psince" }, "")),
+    el("div", { class: "bar overall", role: "progressbar", "aria-label": "Totale voortgang" }, el("div", {})),
+    el("div", { class: "plabel" }, p.label || ""),
+    el("div", { class: "bar step" + (p.expected ? "" : " waiting"), role: "progressbar", "aria-label": "Voortgang van deze stap" }, el("div", {})),
+    el("div", { class: "ptime" }, ""));
+  if (p.error) box.append(el("div", { class: "perror" }, p.error));
+  return box;
+}
+
+function tick() {
+  const now = Date.now() / 1000;
+  for (const box of document.querySelectorAll(".progress[data-started]")) {
+    const step = +box.dataset.step, steps = +box.dataset.steps, exp = +box.dataset.expected;
+    const elapsed = now - +box.dataset.started;
+    const frac = exp ? Math.min(elapsed / exp, 0.97) : 0;
+    const overall = Math.min(1, (step - 1 + frac) / steps);
+    const ob = box.querySelector(".bar.overall"), sb = box.querySelector(".bar.step");
+    ob.firstChild.style.width = (overall * 100).toFixed(1) + "%";
+    ob.setAttribute("aria-valuenow", Math.round(overall * 100));
+    if (exp) sb.firstChild.style.width = (frac * 100).toFixed(1) + "%";
+    let t;
+    if (!exp) t = `${dur(elapsed)} bezig`;
+    else if (elapsed <= exp * 1.15) t = `${dur(elapsed)} van ongeveer ${dur(exp)}`;
+    else t = `${dur(elapsed)} bezig; vorige keer duurde deze stap ${dur(exp)}. Nog even geduld, het loopt nog.`;
+    box.querySelector(".ptime").textContent = t;
+    if (box.dataset.since) box.querySelector(".psince").textContent = "bezig sinds " + dur(now - +box.dataset.since);
+  }
+}
+setInterval(tick, 1000);
+
 let lastData = [];
 function render(data) {
   const grid = document.getElementById("grid");
   grid.replaceChildren(...(data.length ? data.map(card) : [el("p", {}, "Er zijn geen omgevingen.")]));
+  tick();
 }
 
 let lastJson = "";

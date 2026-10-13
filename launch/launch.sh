@@ -118,6 +118,16 @@ check() {
 # The systemd units that start and stop an environment on this machine.
 units_of() { jq -r --arg id "$1" '.environments[$id].units[]? // empty' "${config}" 2>/dev/null || true; }
 
+# The environment's progress while it starts (#232): a JSON file it writes
+# itself, {step, steps, label, started, since, expected, error}; empty when there is
+# none or it is not valid JSON.
+progress_of() {
+  local f
+  f="$(jq -r --arg id "$1" '.environments[$id].progressFile // empty' "${config}" 2>/dev/null || true)"
+  [[ -n "${f}" && -r "${f}" ]] || return 0
+  jq -c 'select(type == "object" and (.step | type) == "number" and (.steps | type) == "number")' "${f}" 2>/dev/null || true
+}
+
 # Whether any of the environment's units is active (starting or running).
 units_active() {
   local u
@@ -131,19 +141,28 @@ units_active() {
 # Whether each environment answers at its health URL; while its units run but
 # it does not answer yet, it is starting.
 status() {
-  local json="${1:-}" id title url answers state out="[]"
+  local json="${1:-}" id title url answers state progress out="[]"
   while IFS=$'	' read -r id title url; do
     answers=false
     if curl -sS --max-time 4 -o /dev/null "${url}" 2>/dev/null; then answers=true; fi
     if [[ "${answers}" == true ]]; then state=ready
     elif units_active "${id}"; then state=starting
     else state=stopped; fi
+    progress=""
+    if [[ "${state}" == starting ]]; then progress="$(progress_of "${id}")"; fi
     if [[ "${json}" == "--json" ]]; then
-      out="$(jq --arg id "${id}" --arg url "${url}" --arg st "${state}" --argjson up "${answers}" '. + [{id: $id, url: $url, state: $st, answers: $up}]' <<<"${out}")"
+      out="$(jq --arg id "${id}" --arg url "${url}" --arg st "${state}" --argjson up "${answers}" \
+               --argjson pr "${progress:-null}" \
+               '. + [{id: $id, url: $url, state: $st, answers: $up} + (if $pr == null then {} else {progress: $pr} end)]' <<<"${out}")"
     else
       case "${state}" in
         ready) echo "${title}: klaar op ${url}" ;;
-        starting) echo "${title}: wordt gestart" ;;
+        starting)
+          if [[ -n "${progress}" ]]; then
+            echo "${title}: wordt gestart, $(jq -r '"stap \(.step) van \(.steps): \(.label // "")"' <<<"${progress}")"
+          else
+            echo "${title}: wordt gestart"
+          fi ;;
         *) echo "${title}: niet actief" ;;
       esac
     fi

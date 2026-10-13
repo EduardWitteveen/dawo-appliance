@@ -50,6 +50,10 @@ let
       guest_down() { ! systemctl is-active --quiet dawo-appliance-guest.service && [ "$(running_domains)" = 0 ]; }
       launcher_up() { curl -sf -o /dev/null "$api/"; }
       is_stopped() { [ "$(state)" = stopped ]; }
+      # The progress the Launcher shows while starting (#232).
+      step() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress.step // 0'; }
+      progress_text() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress | "stap \(.step) van \(.steps): \(.label)"'; }
+      at_step() { [ "$(step)" -ge "$1" ]; }
       post() { # post start|stop -> the JSON answer
         curl -s -m 600 -X POST -H "X-Launcher-Token: $token" "$api/api/$1/$env"
       }
@@ -76,11 +80,16 @@ let
         answer="$(post start)"
         echo "$answer" | jq -e .ok >/dev/null || fail "start $round: $answer"
         say "start $round accepted: $(echo "$answer" | jq -r .output | tail -n1)"
+        wait_for 600 "progress in the Launcher after start $round" at_step 1
+        say "start $round: Launcher shows $(progress_text)"
         wait_for 1800 "K3s Ready after start $round" k3s_ready
         st="$(state)"
         case "$st" in starting | ready) ;; *) fail "state '$st' while K3s is Ready" ;; esac
         [ -s /run/dawo-appliance/guest-skipped ] && fail "the 'no environment' note is still there"
         say "start $round: guest and K3s Ready (state $st)"
+        # Past the virtual machine the progress moves on (internet, phases).
+        wait_for 120 "progress past step 1 after start $round" at_step 2
+        say "start $round: Launcher shows $(progress_text)"
 
         # 4. Stoppen.
         answer="$(post stop)"
