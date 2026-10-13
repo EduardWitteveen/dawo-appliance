@@ -92,8 +92,21 @@ it is specific to one workplace; the appliance sets:
 | `LAUNCH_RESERVE_GIB` | `6` | Memory kept for the workplace itself |
 | `LAUNCH_INTERNET_URL` | `https://github.com/` | Reachable when there is internet |
 
-Exit codes: 0 ok, 1 usage or unknown environment, 2 not available yet,
-3 shortfalls and not started.
+Exit codes: 0 ok, 1 usage or unknown environment, 2 not set up on this
+machine, 3 shortfalls and not started.
+
+## Starting and stopping (`services.launch`)
+
+The NixOS module `nix/launch-module.nix` binds each environment to the systemd
+units that start it (`services.launch.environments.<id>.units`), writes
+`/etc/launch/config.json`, and lets members of the `launch` group start and
+stop exactly those units without sudo (polkit). `launch <id>` starts them in
+order (after the preflight); `launch --stop <id>` stops them in reverse;
+`launch --status` says "wordt gestart" while they run but the environment does
+not answer yet. `services.launch.autostart` starts environments at boot. On
+the live USB (`hosts/appliance/live-launch.nix`) Mijn Bureau is bound to the
+guest and its deployment and still starts at boot until the Launcher window
+exists (ADR 0008, B2).
 
 ## Checks
 
@@ -106,5 +119,5 @@ nix build .#launch && ./result/bin/launch
 ```
 
 The check also runs the preflight against a fake small and a fake large
-laptop (memory, free space, KVM and internet overrides). Starting and stopping
-themselves follow in phase B1 (ADR 0008).
+laptop (memory, free space, KVM and internet overrides), and starting,
+stopping and status against a fake systemctl.

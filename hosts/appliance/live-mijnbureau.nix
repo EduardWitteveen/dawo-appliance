@@ -220,7 +220,8 @@ in
 {
   systemd.services.dawo-appliance-mijnbureau = {
     description = "Deploy Mijn Bureau in the guest (laptop profile), phase by phase";
-    wantedBy = [ "multi-user.target" ];
+    # With Launch (live-launch.nix) the environment is started by `launch`.
+    wantedBy = lib.mkIf (!config.appliance.guest.onDemand) [ "multi-user.target" ];
     after = [ "dawo-appliance-guest.service" "network-online.target" ];
     wants = [ "network-online.target" ];
     serviceConfig = {
