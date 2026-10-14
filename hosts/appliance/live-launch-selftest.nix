@@ -88,7 +88,8 @@ let
         [ -s /run/dawo-appliance/guest-skipped ] && fail "the 'no environment' note is still there"
         say "start $round: guest and K3s Ready (state $st)"
         # Past the virtual machine the progress moves on (internet, phases).
-        wait_for 120 "progress past step 1 after start $round" at_step 2
+        # Step 1 also covers the guest's one-time reboot (nousershstk, #176).
+        wait_for 600 "progress past step 1 after start $round" at_step 2
         say "start $round: Launcher shows $(progress_text)"
 
         # 4. Stoppen.
