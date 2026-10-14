@@ -220,11 +220,11 @@
           "sha256": "96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
         },
         "user_oidc": {
-          "version": "8.9.0",
+          "version": "8.11.0",
           "install": "repair",
           "purpose": "Sign-in through Keycloak (OIDC); its hook also configures the provider and switches off Nextcloud's own login form (upstream installs it from the app store, unpinned; this release only when that failed, #205)",
-          "url": "https://github.com/nextcloud-releases/user_oidc/releases/download/v8.9.0/user_oidc-v8.9.0.tar.gz",
-          "sha256": "e3f8bc89d07e87993a805eab774b49a14c6b732edf5c9f705df2389596ab9e71"
+          "url": "https://github.com/nextcloud-releases/user_oidc/releases/download/v8.11.0/user_oidc-v8.11.0.tar.gz",
+          "sha256": "887920504c2f0e0d055abd66225ee7b66d756f50fe5a3739779d6b2ce108633f"
         },
         "drawio": {
           "version": "4.3.9",

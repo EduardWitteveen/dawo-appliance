@@ -166,7 +166,7 @@ readonly NC_APPS_OPTIONAL=(openregister dossiq pipelinq portaliq)
 # not enabled and then runs upstream's own hook for it; an app the store did
 # install is left alone. All declare Nextcloud 34; hashed when pinned
 # (2026-10-12).
-readonly NC_APP_USER_OIDC="8.9.0 https://github.com/nextcloud-releases/user_oidc/releases/download/v8.9.0/user_oidc-v8.9.0.tar.gz e3f8bc89d07e87993a805eab774b49a14c6b732edf5c9f705df2389596ab9e71"
+readonly NC_APP_USER_OIDC="8.11.0 https://github.com/nextcloud-releases/user_oidc/releases/download/v8.11.0/user_oidc-v8.11.0.tar.gz 887920504c2f0e0d055abd66225ee7b66d756f50fe5a3739779d6b2ce108633f"
 readonly NC_APP_RICHDOCUMENTS="11.1.2 https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz 96766a94cf417a716e47ed89c6ff2411c54954caa916afcdddc4d9668dffb557"
 readonly NC_APP_DRAWIO="4.3.9 https://github.com/arnowelzel/drawio-nextcloud/releases/download/v4.3.9/drawio-v4.3.9.tar.gz 3ac34d75ad538d067c4d119d464281b424c1958a2c7ef114de1d1d52fea8981c"
 readonly NC_APP_DECK="1.18.5 https://github.com/nextcloud-releases/deck/releases/download/v1.18.5/deck-v1.18.5.tar.gz dafec6635ff3af50fb6f73330064ef6153910be2fa434d2edbf8043263122253"
@@ -1082,20 +1082,30 @@ nc_upstream_hook() {
 }
 
 # nc_app_repair ID: an app upstream's hook should have installed (#205):
-# install the pinned release when it is not enabled, and run upstream's hook
-# when it was not enabled or its configuration is missing.
+# install the pinned release when it is not enabled or older than the pin,
+# and run upstream's hook when it was not enabled or its configuration is
+# missing.
 nc_app_repair() {
-  local id="$1" enabled hook=0
+  local id="$1" enabled installed pinned hook=0
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    printf 'DRY-RUN: Nextcloud app %s: if not enabled, install the pinned release (%s); if not enabled or not configured, run upstream hook %s.sh\n' \
+    printf 'DRY-RUN: Nextcloud app %s: if not enabled or older than %s, install the pinned release; if not enabled or not configured, run upstream hook %s.sh\n' \
       "${id}" "$(nc_app_pin "${id}" | cut -d' ' -f1)" "${id}"
     return 0
   fi
   enabled="$(nc_occ config:app:get "${id}" enabled 2>/dev/null | tr -d '\r' || true)"
+  installed="$(nc_occ config:app:get "${id}" installed_version 2>/dev/null | tr -d '\r' || true)"
+  pinned="$(nc_app_pin "${id}" | cut -d' ' -f1)"
   if [[ "${enabled}" != yes ]]; then
     warn "Nextcloud app ${id} is not enabled (upstream's app-store install failed, #205); installing the pinned release"
     nc_app_install "${id}"
     hook=1
+  elif [[ -n "${installed}" && "${installed}" != "${pinned}" \
+          && "$(printf '%s\n%s\n' "${installed}" "${pinned}" | sort -V | head -n1)" == "${installed}" ]]; then
+    # Older than the pinned, known-good release: user_oidc 8.9.0 broke the
+    # first sign-in on Nextcloud 34 (#234). A newer one from the store stays.
+    warn "Nextcloud app ${id} ${installed} is older than the pinned ${pinned}; installing the pinned release"
+    nc_app_install "${id}"
+    nc_app_configured "${id}" || hook=1
   elif ! nc_app_configured "${id}"; then
     hook=1
   fi

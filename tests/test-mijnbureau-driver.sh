@@ -829,7 +829,8 @@ rep_ok=1
 o4="$(grep -n '04-nextcloud-office' <<<"${out}" | head -n1 | cut -d: -f1)"
 for id in user_oidc richdocuments drawio deck groupfolders contacts files_accesscontrol; do
   grep -q "^${id} repair " <<<"${nc_driver}" || rep_ok=0
-  l="$(grep -n "Nextcloud app ${id}: if not enabled, install the pinned release" <<<"${out}" | head -n1 | cut -d: -f1)"
+  # Not enabled, or older than the pin (user_oidc 8.9.0 broke sign-in, #234).
+  l="$(grep -nE "Nextcloud app ${id}: if not enabled or older than [0-9][0-9.]*, install the pinned release" <<<"${out}" | head -n1 | cut -d: -f1 || true)"
   [[ -n "${l}" && -n "${o4}" && "${l}" -lt "${o4}" ]] || rep_ok=0
 done
 if [[ "${rep_ok}" -eq 1 ]]; then
