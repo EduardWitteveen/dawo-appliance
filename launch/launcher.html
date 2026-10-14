@@ -67,6 +67,8 @@
   @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
   .plabel { font-weight: 600; margin-top: 4px; }
   .ptime { color: var(--muted); font-size: .85rem; }
+  .peta { color: var(--muted); font-size: .85rem; }
+  .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
   @media (prefers-reduced-motion: reduce) {
     .bar > div { transition: none; }
@@ -159,15 +161,29 @@ function progressBlock(env) {
       el("div", { class: "bar waiting" }, el("div", {})),
       el("div", { class: "ptime" }, "De omgeving wordt klaargezet; zo meteen zie je de stappen."));
   }
-  const box = el("div", { class: "progress", "data-step": p.step, "data-steps": p.steps,
-                          "data-started": p.started, "data-since": p.since || "", "data-expected": p.expected || "" },
+  const box = el("div", { class: "progress", "data-id": env.id, "data-step": p.step, "data-steps": p.steps,
+                          "data-started": p.started, "data-since": p.since || "", "data-expected": p.expected || "",
+                          "data-rest": p.rest ?? "" },
     el("div", { class: "prow" }, el("b", {}, `Stap ${p.step} van ${p.steps}`), el("span", { class: "psince" }, "")),
     el("div", { class: "bar overall", role: "progressbar", "aria-label": "Totale voortgang" }, el("div", {})),
+    el("div", { class: "peta" }, ""),
     el("div", { class: "plabel" }, p.label || ""),
     el("div", { class: "bar step" + (p.expected ? "" : " waiting"), role: "progressbar", "aria-label": "Voortgang van deze stap" }, el("div", {})),
-    el("div", { class: "ptime" }, ""));
+    el("div", { class: "ptime" }, ""),
+    el("div", { class: "pdetail" }, ""));
   if (p.error) box.append(el("div", { class: "perror" }, p.error));
+  setDetail(box, p);
   return box;
+}
+
+// What the environment does right now (#235), updated in place.
+function setDetail(box, p) {
+  box.dataset.activity = p.activity || "";
+  box.querySelector(".pdetail").textContent = p.detail ? "Nu: " + p.detail : "";
+}
+
+function clock(t) {
+  return new Date(t * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 }
 
 function tick() {
@@ -185,8 +201,16 @@ function tick() {
     if (!exp) t = `${dur(elapsed)} bezig`;
     else if (elapsed <= exp * 1.15) t = `${dur(elapsed)} van ongeveer ${dur(exp)}`;
     else t = `${dur(elapsed)} bezig; vorige keer duurde deze stap ${dur(exp)}. Nog even geduld, het loopt nog.`;
+    const act = +box.dataset.activity, started = +box.dataset.started;
+    if (act && act >= started - 5) t += ` · laatste activiteit ${dur(now - act)} geleden`;
     box.querySelector(".ptime").textContent = t;
     if (box.dataset.since) box.querySelector(".psince").textContent = "bezig sinds " + dur(now - +box.dataset.since);
+    // When it will be ready (#235): what is left of this step plus the
+    // steps after it, as they went last time on this machine.
+    if (box.dataset.rest !== "" && exp) {
+      const left = Math.max(exp - elapsed, 30) + +box.dataset.rest;
+      box.querySelector(".peta").textContent = `nog ongeveer ${dur(left)} · klaar rond ${clock(now + left)}`;
+    }
   }
 }
 setInterval(tick, 1000);
@@ -202,12 +226,20 @@ let lastJson = "";
 async function refresh() {
   try {
     const r = await fetch("/api/environments", { cache: "no-store" });
-    const text = await r.text();
+    const data = JSON.parse(await r.text());
     // Redraw only when something changed, so a button is not replaced under
-    // the user's pointer every few seconds.
-    if (text === lastJson) return;
-    lastJson = text;
-    lastData = JSON.parse(text);
+    // the user's pointer every few seconds. The current activity changes
+    // often: it is updated in place (#235).
+    const stable = JSON.stringify(data, (k, v) => (k === "detail" || k === "activity" ? undefined : v));
+    lastData = data;
+    if (stable === lastJson) {
+      for (const env of data) {
+        const box = env.progress && document.querySelector(`.progress[data-id="${env.id}"]`);
+        if (box) setDetail(box, env.progress);
+      }
+      return;
+    }
+    lastJson = stable;
     render(lastData);
   } catch (e) { /* the next refresh tries again */ }
 }

@@ -29,7 +29,7 @@ let
 
   runner = pkgs.writeShellApplication {
     name = "dawo-appliance-mijnbureau";
-    runtimeInputs = with pkgs; [ coreutils gnugrep gawk jq openssh curl util-linux libnotify systemd ];
+    runtimeInputs = with pkgs; [ coreutils gnugrep gnused gawk jq openssh curl util-linux libnotify systemd ];
     text = ''
       mkdir -p /run/dawo-appliance
       key=/var/lib/dawo-appliance/ssh/id_ed25519
@@ -64,8 +64,8 @@ let
       labels=("Controles" "Hulpprogramma's installeren" "Certificaatbeheer installeren"
               "Certificaatuitgever instellen" "Wachtwoorden maken" "Mijn Bureau ophalen"
               "Instellingen schrijven" "Apps installeren (downloaden)" "Netwerk instellen"
-              "Wachten op certificaten" "Vertrouwen instellen (apps herstarten)"
-              "Inloggen koppelen" "Apps afronden" "Sessies instellen")
+              "Wachten op certificaten" "Beveiligde verbindingen instellen (de apps herstarten)"
+              "Inloggen koppelen" "Apps afronden (Office, inloggen)" "Sessies instellen")
       steps=$(( ''${#phases[@]} + 3 ))
       since="$(date +%s)"
       durations=/var/lib/dawo-appliance/mb-durations
@@ -76,16 +76,61 @@ let
           8) echo 360 ;; 10) echo 90 ;; 11) echo 420 ;; 13) echo 120 ;; *) echo 45 ;;
         esac
       }
+      # The time still to come (#235): a phase that is already done with this
+      # driver takes seconds. Before the guest answers, a finished deployment
+      # with the same driver (mb-deployed-driver) predicts that all are done.
+      deployed="$(cat /var/lib/dawo-appliance/mb-deployed-driver 2>/dev/null || true)"
+      done_now=()
+      key_exp() { local e; e="$(last_secs "$1")"; echo "''${e:-$(typical "$1")}"; }
+      phase_exp() {
+        if [ "$deployed" = "${driverSum}" ] || [ -n "''${done_now[$1]:-}" ]; then echo 2; else key_exp "$1"; fi
+      }
+      rest_after() { # seconds expected for the steps after STEP
+        local t=0 n
+        if [ "$1" -lt 2 ]; then t=$((t + $(key_exp net))); fi
+        for n in $(seq 1 ''${#phases[@]}); do
+          if [ $((n + 2)) -gt "$1" ]; then t=$((t + $(phase_exp "$n"))); fi
+        done
+        if [ "$1" -lt "$steps" ]; then t=$((t + $(key_exp apps))); fi
+        echo "$t"
+      }
+      # What the deployment does right now: its last log line, in plain Dutch
+      # where we know the pattern (#235: "veel te technisch, maar goh wat leuk").
+      activity() {
+        tail -n 30 ${logFile} 2>/dev/null | tr -d '\r' | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c1-200 | sed -E \
+          -e 's/^[0-9T:Z-]+ t=[0-9]+s //' \
+          -e 's/.*Waiting for deployment "([^"]+)" rollout to finish.*/Wacht tot \1 (opnieuw) is gestart/' \
+          -e 's/.*deployment "([^"]+)" successfully rolled out.*/\1 is gestart/' \
+          -e 's/.*Waiting for (statefulset|daemon set) "?([^" ]+)"? rollout to finish.*/Wacht tot \2 (opnieuw) is gestart/' \
+          -e 's/.*(statefulset|daemon set) "?([^" ]+)"? successfully rolled out.*/\2 is gestart/' || true
+      }
+      # The step (progress.base) plus the activity, every 5 s while we run.
+      refresh_progress() {
+        local tmp
+        [ -s ${progressFile}.base ] || return 0
+        tmp="$(mktemp ${progressFile}.XXXXXX)" || return 0
+        if jq --arg detail "$(activity)" --argjson activity "$(stat -c %Y ${logFile} 2>/dev/null || date +%s)" \
+             '. + {detail: $detail, activity: $activity}' ${progressFile}.base > "$tmp" 2>/dev/null; then
+          mv -f "$tmp" ${progressFile}
+        else
+          rm -f "$tmp"
+        fi
+      }
       progress() { # progress STEP LABEL KEY [ERROR]
         local exp
         exp="$(last_secs "$3")"; exp="''${exp:-$(typical "$3")}"
         mkdir -p "$(dirname ${progressFile})"
         jq -n --argjson step "$1" --argjson steps "$steps" --arg label "$2" \
-          --argjson started "$(date +%s)" --argjson since "$since" --argjson expected "$exp" --arg error "''${4:-}" \
-          '{step: $step, steps: $steps, label: $label, started: $started, since: $since, expected: $expected}
+          --argjson started "$(date +%s)" --argjson since "$since" --argjson expected "$exp" \
+          --argjson rest "$(rest_after "$1")" --arg error "''${4:-}" \
+          '{step: $step, steps: $steps, label: $label, started: $started, since: $since, expected: $expected, rest: $rest}
            + (if $error == "" then {} else {error: $error} end)' \
-          > ${progressFile}.new && mv -f ${progressFile}.new ${progressFile}
+          > ${progressFile}.base.new && mv -f ${progressFile}.base.new ${progressFile}.base
+        refresh_progress
       }
+      ( while sleep 5; do refresh_progress; done ) &
+      refresher=$!
+      trap 'kill "$refresher" 2>/dev/null || true' EXIT
       failed() { # failed STEP LABEL KEY MESSAGE: keep the step, add the error
         progress "$1" "$2" "$3" "$4"
       }
@@ -185,6 +230,7 @@ let
         progress $((n + 2)) "''${labels[$i]}" "$n"
         made_with="$(g sudo cat "$marker" 2>/dev/null || true)"
         if [ "$made_with" = "${driverSum}" ]; then
+          done_now[n]=1
           log "phase $n/$total $name: already done"
           continue
         elif [ -n "$made_with" ] || g sudo test -e "$marker"; then
@@ -236,6 +282,7 @@ let
         log "app $h.${domain}: HTTP $code after ''${waited}s"
       done
       echo "apps $waited" >> "$durations" || true
+      echo "${driverSum}" > /var/lib/dawo-appliance/mb-deployed-driver || true
       state "klaar: Mijn Bureau is uitgerold (''${SECONDS}s)"
       notify "Mijn Bureau is uitgerold" "De browser opent het dashboard zodra alles gezond is."
     '';
@@ -279,7 +326,7 @@ in
       # A stopped environment shows no old progress when it is started again
       # (#232); after a failure the file stays, so the Launcher shows the error.
       ExecStopPost = toString (pkgs.writeShellScript "mijnbureau-progress-clear" ''
-        if [ "''${SERVICE_RESULT:-}" = success ]; then rm -f ${progressFile}; fi
+        if [ "''${SERVICE_RESULT:-}" = success ]; then rm -f ${progressFile} ${progressFile}.base; fi
       '');
       StandardOutput = "journal+console";
       StandardError = "journal+console";

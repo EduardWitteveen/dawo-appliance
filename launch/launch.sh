@@ -138,13 +138,27 @@ units_active() {
   return 1
 }
 
+# Whether a health URL answers: an HTTP status 200-399. A liveness check, not
+# a trust check (-k): an environment on this machine may use a certificate
+# authority made at run time that this check does not know (#235: the
+# Launcher never reached "Klaar" for Mijn Bureau).
+answers_at() {
+  local code
+  case "$1" in
+    http://* | https://*)
+      code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 4 "$1" 2>/dev/null || true)"
+      [[ "${code}" =~ ^[23][0-9][0-9]$ ]] ;;
+    *) curl -sS --max-time 4 -o /dev/null "$1" 2>/dev/null ;;  # file:// in the checks
+  esac
+}
+
 # Whether each environment answers at its health URL; while its units run but
 # it does not answer yet, it is starting.
 status() {
   local json="${1:-}" id title url answers state progress out="[]"
   while IFS=$'	' read -r id title url; do
     answers=false
-    if curl -sS --max-time 4 -o /dev/null "${url}" 2>/dev/null; then answers=true; fi
+    if answers_at "${url}"; then answers=true; fi
     if [[ "${answers}" == true ]]; then state=ready
     elif units_active "${id}"; then state=starting
     else state=stopped; fi
