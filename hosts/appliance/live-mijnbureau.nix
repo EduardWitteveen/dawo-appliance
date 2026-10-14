@@ -72,7 +72,7 @@ let
       last_secs() { awk -v k="$1" '$1 == k { s = $2 } END { if (s != "") print s }' "$durations" 2>/dev/null || true; }
       typical() { # the status page's typical durations (Dell Latitude 5550)
         case "$1" in
-          vm) echo 180 ;; net) echo 10 ;; apps) echo 180 ;;
+          vm) echo 180 ;; reboot) echo 90 ;; net) echo 10 ;; apps) echo 180 ;;
           8) echo 360 ;; 10) echo 90 ;; 11) echo 420 ;; 13) echo 120 ;; *) echo 45 ;;
         esac
       }
@@ -145,9 +145,12 @@ let
              | g "sudo tee /etc/default/grub.d/90-dawo-appliance-cet.cfg >/dev/null && sudo update-grub" >> ${logFile} 2>&1; then
           log "guest: nousershstk added to the kernel command line (#176); rebooting the guest once"
           state "de virtuele machine herstart eenmalig (instelling)"
+          progress 1 "Virtuele machine herstart eenmalig (instelling)" reboot
           g sudo systemctl reboot || true
           sleep 20
+          reboot_t0="$(date +%s)"
           wait_guest || log "guest: not back after the nousershstk reboot"
+          echo "reboot $(( $(date +%s) - reboot_t0 ))" >> "$durations" || true
         else
           log "guest: could not set nousershstk (#176)"
         fi
