@@ -109,20 +109,33 @@ let
     runtimeInputs = with pkgs; [ coreutils gnused gnugrep curl systemd ];
     text = builtins.readFile ../../health/dawo-appliance-status-page.sh;
   };
-  # Starts the page writer and opens the page once in the browser.
+  # At login: starts the status page writer and opens the Launcher (ADR 0008),
+  # the one tab the user works from (#235: two tabs at login confused). The
+  # technical status page stays available from the menu ("Status (technisch)").
   statusApp = pkgs.writeShellApplication {
     name = "dawo-appliance-status";
     runtimeInputs = with pkgs; [ coreutils xdg-utils curl ];
     text = ''
-      page="''${XDG_RUNTIME_DIR:-/tmp}/dawo-appliance-status.html"
       ${statusPage}/bin/dawo-appliance-status-page &
-      for _ in $(seq 1 20); do [ -s "$page" ] && break; sleep 1; done
-      xdg-open "file://$page" >/dev/null 2>&1 || true
-      # The Launcher (ADR 0008) opens last, so it is the tab in front.
       for _ in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8790/ && break; sleep 1; done
       xdg-open http://127.0.0.1:8790/ >/dev/null 2>&1 || true
       wait
     '';
+  };
+  statusOpen = pkgs.writeShellApplication {
+    name = "dawo-appliance-status-open";
+    runtimeInputs = with pkgs; [ xdg-utils ];
+    text = ''
+      xdg-open "file://''${XDG_RUNTIME_DIR:-/tmp}/dawo-appliance-status.html"
+    '';
+  };
+  statusMenu = pkgs.makeDesktopItem {
+    name = "dawo-appliance-status";
+    desktopName = "Status (technisch)";
+    comment = "Wat er draait en waar het op wacht, voor ontwikkelaars";
+    exec = "${statusOpen}/bin/dawo-appliance-status-open";
+    icon = "utilities-system-monitor";
+    categories = [ "System" ];
   };
 in
 {
@@ -207,7 +220,7 @@ in
       StandardError = "journal+console";
     };
   };
-  environment.systemPackages = [ report statusPage statusApp ];
+  environment.systemPackages = [ report statusPage statusApp statusMenu ];
 
   # Marker for the welcome/status window: this is the live USB, so it
   # mentions debug mode (health/dawo-appliance-welcome.sh).

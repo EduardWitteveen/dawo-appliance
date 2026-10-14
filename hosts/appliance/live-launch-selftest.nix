@@ -52,7 +52,8 @@ let
       is_stopped() { [ "$(state)" = stopped ]; }
       # The progress the Launcher shows while starting (#232).
       step() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress.step // 0'; }
-      progress_text() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress | "stap \(.step) van \(.steps): \(.label)"'; }
+      progress_text() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress | "stap \(.step) van \(.steps): \(.label) (nog ~\(.rest) s na deze stap)"'; }
+      has_rest() { curl -sf "$api/api/environments" | jq -e --arg id "$env" '.[] | select(.id == $id) | .progress.rest | type == "number"' >/dev/null; }
       at_step() { [ "$(step)" -ge "$1" ]; }
       post() { # post start|stop -> the JSON answer
         curl -s -m 600 -X POST -H "X-Launcher-Token: $token" "$api/api/$1/$env"
@@ -90,6 +91,7 @@ let
         # Past the virtual machine the progress moves on (internet, phases).
         # Step 1 also covers the guest's one-time reboot (nousershstk, #176).
         wait_for 600 "progress past step 1 after start $round" at_step 2
+        has_rest || fail "no remaining-time estimate (progress.rest) in the Launcher (#235)"
         say "start $round: Launcher shows $(progress_text)"
 
         # 4. Stoppen.
