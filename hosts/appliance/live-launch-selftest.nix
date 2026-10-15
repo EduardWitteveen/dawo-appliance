@@ -7,7 +7,8 @@
 #      Launcher", no guest running;
 #   2. the Launcher answers (user service in the desktop session) and refuses
 #      a start without its token;
-#   3. Starten through the Launcher's API: guest SSH and K3s Ready;
+#   3. the automatic start (#238) is announced and fires by itself (round 1),
+#      then Starten through the Launcher's API (round 2): K3s Ready;
 #   4. Stoppen: guest unit inactive, no libvirt domain running, state stopped;
 #   5. Starten again (re-entrant): K3s Ready again.
 #
@@ -75,12 +76,21 @@ let
       code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$api/api/start/$env")"
       [ "$code" = 403 ] || fail "start without token answered $code, not 403"
       say "start without token refused (403)"
+      # The automatic start (#238) is announced at boot.
+      curl -sf "$api/api/environments" | jq -e --arg id "$env" '.[] | select(.id == $id) | .autostart.at | type == "number"' >/dev/null         || fail "no automatic start announced for $env"
+      say "automatic start announced"
 
       for round in 1 2; do
-        # 3. Starten, as the button does.
-        answer="$(post start)"
-        echo "$answer" | jq -e .ok >/dev/null || fail "start $round: $answer"
-        say "start $round accepted: $(echo "$answer" | jq -r .output | tail -n1)"
+        if [ "$round" = 1 ]; then
+          # 3a. Nobody presses anything: the Launcher starts it by itself (#238).
+          wait_for 300 "automatic start" at_step 1
+          say "start 1: started automatically (no button pressed)"
+        else
+          # 3b. Starten, as the button does.
+          answer="$(post start)"
+          echo "$answer" | jq -e .ok >/dev/null || fail "start $round: $answer"
+          say "start $round accepted: $(echo "$answer" | jq -r .output | tail -n1)"
+        fi
         wait_for 600 "progress in the Launcher after start $round" at_step 1
         say "start $round: Launcher shows $(progress_text)"
         wait_for 1800 "K3s Ready after start $round" k3s_ready
