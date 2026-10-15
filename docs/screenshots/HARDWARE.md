@@ -15,3 +15,4 @@ nothing else. Rules: [`README.md`](README.md).
 | `live-element-dell.png` | Dell Inc. Latitude 5550 | `20260930T111822Z_ec4e1ce7` | 2026-09-30 13:41:46 | `1a24f78259b559af…` | Element chat after single sign-on: Welcome DAWO Demo, room #welkom |
 | `live-collabora-dell.png` | Dell Inc. Latitude 5550 | `20260930T185043Z_63d69852` | 2026-09-30 21:02:29 | `12e94bfc95ed2eda…` | Collabora Online editing Document.docx inside Nextcloud after automatic sign-in (branch test/iso-173-176-177) |
 | `live-nextcloud-dell.png` | Dell Inc. Latitude 5550 | `20261012T221250Z_17c36c7a` | 2026-10-13 00:32:41 | `6615b0a1d93d1c8a…` | Nextcloud Bestanden in het Nederlands, ingelogd via Keycloak, met het menu Nieuw (document, diagram) en Teammappen |
+| `live-launcher-progress.png` | Dell Inc. Latitude 5550 | `20261015T151058Z_f24fcfd7` | 2026-10-15 17:15:11 | `9ef69b4884c37ba2…` | De Launcher start Mijn Bureau vanzelf: stap 10 van 17, nog ongeveer 11 minuten, klaar rond 17:26 |
