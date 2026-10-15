@@ -68,6 +68,9 @@
   .plabel { font-weight: 600; margin-top: 4px; }
   .ptime { color: var(--muted); font-size: .85rem; }
   .peta { color: var(--muted); font-size: .85rem; }
+  .auto { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--warn-bg);
+          color: var(--warn); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+  .auto button { font-size: .85rem; padding: 6px 12px; }
   .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
   @media (prefers-reduced-motion: reduce) {
@@ -115,6 +118,21 @@ async function act(verb, env) {
   refresh();
 }
 
+// Cancel the automatic start (#238).
+async function cancelAuto() {
+  try {
+    await fetch("/api/autostart/cancel", { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
+  } catch (e) { /* the next refresh shows the state */ }
+  lastJson = "";
+  refresh();
+}
+
+function autoBlock(env) {
+  return el("div", { class: "auto", "data-auto-at": env.autostart.at },
+    el("span", { class: "auto-text" }, "Start automatisch…"),
+    el("button", { onclick: cancelAuto }, "Niet automatisch starten"));
+}
+
 function card(env) {
   const actions = el("div", { class: "actions" });
   if (env.state === "stopped") {
@@ -135,6 +153,7 @@ function card(env) {
     el("p", { class: "summary" }, env.summary),
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
     env.state === "starting" ? progressBlock(env) : null,
+    env.state === "stopped" && env.autostart ? autoBlock(env) : null,
     warn,
     env.state === "ready" && env.login ? el("div", { class: "login" }, "Inloggen: " + env.login) : null,
     el("div", { class: "message" }, busy[env.id] || ""),
@@ -188,6 +207,11 @@ function clock(t) {
 
 function tick() {
   const now = Date.now() / 1000;
+  for (const box of document.querySelectorAll(".auto[data-auto-at]")) {
+    const left = Math.max(0, Math.ceil(+box.dataset.autoAt - now));
+    box.querySelector(".auto-text").textContent =
+      left > 0 ? `Start automatisch over ${dur(left)}` : "Wordt nu automatisch gestart…";
+  }
   for (const box of document.querySelectorAll(".progress[data-started]")) {
     const step = +box.dataset.step, steps = +box.dataset.steps, exp = +box.dataset.expected;
     const elapsed = now - +box.dataset.started;

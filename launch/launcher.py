@@ -6,6 +6,12 @@ page on 127.0.0.1 with a card per environment of the catalogue and runs the
 workplace.
 
   launcher.py [--port 8790] [--launch launch] [--page launcher.html]
+              [--auto-start ID [--auto-start-delay 60]]
+
+With --auto-start the Launcher starts that environment by itself after the
+delay (#238), so a machine can run unattended: the page shows the countdown
+and a button to cancel it. It fires once, and only when nothing runs yet;
+any start or stop through the page cancels it.
 
 Safety: it listens on 127.0.0.1 only, and every action needs the random token
 that is put into the page when it is served, so another web site cannot press
@@ -44,6 +50,31 @@ def run(args, timeout=60):
 _CACHE = {"at": 0.0, "data": []}
 _LOCK = threading.Lock()
 
+# The pending automatic start (#238): {"id", "at"} until it fires or is
+# cancelled, then None.
+AUTO = {"pending": None}
+
+
+def auto_start_worker(eid, at):
+    """Start eid at time `at`, unless cancelled or something already runs."""
+    while time.time() < at:
+        time.sleep(0.5)
+        if AUTO["pending"] is None:
+            return
+    with _LOCK:
+        if AUTO["pending"] is None:
+            return
+        AUTO["pending"] = None
+        _CACHE["at"] = 0.0
+    busy = [e["id"] for e in environments() if e["state"] != "stopped"]
+    if busy:
+        sys.stderr.write(f"launcher: automatic start of {eid} skipped: {', '.join(busy)} already runs\n")
+        return
+    rc, out, err = run([eid, "--yes"], timeout=300)
+    sys.stderr.write(f"launcher: automatic start of {eid}: exit {rc}: {(out + err).strip()}\n")
+    with _LOCK:
+        _CACHE["at"] = 0.0
+
 
 def environments_cached(max_age=8.0):
     """environments(), at most every max_age seconds (the page polls often)."""
@@ -76,6 +107,9 @@ def environments():
             # While it starts: {step, steps, label, started, since, expected,
             # error} as the environment wrote it (#232), else None.
             "progress": states.get(eid, {}).get("progress"),
+            # The automatic start that is still to come (#238), else None.
+            "autostart": ({"at": AUTO["pending"]["at"]}
+                          if AUTO["pending"] and AUTO["pending"]["id"] == eid else None),
             "problems": check.get("problems", []),
         })
     return result
@@ -105,6 +139,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(404, json.dumps({"error": "not found"}))
 
     def do_POST(self):
+        if self.path == "/api/autostart/cancel":
+            if self.headers.get("X-Launcher-Token") != TOKEN:
+                self.send(403, json.dumps({"error": "forbidden"}))
+                return
+            with _LOCK:
+                AUTO["pending"] = None
+                _CACHE["at"] = 0.0
+            self.send(200, json.dumps({"ok": True}))
+            return
         m = re.fullmatch(r"/api/(start|stop)/([a-z0-9-]+)", self.path)
         if not m or not ID_RE.match(m.group(2)):
             self.send(404, json.dumps({"error": "not found"}))
@@ -113,6 +156,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(403, json.dumps({"error": "forbidden"}))
             return
         verb, eid = m.groups()
+        with _LOCK:
+            AUTO["pending"] = None  # the user chose; no automatic start
         args = [eid, "--yes"] if verb == "start" else ["--stop", eid]
         rc, out, err = run(args, timeout=300)
         with _LOCK:
@@ -130,7 +175,15 @@ def main():
     ap.add_argument("--port", type=int, default=8790)
     ap.add_argument("--launch", default="launch")
     ap.add_argument("--page", required=True)
+    ap.add_argument("--auto-start", default="")
+    ap.add_argument("--auto-start-delay", type=int, default=60)
     OPTS = ap.parse_args()
+    if OPTS.auto_start:
+        if not ID_RE.match(OPTS.auto_start):
+            ap.error("--auto-start: not an environment id")
+        at = time.time() + OPTS.auto_start_delay
+        AUTO["pending"] = {"id": OPTS.auto_start, "at": at}
+        threading.Thread(target=auto_start_worker, args=(OPTS.auto_start, at), daemon=True).start()
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", OPTS.port), Handler)
     sys.stderr.write(f"launcher: http://127.0.0.1:{OPTS.port}/\n")
     httpd.serve_forever()
