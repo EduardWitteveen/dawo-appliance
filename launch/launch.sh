@@ -153,17 +153,19 @@ answers_at() {
 }
 
 # Whether each environment answers at its health URL; while its units run but
-# it does not answer yet, it is starting.
+# it does not answer yet, or still reports progress, it is starting. An
+# environment that answers from an earlier run while it is set up again is
+# not ready yet (#238: "Klaar" at 17:18, the deployment ended at 17:24).
 status() {
-  local json="${1:-}" id title url answers state progress out="[]"
+  local json="${1:-}" id title url answers active state progress out="[]"
   while IFS=$'	' read -r id title url; do
     answers=false
     if answers_at "${url}"; then answers=true; fi
-    if [[ "${answers}" == true ]]; then state=ready
-    elif units_active "${id}"; then state=starting
+    active=false; progress=""
+    if units_active "${id}"; then active=true; progress="$(progress_of "${id}")"; fi
+    if [[ "${answers}" == true && -z "${progress}" ]]; then state=ready
+    elif [[ "${active}" == true ]]; then state=starting
     else state=stopped; fi
-    progress=""
-    if [[ "${state}" == starting ]]; then progress="$(progress_of "${id}")"; fi
     if [[ "${json}" == "--json" ]]; then
       out="$(jq --arg id "${id}" --arg url "${url}" --arg st "${state}" --argjson up "${answers}" \
                --argjson pr "${progress:-null}" \
