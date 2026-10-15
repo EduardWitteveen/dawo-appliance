@@ -111,6 +111,8 @@ let
         tmp="$(mktemp ${progressFile}.XXXXXX)" || return 0
         if jq --arg detail "$(activity)" --argjson activity "$(stat -c %Y ${logFile} 2>/dev/null || date +%s)" \
              '. + {detail: $detail, activity: $activity}' ${progressFile}.base > "$tmp" 2>/dev/null; then
+          # mktemp makes it 0600; the Launcher reads it as the desktop user.
+          chmod 0644 "$tmp"
           mv -f "$tmp" ${progressFile}
         else
           rm -f "$tmp"
