@@ -207,6 +207,9 @@ let
             grep -q "wordt gestart, stap 11 van 17: Vertrouwen instellen" out || fail "--status shows the progress"
             LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
             [ "$(jq -r '.[0].progress.step' out.json)" = 11 ] || fail "--status --json has the progress"
+            # Answering from an earlier run while it is set up again: not ready yet (#238).
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/up.json launch --status --json > out.json
+            [ "$(jq -r '.[0].state' out.json)" = starting ] || fail "answering but still reporting progress must be starting, not $(jq -r '.[0].state' out.json)"
             echo 'not json' > progress.json
             LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json || fail "--status with a broken progress file"
             [ "$(jq -r '.[0] | has("progress")' out.json)" = false ] || fail "a broken progress file is ignored"
