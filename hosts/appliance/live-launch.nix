@@ -26,6 +26,9 @@
     environments.mijn-bureau.progressFile = "/run/launch/progress/mijn-bureau.json";
     autostartFile = "/run/dawo-logs/launch-autostart.txt";
     launcher.enable = true;
+    # Unattended runs (#238): the Launcher starts Mijn Bureau by itself one
+    # minute after login, unless the user clicks "Niet automatisch starten".
+    launcher.autoStart.environment = "mijn-bureau";
   };
 
   # The desktop user starts and stops environments without sudo (polkit).

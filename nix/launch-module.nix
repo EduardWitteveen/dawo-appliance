@@ -77,6 +77,22 @@ in
         default = 8790;
         description = "The Launcher listens on 127.0.0.1 at this port.";
       };
+      autoStart = {
+        environment = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            An environment the Launcher starts by itself after `delaySeconds`
+            (#238), unless the user cancels it on the page or starts or stops
+            something first. For machines that run unattended.
+          '';
+        };
+        delaySeconds = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 60;
+          description = "Seconds after the Launcher starts before the automatic start.";
+        };
+      };
     };
     autostart = lib.mkOption {
       type = lib.types.listOf lib.types.str;
@@ -100,7 +116,8 @@ in
           assertion = builtins.elem id catalogIds;
           message = "services.launch: environment '${id}' is not in environments/catalog.toml.";
         })
-        (lib.attrNames cfg.environments ++ cfg.autostart)
+        (lib.attrNames cfg.environments ++ cfg.autostart
+          ++ lib.optional (cfg.launcher.autoStart.environment != null) cfg.launcher.autoStart.environment)
       ++ map
         (id: {
           assertion = cfg.environments ? ${id};
@@ -129,7 +146,9 @@ in
       partOf = [ "graphical-session.target" ];
       environment.LAUNCH_CONFIG = "/etc/launch/config.json";
       serviceConfig = {
-        ExecStart = "${launch.launcher}/bin/launcher --port ${toString cfg.launcher.port}";
+        ExecStart = "${launch.launcher}/bin/launcher --port ${toString cfg.launcher.port}"
+          + lib.optionalString (cfg.launcher.autoStart.environment != null)
+          " --auto-start ${cfg.launcher.autoStart.environment} --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}";
         Restart = "on-failure";
       };
     };

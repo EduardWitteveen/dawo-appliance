@@ -122,6 +122,22 @@ let
             # No units on this machine: launch exits 2, the Launcher reports it.
             [ "$(jq -r '.code' start.json)" = 2 ] || fail "start through the Launcher: $(cat start.json)"
             kill "$pid"
+            # The automatic start (#238): announced with its time, cancelled with the token.
+            launcher --port 18791 --auto-start mijn-bureau --auto-start-delay 300 2>> launcher.log & pid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18791/api/environments -o auto.json && break; sleep 0.2; done
+            jq -e '.[0].autostart.at | type == "number"' auto.json >/dev/null || fail "no autostart.at: $(cat auto.json)"
+            token="$(curl -sf http://127.0.0.1:18791/ | grep -o 'const TOKEN = "[0-9a-f]*"' | grep -o '[0-9a-f]\{32\}')"
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18791/api/autostart/cancel)"
+            [ "$code" = 403 ] || fail "cancel without the token answered $code, want 403"
+            curl -sf -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18791/api/autostart/cancel > /dev/null || fail "cancel"
+            curl -sf http://127.0.0.1:18791/api/environments -o auto.json
+            [ "$(jq -r '.[0].autostart' auto.json)" = null ] || fail "autostart still pending after cancel"
+            kill "$pid"
+            # A short delay fires: launch is run (and exits 2 here, no units).
+            launcher --port 18792 --auto-start mijn-bureau --auto-start-delay 1 2>> launcher.log & pid=$!
+            for _ in $(seq 1 60); do grep -q "automatic start of mijn-bureau: exit 2" launcher.log && break; sleep 0.5; done
+            grep -q "automatic start of mijn-bureau: exit 2" launcher.log || { cat launcher.log >&2; fail "the automatic start did not run launch"; }
+            kill "$pid"
             touch $out
     '';
 
