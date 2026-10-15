@@ -13,6 +13,26 @@
 
 ---
 
+### 🚀 Zelf proberen
+
+**Een complete overheidswerkplek op een USB-schijf.** Steek hem in een laptop, zet de laptop aan, en je werkt met bestanden, documenten en chat, met één inlog, zonder cloud. Er verandert niets op de laptop zelf.
+
+[![De Launcher start Mijn Bureau vanzelf: stap 10 van 17, nog ongeveer 11 minuten, klaar rond 17:26](docs/screenshots/live-launcher-progress.png)](docs/screenshots/live-launcher-progress.png)
+
+<sub>Echte schermafbeelding van een testlaptop: na het inloggen start de **Launcher** Mijn Bureau vanzelf en laat zien bij welke stap hij is en wanneer hij klaar is.</sub>
+
+**In drie stappen:**
+
+1. **Download** het schijfbestand `dawo-appliance-live.img`. De eerste downloadbare versie komt binnenkort ([v0.1.0-rc.1, #175](https://github.com/EduardWitteveen/dawo-appliance/issues/175)); tot die tijd kun je het [zelf bouwen](docs/live-usb.md).
+2. **Zet het op een USB-SSD** met [Rufus](https://rufus.ie) of [balenaEtcher](https://etcher.balena.io), zoals je dat met een Ubuntu-stick doet.
+3. **Start de laptop van de USB-schijf** (bij een Dell met F12). Na het inloggen opent de Launcher en start **Mijn Bureau vanzelf** na één minuut. De eerste keer duurt dat een half uur tot een uur (alles wordt gedownload), daarna gaat het veel sneller. Is hij klaar, klik dan op **Openen** en log in met `dawo` / `dawo`.
+
+**Wat heb je nodig?** Een laptop met 32 GB geheugen, een USB-SSD van 64 GB of meer, en internet bij de eerste start. Meer in [hardware-vereisten](docs/demo-hardware.md).
+
+**Iets gezien, gaat iets mis, of heb je een idee?** Laat het ons weten via een [melding op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues/new). Elke reactie helpt: dit project wordt beter van mensen die het echt proberen.
+
+---
+
 ### 🇳🇱 Voor Gemeenten en Overheidsinstellingen (NL)
 *(English technical documentation continues below)*
 
@@ -44,7 +64,7 @@ Op de USB-schijf staat alles:
 
 <sub>Gemaakt door de debug-modus van de USB-schijf op een Dell Latitude 5550, alleen bijgesneden (herkomst: [`docs/screenshots/HARDWARE.md`](docs/screenshots/HARDWARE.md)).</sub>
 
-#### Stand van zaken (13 oktober 2026)
+#### Stand van zaken (15 oktober 2026)
 
 | | |
 | --- | --- |
@@ -52,7 +72,8 @@ Op de USB-schijf staat alles:
 | ✅ **Werkt** | Mijn Bureau installeert zichzelf helemaal: alle 14 stappen gelukt (ongeveer 9 minuten als de apps al gedownload zijn) |
 | ✅ **Werkt** | Eén keer inloggen (`dawo`/`dawo`) voor het dashboard, bestanden (Nextcloud), documenten bewerken (Collabora) en chat (Element), alles in het Nederlands; Nextcloud met het NL Design System-thema (Thematiq) |
 | ✅ **Nieuw** | Te downloaden als schijfbestand voor Rufus of balenaEtcher (`dawo-appliance-live.img`); de eerste start maakt de rest van de USB-SSD zelf klaar als opslag |
-| ⏭️ **Daarna** | Eerste testversie (v0.1.0-rc.1) om te downloaden; daarna **Launch**: een venster waarin je zelf kiest welke omgeving je start (Mijn Bureau, later bijvoorbeeld Valtimo of Open Zaak) |
+| ✅ **Nieuw** | **De Launcher**: na het inloggen één venster met een kaart per omgeving. Mijn Bureau start na een minuut vanzelf (of met **Starten**), met een balk voor de hele start en een voor de huidige stap, de verwachte eindtijd en wat hij nu doet; daarna **Openen** |
+| ⏭️ **Daarna** | Eerste testversie (v0.1.0-rc.1) om te downloaden; daarna meer omgevingen in de Launcher, zoals Valtimo met Open Zaak |
 
 De technische details per stap staan hieronder in het Engelse deel en in de [issues op GitHub](https://github.com/EduardWitteveen/dawo-appliance/issues).
 
