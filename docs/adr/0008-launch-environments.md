@@ -191,9 +191,12 @@ environments/
 
 ## Decisions still open
 
-1. **Scope:** environments beyond Mijn Bureau go beyond ADR 0001's v0.1
-   scope ("one Ubuntu 24.04 VM, single-node K3s, Mijn Bureau"). Proposed:
-   v0.2, after v0.1.0.
+1. **Scope** (decided by the maintainer, 2026-10-16): environments beyond
+   Mijn Bureau go beyond ADR 0001's v0.1 scope ("one Ubuntu 24.04 VM,
+   single-node K3s, Mijn Bureau"). The maintainer decided to build them
+   now: first Valtimo/GZAC with Open Zaak (#246), then Tezza (Contezza
+   community). Each one starts from the product's own standard demo setup
+   with as few changes as possible, kept apart from the upstream files.
 2. **Phase D:** replacing the Ubuntu 24.04 guest by a NixOS microVM
    (microvm.nix, `services.k3s`) changes ADR 0001; it would make the guest
    pure Nix and buildable for aarch64. Separate ADR when it is due.
