@@ -145,6 +145,7 @@ in
     ./live-logs.nix
     ./live-data.nix
     ./live-mijnbureau.nix
+    ./live-valtimo.nix
     ./live-dutch.nix
   ];
 

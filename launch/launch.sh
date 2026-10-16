@@ -186,6 +186,28 @@ status() {
   if [[ "${json}" == "--json" ]]; then jq . <<<"${out}"; fi
 }
 
+# One environment at a time (ADR 0008): before ID starts, every other
+# environment that runs is stopped, all of its units (#246). Whether it runs
+# is told by its own units: a unit both use (the guest VM) says nothing.
+stop_others() {
+  local id="$1" other u own m
+  local -a mine
+  mapfile -t mine < <(units_of "${id}")
+  while IFS= read -r other; do
+    [[ -n "${other}" && "${other}" != "${id}" ]] || continue
+    while IFS= read -r u; do
+      [[ -n "${u}" ]] || continue
+      own=1
+      for m in "${mine[@]}"; do [[ "${m}" == "${u}" ]] && own=0; done
+      if [[ "${own}" -eq 1 ]] && "${systemctl_bin}" is-active --quiet "${u}"; then
+        echo "Eerst stoppen: de $(field "${other}" .title)-omgeving (er draait één omgeving tegelijk)."
+        stop "${other}" >/dev/null
+        break
+      fi
+    done < <(units_of "${other}")
+  done < <(jq -r '.environments | keys[]' "${config}" 2>/dev/null || true)
+}
+
 start() {
   local id="$1" yes="${2:-}" answer
   require_env "${id}"
@@ -205,6 +227,7 @@ start() {
     echo "launch ${id}: starten is op deze machine niet ingericht (geen units in ${LAUNCH_CONFIG:-/etc/launch/config.json})." >&2
     exit 2
   fi
+  stop_others "${id}"
   "${systemctl_bin}" start --no-block "${units[@]}"
   echo "De $(field "${id}" .title)-omgeving wordt gestart. Volg het met: launch --status"
   echo "Daarna te openen op $(field "${id}" .url)"

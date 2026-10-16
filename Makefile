@@ -54,6 +54,7 @@ test:
 	bash tests/test-image-digests.sh
 	bash tests/test-health-check.sh
 	bash tests/test-mijnbureau-driver.sh
+	bash tests/test-valtimo-driver.sh
 	bash tests/test-check-upstream.sh
 	bash tests/test-release.sh
 

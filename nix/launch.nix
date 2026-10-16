@@ -217,6 +217,23 @@ let
             rm -f active
             LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
             [ "$(jq -r '.[0] | has("progress")' out.json)" = false ] || fail "no progress when the environment is stopped"
+            # One environment at a time (#246): Mijn Bureau runs (its own unit is
+            # active), Valtimo starts: Mijn Bureau stops first, all its units.
+            mkdir -p up.d && touch up.d/guest.service up.d/deploy.service
+            printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$FAKE_LOG"' \
+              '[ "$1" = is-active ] && { u="$3"; [ -z "$u" ] && u="$2"; [ -e "$FAKE_UP/$u" ] && exit 0; exit 3; }' 'exit 0' > fake2
+            chmod +x fake2
+            echo '{"dataPath":"/tmp","reserveGiB":6,"environments":{"mijn-bureau":{"units":["guest.service","deploy.service"]},"valtimo":{"units":["guest.service","vt.service"]}}}' > config3.json
+            : > sc.log
+            LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json launch valtimo </dev/null > out || fail "start valtimo: $(cat out)"
+            grep -q "Eerst stoppen: de Mijn Bureau-omgeving" out || fail "no 'Eerst stoppen' message: $(cat out)"
+            grep -n "stop deploy.service" sc.log > /dev/null || fail "Mijn Bureau's unit not stopped: $(cat sc.log)"
+            last_stop=$(grep -n '^stop guest.service' sc.log | tail -n1 | cut -d: -f1); first_start=$(grep -n '^start --no-block' sc.log | head -n1 | cut -d: -f1)
+            [ -n "$last_stop" ] && [ -n "$first_start" ] && [ "$last_stop" -lt "$first_start" ] || fail "stop before start: $(cat sc.log)"
+            # Nothing else runs (only the shared guest): no stop.
+            rm -f up.d/deploy.service; : > sc.log
+            LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json launch valtimo </dev/null > out || fail "start valtimo 2"
+            ! grep -q "^stop " sc.log || fail "stopped although only the shared guest was active: $(cat sc.log)"
             cp ${json} $out
     '');
 in

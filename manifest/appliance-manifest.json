@@ -49,6 +49,15 @@
         "rev": "ef1d796211ad8624ad5a78cb9a828b0926c2933b",
         "inspected": "2026-06-16"
       }
+    },
+    "gzac_docker_compose": {
+      "url": "https://github.com/generiekzaakafhandelcomponent/gzac-docker-compose",
+      "branch": "v/13",
+      "rev": "7159648f21cab72fe0dab9ac27ef344b63495ae1",
+      "commit_date": "2025-12-03",
+      "inspected": "2026-10-16",
+      "license": "none stated in the repository (fetched at deploy time by commit, not vendored); Valtimo/GZAC itself is EUPL-1.2",
+      "purpose": "The official GZAC demo setup (docker compose --profile demo) for the Valtimo environment (#246)"
     }
   },
   "nix": {
@@ -285,5 +294,52 @@
   ],
   "pending_pins": [
     "container image digests (OQ-5)"
-  ]
+  ],
+  "valtimo": {
+    "compose": {
+      "profile": "demo",
+      "project": "gzac-docker-compose"
+    },
+    "images": {
+      "gzac-keycloak": {
+        "image": "quay.io/keycloak/keycloak:26.2.2",
+        "digest": "sha256:df40860c716d0c2f941967e8ac3ca5e74094c09988298b2eb0ae9335ed34f8f6"
+      },
+      "gzac-keycloak-database": {
+        "image": "docker.io/library/postgres:17.4",
+        "digest": "sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad"
+      },
+      "gzac-database": {
+        "image": "docker.io/library/postgres:17.4",
+        "digest": "sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad"
+      },
+      "gzac-rabbitmq": {
+        "image": "docker.io/library/rabbitmq:4.1-management",
+        "digest": "sha256:b99311e4919b76a723111339950d9a15dc1e9daff2c0320b18b6c18f961a7ee3",
+        "note": "upstream's floating minor tag; this digest is 4.1.8 (2026-10-16)"
+      },
+      "gzac-demo-backend": {
+        "image": "docker.io/ritense/gzac-evenementenvergunning-demo-backend:13.4.1",
+        "digest": "sha256:595cf859ef31dc07e8828b1a20308c8d7756922edeedd0aa6d6aaf5e9967a7bd"
+      },
+      "gzac-demo-frontend": {
+        "image": "docker.io/ritense/gzac-evenementenvergunning-demo-frontend:13.4.1",
+        "digest": "sha256:2725cc40ae5ac143edef212a7bce72db87e61c2f846b4e645f1f0abde4bf29c9"
+      }
+    },
+    "tooling": {
+      "docker": {
+        "version": "29.9.1",
+        "url": "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.1.tgz",
+        "sha256": "c158ecc55adb3afb01bbd3539ed3b997d20c26dbdc418080506cc1bf5243ff57",
+        "license": "Apache-2.0"
+      },
+      "compose": {
+        "version": "5.6.0",
+        "url": "https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-linux-x86_64",
+        "sha256": "40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a",
+        "license": "Apache-2.0"
+      }
+    }
+  }
 }
