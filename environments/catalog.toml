@@ -12,3 +12,7 @@ schema = 1
 [[environment]]
 id = "mijn-bureau"
 path = "mijn-bureau"
+
+[[environment]]
+id = "valtimo"
+path = "valtimo"

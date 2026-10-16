@@ -24,6 +24,12 @@
     ];
     # Written by the Mijn Bureau runner (live-mijnbureau.nix, #232).
     environments.mijn-bureau.progressFile = "/run/launch/progress/mijn-bureau.json";
+    # Valtimo (#246): the GZAC demo in the same guest (live-valtimo.nix).
+    environments.valtimo.units = [
+      "dawo-appliance-guest.service"
+      "dawo-appliance-valtimo.service"
+    ];
+    environments.valtimo.progressFile = "/run/launch/progress/valtimo.json";
     autostartFile = "/run/dawo-logs/launch-autostart.txt";
     launcher.enable = true;
     # Unattended runs (#238): the Launcher starts Mijn Bureau by itself one
