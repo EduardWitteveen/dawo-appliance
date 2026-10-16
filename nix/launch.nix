@@ -150,7 +150,7 @@ let
     '' else ''
                   fail() { echo "FAIL: $*" >&2; exit 1; }
                   jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
-                  launch | grep -q '^mijn-bureau' || fail "listing"
+                  launch > ls.txt; grep -q '^mijn-bureau' ls.txt || fail "listing"; grep -q '^valtimo' ls.txt || fail "listing valtimo"
                   [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ] || fail "--list --json"
                   if launch does-not-exist 2>/dev/null; then fail "an unknown environment must fail"; fi
                   { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving" || fail "unknown message"
@@ -181,10 +181,10 @@ let
                   [ "$rc" = 2 ] || fail "start with --yes: exit $rc, want 2"
                   # --status (#215): a catalogue whose health URL answers, and one that does not.
             jq --arg up "file://$PWD/net" '.environments[0].health.url = $up' ${json} > up.json
-            LAUNCH_CATALOG=$PWD/up.json launch --status | grep -q "Mijn Bureau: klaar op file://" || fail "--status answering"
+            LAUNCH_CATALOG=$PWD/up.json launch --status > st.txt; grep -q "Mijn Bureau: klaar op file://" st.txt || fail "--status answering"
             [ "$(LAUNCH_CATALOG=$PWD/up.json launch --status --json | jq -r '.[0].answers')" = true ] || fail "--status --json answering"
             jq --arg down "file://$PWD/no-net" '.environments[0].health.url = $down' ${json} > down.json
-            LAUNCH_CATALOG=$PWD/down.json launch --status | grep -q "Mijn Bureau: niet actief" || fail "--status not answering"
+            LAUNCH_CATALOG=$PWD/down.json launch --status > st.txt; grep -q "Mijn Bureau: niet actief" st.txt || fail "--status not answering"
             # Start and stop through the bound units (#228), with a fake systemctl.
             printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$FAKE_LOG"' \
               '[ "$1" = is-active ] && [ -e "$FAKE_ACTIVE" ] && exit 0' \
