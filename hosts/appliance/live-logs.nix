@@ -104,6 +104,8 @@ let
       cp -f /run/dawo-appliance/launch-selftest.txt "$dir/launch-selftest.txt" 2>/dev/null || true
       # The Mijn Bureau deployment log (live-mijnbureau.nix, #111).
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
+      # The Valtimo deployment log (live-valtimo.nix, #246).
+      cp -f /var/log/dawo-appliance-valtimo.log "$dir/valtimo.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt.new" 2>&1 || true

@@ -1,0 +1,44 @@
+# Our changes to upstream's gzac-docker-compose (v/13, demo profile), kept
+# apart from its files (#246). Applied as a second -f file. Each change and why:
+#
+#   image: ...@sha256:...   pinned by digest (AGENTS rule 4); the tags are
+#                           upstream's own, the digests are in the manifest
+#   mem_limit, JAVA_*       the guest has 16 GiB; without a limit each JVM
+#                           sizes itself from the whole guest
+#   extra_hosts             upstream reaches the database and Keycloak through
+#                           host.docker.internal; on Linux Docker Engine that
+#                           name needs host-gateway (Docker Desktop has it)
+#
+# Nothing else differs from upstream: realm, users, ports and the demo case
+# are upstream's.
+
+services:
+  gzac-keycloak:
+    image: quay.io/keycloak/keycloak:26.2.2@sha256:df40860c716d0c2f941967e8ac3ca5e74094c09988298b2eb0ae9335ed34f8f6
+    mem_limit: 1g
+    environment:
+      JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=70"
+
+  gzac-keycloak-database:
+    image: docker.io/library/postgres:17.4@sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad
+    mem_limit: 512m
+
+  gzac-database:
+    image: docker.io/library/postgres:17.4@sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad
+    mem_limit: 512m
+
+  gzac-rabbitmq:
+    image: docker.io/library/rabbitmq:4.1-management@sha256:b99311e4919b76a723111339950d9a15dc1e9daff2c0320b18b6c18f961a7ee3
+    mem_limit: 512m
+
+  gzac-demo-backend:
+    image: docker.io/ritense/gzac-evenementenvergunning-demo-backend:13.4.1@sha256:595cf859ef31dc07e8828b1a20308c8d7756922edeedd0aa6d6aaf5e9967a7bd
+    mem_limit: 3g
+    environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  gzac-demo-frontend:
+    image: docker.io/ritense/gzac-evenementenvergunning-demo-frontend:13.4.1@sha256:2725cc40ae5ac143edef212a7bce72db87e61c2f846b4e645f1f0abde4bf29c9
+    mem_limit: 256m

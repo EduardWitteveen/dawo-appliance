@@ -1,0 +1,43 @@
+# The Valtimo environment (ADR 0008, #246). Format: environments/README.md.
+#
+# The official GZAC demo setup, unchanged: gzac-docker-compose (branch v/13,
+# pinned by commit) started with `--profile demo` in the guest, plus one
+# override file of ours (compose/override.yaml: digests, memory limits, the
+# one line Linux needs). The browser keeps upstream's addresses
+# (http://localhost, :8080, :8081): the host forwards them to the guest while
+# this environment runs.
+
+schema = 1
+id = "valtimo"
+
+# What the user sees on the card (Dutch, for the target audience).
+title = "Valtimo"
+summary = "Zaakgericht werken: een aanvraag evenementenvergunning behandelen, stap voor stap, zoals een gemeente dat doet."
+version = "GZAC 13.4.1 (demo)"
+url = "http://localhost/"
+login = "admin / admin"
+license = "EUPL-1.2"
+standards = ["Zaakgericht werken (GZAC)", "BPMN 2.0", "DMN", "OpenID Connect"]
+
+[source]
+repo = "https://github.com/generiekzaakafhandelcomponent/gzac-docker-compose"
+rev = "7159648f21cab72fe0dab9ac27ef344b63495ae1"
+# The same pin as manifest/appliance-manifest.json upstream.gzac_docker_compose.
+manifest = "gzac_docker_compose"
+
+[needs]
+memory_gib = 8 # the demo profile takes about 3-4.5 GiB in the guest
+cpus = 4
+disk_gib = 15 # images and databases on DAWO_LOGS
+kvm = true
+internet = true # the first start downloads the images
+
+[deploy]
+kind = "driver"
+driver = "apps/valtimo/deploy.sh"
+# The upstream compose file and profile it runs, and our override.
+compose_profile = "demo"
+compose_override = "compose/override.yaml"
+
+[health]
+url = "http://localhost/"
