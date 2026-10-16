@@ -51,7 +51,9 @@
       # never pass on something the ISO does not ship (or vice versa).
       liveInstallerExtras = {
         environment.systemPackages = [ disko.packages.${system}.disko-install ];
-        environment.etc."dawo-appliance/config".source = "${self}";
+        # The flake source without .git or build results, whatever kind of flake
+        # it was built from (a path: flake in a checkout copies .git, #248).
+        environment.etc."dawo-appliance/config".source = lib.cleanSource self;
       };
 
       # What upstream wires around every host besides the host module itself.
