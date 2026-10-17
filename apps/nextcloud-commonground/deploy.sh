@@ -304,6 +304,8 @@ out_of_the_box() {
   # The wizards' own example data has no occ command: their setup action, as
   # the admin (upstream's admin / admin), once per app.
   for app in openregister integriq dossiq opencatalogi portaliq; do
+    # The action loads the dataset the wizard chose (400 without one).
+    occ config:app:set "${app}" demo_dataset --value=demo >/dev/null
     if [[ "$(occ config:app:get "${app}" demo_data_decided 2>/dev/null || true)" != installed ]]; then
       if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: POST ${base}/${app}/api/setup/action/load-demo-data"
       else
@@ -311,9 +313,14 @@ out_of_the_box() {
           "${base}/${app}/api/setup/action/load-demo-data" || info "${app}: example data not loaded (the wizard can still do it)"
       fi
     fi
-    occ config:app:set "${app}" demo_dataset --value=demo >/dev/null
     occ config:app:set "${app}" demo_data_decided --value=installed >/dev/null
   done
+  # OpenCatalogi's optional federation steps (its wizard comes back as long
+  # as they are open): connect to the public directory, as its button does.
+  if [[ "${DRY_RUN}" -eq 0 ]]; then
+    curl -fsS -o /dev/null --max-time 300 -u admin:admin -H 'OCS-APIRequest: true' -X POST \
+      "${base}/opencatalogi/api/setup/action/connect-federation" || info "opencatalogi: federation not connected (offline?)"
+  fi
   occ config:app:set pipelinq demo_dataset --value=demo >/dev/null
   occ config:app:set pipelinq demo_data_decided --value=seeded >/dev/null
   occ config:app:set pipelinq setup_dismissed_version --value=1 >/dev/null
@@ -346,6 +353,10 @@ out_of_the_box() {
 # admin / admin: a Nextcloud user in the admin group. Done again on every
 # start (it is there already: only the password is set again).
 add_dawo_login() {
+  # Nextcloud's password policy refuses "dawo" (10 characters minimum, and
+  # it is on the leaked-password list): relaxed for this local demo (D47).
+  occ config:app:set password_policy minLength --value=4 >/dev/null
+  occ config:app:set password_policy enforceHaveIBeenPwned --value=0 >/dev/null
   if occ user:info dawo >/dev/null 2>&1; then
     compose exec -T -u www-data -e OC_PASS=dawo nextcloud php occ user:resetpassword --password-from-env dawo >/dev/null
   else
