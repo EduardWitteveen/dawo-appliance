@@ -90,7 +90,12 @@ let
         local uid pid dir done_file kpid
         local -a envs
         uid="$(id -u dawo 2>/dev/null)"
-        pid="$(pgrep -u dawo -x plasmashell | head -n1)"
+        # The desktop comes up a few seconds after the Launcher answers.
+        for _ in $(seq 1 90); do
+          pid="$(pgrep -u dawo -x plasmashell | head -n1)"
+          [ -n "$pid" ] && break; sleep 1
+        done
+        sleep 5
         if [ -z "$uid" ] || [ -z "$pid" ]; then say "cli screenshot: no dawo desktop session"; return 0; fi
         # The session's own environment (Wayland display, D-Bus, PATH, XDG).
         mapfile -d "" -t envs < "/proc/$pid/environ"
