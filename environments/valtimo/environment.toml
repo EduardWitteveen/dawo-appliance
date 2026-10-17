@@ -15,7 +15,7 @@ title = "Valtimo"
 summary = "Zaakgericht werken: een aanvraag evenementenvergunning behandelen, stap voor stap, zoals een gemeente dat doet."
 version = "GZAC 13.4.1 (demo)"
 url = "http://localhost/"
-login = "admin / admin"
+login = "dawo / dawo (of admin / admin)"
 license = "EUPL-1.2"
 standards = ["Zaakgericht werken (GZAC)", "BPMN 2.0", "DMN", "OpenID Connect"]
 
