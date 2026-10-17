@@ -145,6 +145,7 @@ in
     ./live-logs.nix
     ./live-data.nix
     ./live-mijnbureau.nix
+    ./live-compose-environments.nix
     ./live-valtimo.nix
     ./live-nextcloud-commonground.nix
     ./live-dutch.nix
