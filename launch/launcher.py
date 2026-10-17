@@ -133,6 +133,15 @@ def cycle_worker():
     while not stop.is_set():
         rc, out, _ = run(["--list", "--json"])
         ids = [e["id"] for e in (json.loads(out) if rc == 0 else {}).get("environments", [])]
+        # The marker file may name the environments to go round (one id per
+        # line, # for comments); empty: all of the catalogue.
+        try:
+            with open(OPTS.cycle_file, encoding="utf-8") as f:
+                wanted = [w for w in (l.split("#")[0].strip() for l in f) if ID_RE.match(w) and w in ids]
+        except (OSError, TypeError):
+            wanted = []
+        if wanted:
+            ids = wanted
         with _LOCK:
             CYCLE["round"] += 1
         n = CYCLE["round"]

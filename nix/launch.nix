@@ -150,6 +150,14 @@ let
             curl -sf http://127.0.0.1:18793/api/cycle > cyc.json || fail "GET /api/cycle"
             [ "$(jq -r '.available' cyc.json)" = true ] && [ "$(jq -r '.persisted' cyc.json)" = true ] || fail "cycle state: $(cat cyc.json)"
             kill "$pid"
+            # A marker file that names environments: only those go round.
+            printf '# only this one\nvaltimo\n' > rondgang-marker
+            launcher --port 18795 --cycle-file $PWD/rondgang-marker --cycle-hold 1 --cycle-gap 1 \
+              --cycle-ready-timeout 3 --cycle-report $PWD/rondgang3.log 2>> launcher.log & pid=$!
+            for _ in $(seq 1 60); do grep -q "rondgang stopt" rondgang3.log 2>/dev/null && break; sleep 0.5; done
+            grep -q "ronde 1 valtimo: overgeslagen" rondgang3.log || { cat rondgang3.log >&2; fail "named round: valtimo not tried"; }
+            ! grep -q "mijn-bureau" rondgang3.log || { cat rondgang3.log >&2; fail "named round tried mijn-bureau"; }
+            kill "$pid"
             # Started from the page with a long pause, then stopped with the token.
             rm -f rondgang-marker
             launcher --port 18794 --cycle-file $PWD/rondgang-marker --cycle-gap 300 --cycle-report $PWD/rondgang2.log 2>> launcher.log & pid=$!
