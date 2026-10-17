@@ -4,8 +4,8 @@
 > (`docs/adr/0008-launch-environments.md`).
 
 An **environment** (Dutch: *omgeving*) is something a user starts with
-**Launch** to try it: the Mijn Bureau environment today; later Valtimo, Open
-Zaak, Nextcloud, PodiumD and others. An environment may consist of many
+**Launch** to try it: Mijn Bureau, Valtimo and Nextcloud Common Ground today;
+later Open Zaak, PodiumD and others. An environment may consist of many
 services; to the user it is one whole that they start, look at and stop. One
 runs at a time.
 
@@ -71,9 +71,10 @@ pinned by revision and SHA-256 (a supplier publishing its own environment).
 | `source.publiccode` | string | Path of `publiccode.yml` in that repository |
 | `needs.memory_gib`, `needs.cpus`, `needs.disk_gib` | integer | What it needs; Launch warns beforehand when the laptop falls short (the user may go ahead) |
 | `needs.kvm`, `needs.internet` | bool | Hardware virtualisation; internet on the first start |
-| `deploy.kind` | `helm`, `helmfile` or `driver` | How it is deployed (`driver`: transitional, Mijn Bureau only) |
+| `deploy.kind` | `helm`, `helmfile` or `driver` | How it is deployed (`driver`: a script of ours; Mijn Bureau, and the compose environments below) |
 | `deploy.driver` | string | With `driver`: the script in this repository |
 | `deploy.profile` | string | Optional: the profile the driver uses |
+| `deploy.compose_file`, `deploy.compose_profile`, `deploy.compose_override` | string | Optional, compose environments: upstream's compose file, the profile it is started with, and our override file (path in this directory) |
 | `health.url` | string | Answers when the environment is ready |
 
 **Versions:** one version per environment at a time. Updating is a pull
@@ -115,6 +116,34 @@ since the epoch; `expected` is how long this step should take, `error` a
 message when it failed). `launch --status` passes it on, and the Launcher
 shows a bar for the whole start and one for the current step. The Mijn Bureau
 runner writes it, with the step durations of the last run on this machine.
+
+## Compose environments (Valtimo, Nextcloud Common Ground)
+
+Some products ship their demo as a Docker Compose file. Those environments
+run that file as upstream ships it, at a pinned commit, plus one override
+file of ours (`<id>/compose/override.yaml`: images by digest, versions,
+memory limits), on a Docker Engine in the same guest as Mijn Bureau
+(`dawo-docker`, D43). Their driver (`apps/<id>/deploy.sh`) runs in phases
+from a host runner (`hosts/appliance/live-<id>.nix`) that reports progress to
+the Launcher and forwards upstream's `localhost` ports to the guest while the
+environment runs.
+
+One at a time: Launch stops the other environment's units first, and each
+driver stops K3s and the running containers of every other compose project
+(also after the engine starts, since upstream's restart policies bring them
+back). Data stays in their volumes.
+
+| Environment | Upstream | Opens at | Login |
+|---|---|---|---|
+| `valtimo` | gzac-docker-compose `v/13`, `--profile demo` | `http://localhost/` | `admin` / `admin` |
+| `nextcloud-commonground` | ConductionNL/dossiq `dossiq-compose.yaml` | `http://localhost:8609/apps/dossiq/` | `admin` / `admin` |
+
+Nextcloud Common Ground adds to upstream's four apps (OpenRegister, Thematiq,
+Integriq, Dossiq) three more of Conduction's (OpenCatalogi, Pipelinq,
+Portaliq), all stable GitHub releases checked by SHA-256 before they are
+unpacked, and runs the apps' own demo data (`dossiq:demo:seed`,
+`pipelinq:demo:seed`). Pins: `manifest/appliance-manifest.json`
+`nextcloud_commonground`; deviations D44-D46.
 
 ## Checks
 
