@@ -60,7 +60,9 @@ download_verified() { # URL SHA256 DEST
 }
 
 compose() {
-  run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST=unix:///run/dawo-docker.sock \
+  # Two images at a time: all at once choked a slow network (TLS handshake
+  # timeouts to Docker Hub in the nested test, 2026-10-17).
+  run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST=unix:///run/dawo-docker.sock COMPOSE_PARALLEL_LIMIT=2 \
     docker compose --project-directory "${SRC_DIR}" -f "${SRC_DIR}/docker-compose.yaml" -f "${VT_OVERRIDE:?}" \
     --profile "${PROFILE}" "$@"
 }
@@ -128,7 +130,7 @@ Wants=network-online.target
 
 [Service]
 Environment=PATH=${DOCKER_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=/var/lib/dawo-docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid
+ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=/var/lib/dawo-docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid --max-concurrent-downloads=2
 Restart=on-failure
 LimitNOFILE=1048576
 Delegate=yes
