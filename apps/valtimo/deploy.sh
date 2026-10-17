@@ -214,6 +214,27 @@ phase_ready() {
     sleep 5; waited=$((waited + 5))
   done
   info "frontend answers (${waited}s)"
+  add_dawo_login
+}
+
+# The appliance's one demo login, dawo / dawo (#258), next to upstream's
+# users: a user in upstream's realm with the same roles as its admin. Made
+# through Keycloak's own admin CLI with upstream's admin account; done again
+# on every start (it is there already: nothing changes).
+add_dawo_login() {
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: kcadm: user dawo / dawo in realm valtimo, roles ROLE_ADMIN ROLE_USER"; return 0; fi
+  local kc=(env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker exec gzac-docker-compose-gzac-keycloak
+            /opt/keycloak/bin/kcadm.sh)
+  local cfg=(--config /tmp/dawo-kcadm.config)
+  "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8080/auth --realm master \
+    --user admin --password admin >/dev/null 2>&1 || { info "login dawo / dawo: Keycloak admin CLI not reachable; skipped"; return 0; }
+  if ! "${kc[@]}" get users "${cfg[@]}" -r valtimo -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
+    "${kc[@]}" create users "${cfg[@]}" -r valtimo -s username=dawo -s enabled=true -s emailVerified=true \
+      -s firstName=Dawo -s lastName=Demo -s email=dawo@example.com >/dev/null
+  fi
+  "${kc[@]}" set-password "${cfg[@]}" -r valtimo --username dawo --new-password dawo >/dev/null
+  "${kc[@]}" add-roles "${cfg[@]}" -r valtimo --uusername dawo --rolename ROLE_ADMIN --rolename ROLE_USER >/dev/null
+  info "login dawo / dawo (roles ROLE_ADMIN, ROLE_USER)"
 }
 
 # The other environment starts: stop the containers (they keep their data).
