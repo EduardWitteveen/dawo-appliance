@@ -12,6 +12,11 @@
 #   4. Stoppen: guest unit inactive, no libvirt domain running, state stopped;
 #   5. Starten again (re-entrant): K3s Ready again.
 #
+# Right after the clean boot it also opens a terminal on the desktop that runs
+# `launch`, `launch --check valtimo` and `launch --status`, and saves one
+# screenshot of it (screens/launch-cli.png on the stick) for the README (#252).
+# That part only logs when it does not work; it never fails the run.
+#
 # Each step prints a `LAUNCH-TEST:` line on the serial console and in
 # /run/dawo-appliance/launch-selftest.txt (copied to the stick with the logs).
 #
@@ -19,9 +24,24 @@
 { pkgs, ... }:
 
 let
+  # Runs in a terminal on the desktop, as the user (#252): the real commands,
+  # each after a prompt in the shape of the shell's own (the NixOS default),
+  # then it waits so the 30-s debug screenshots catch it too.
+  cliDemo = pkgs.writeShellScript "launch-cli-demo" ''
+    cd "$HOME" 2>/dev/null || true
+    p='\e[1;32m[\u@\h:\w]\$\e[0m '
+    run() { printf '%s%s\n' "''${p@P}" "$*"; "$@" 2>&1; echo; }
+    run launch
+    run launch --check valtimo
+    run launch --status
+    printf '%s' "''${p@P}"
+    : > "''${XDG_RUNTIME_DIR:-/tmp}/launch-cli.done"
+    sleep "''${1:-75}"
+  '';
+
   selftest = pkgs.writeShellApplication {
     name = "launch-selftest";
-    runtimeInputs = with pkgs; [ coreutils gnused gnugrep curl jq openssh systemd libvirt ];
+    runtimeInputs = with pkgs; [ coreutils gnused gnugrep curl jq openssh systemd libvirt procps util-linux ];
     text = ''
       out=/run/dawo-appliance/launch-selftest.txt
       mkdir -p /run/dawo-appliance
@@ -59,6 +79,46 @@ let
       post() { # post start|stop -> the JSON answer
         curl -s -m 600 -X POST -H "X-Launcher-Token: $token" "$api/api/$1/$env"
       }
+      # The command line for the README (#252): a full-screen Konsole in the
+      # dawo desktop session runs `launch`, `launch --check valtimo` and
+      # `launch --status` (cliDemo); one Spectacle screenshot of it goes to
+      # the session's dawo-shots dir as launch-cli.png, which the log
+      # collector copies to DAWO_LOGS/.../screens/. Best effort: it only says
+      # what did not work.
+      cli_shot() {
+        set +e
+        local uid pid dir done_file kpid
+        local -a envs
+        uid="$(id -u dawo 2>/dev/null)"
+        pid="$(pgrep -u dawo -x plasmashell | head -n1)"
+        if [ -z "$uid" ] || [ -z "$pid" ]; then say "cli screenshot: no dawo desktop session"; return 0; fi
+        # The session's own environment (Wayland display, D-Bus, PATH, XDG).
+        mapfile -d "" -t envs < "/proc/$pid/environ"
+        as_dawo() { runuser -u dawo -- env -i "''${envs[@]}" "$@"; }
+        dir="/run/user/$uid/dawo-shots"; done_file="/run/user/$uid/launch-cli.done"
+        rm -f "$done_file"
+        as_dawo mkdir -p "$dir"
+        as_dawo konsole --separate --nofork --hide-menubar --hide-tabbar --fullscreen \
+          -p "Font=Monospace,15" -e ${cliDemo} 75 >/dev/null 2>&1 &
+        kpid=$!
+        for _ in $(seq 1 60); do [ -e "$done_file" ] && break; sleep 1; done
+        if [ ! -e "$done_file" ]; then
+          say "cli screenshot: the terminal did not run the commands within 60 s"
+          kill "$kpid" 2>/dev/null; return 0
+        fi
+        sleep 3
+        if as_dawo ${pkgs.kdePackages.spectacle}/bin/spectacle --background --nonotify --fullscreen \
+             --output "$dir/launch-cli.png" >/dev/null 2>&1 && [ -s "$dir/launch-cli.png" ]; then
+          say "cli screenshot: launch-cli.png saved"
+        else
+          say "cli screenshot: spectacle did not save launch-cli.png"
+        fi
+        # The terminal closes by itself after 75 s; make sure of it.
+        for _ in $(seq 1 90); do kill -0 "$kpid" 2>/dev/null || break; sleep 1; done
+        kill "$kpid" 2>/dev/null
+        rm -f "$done_file"
+        return 0
+      }
 
       say "started"
       # 1. A clean boot.
@@ -69,6 +129,9 @@ let
       grep -q Launcher /run/dawo-appliance/guest-skipped 2>/dev/null \
         || fail "no 'kies er een in de Launcher' note at boot"
       say "clean boot: $env stopped, no guest, note shown"
+      # The command line for the README (#252), in the background: it never
+      # fails or delays the run.
+      cli_shot &
 
       # 2. The token protects start and stop.
       token="$(curl -sf "$api/" | sed -n 's/.*const TOKEN = "\([0-9a-f]*\)".*/\1/p')"
