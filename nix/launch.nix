@@ -66,7 +66,10 @@ let
         (p "deploy.driver must name an existing file in this repository")
       ++ lib.optional (!(isStr ((env.health or { }).url or null))) (p "missing health.url")
       ++ lib.optional (!(builtins.isList (env.links or [ ])) || lib.any (l: !(isStr (l.title or null)) || !(isStr (l.url or null))) (env.links or [ ]))
-        (p "links: each needs a title and a url");
+        (p "links: each needs a title and a url")
+      ++ lib.optional (env ? notice && (!(isStr (env.notice.title or null)) || !(isStr (env.notice.text or null))
+           || !(builtins.isInt (env.notice.seconds or 60)) || !(builtins.elem (env.notice.level or "info") [ "info" "danger" ])))
+        (p "notice: needs a title and a text; seconds an integer; level info or danger");
 
   ids = map (e: e.id or "") entries;
   problems =
@@ -188,6 +191,7 @@ let
             # A fake launch: every environment is ready at once, start and stop
             # take two seconds.
             real="$(command -v launch)"
+            LAUNCH_CATALOG_SRC="$(grep -o '/nix/store/[^"]*launch-catalog.json' "$real" | head -n1)"
             echo '[{"id":"mijn-bureau","state":"ready"},{"id":"valtimo","state":"ready"}]' > fake-status.json
             echo '{"ok":true,"problems":[]}' > fake-check.json
             {
@@ -220,6 +224,25 @@ let
               || { cat rondgang5.log >&2; fail "a Stop on the round's card did not move the round on"; }
             grep -q "valtimo --yes" fl.log || { cat fl.log rondgang5.log >&2; fail "the round did not go on with valtimo"; }
             [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = true ] || fail "the round ended on a card's Stop"
+            # The notice before a start (#261): shown, cancelled, then started after its seconds.
+            jq '(.environments[] | select(.id == "valtimo")) += {notice: {title: "Licentie onduidelijk", text: "Voorwaarden", seconds: 2, level: "danger"}}' \
+              "$LAUNCH_CATALOG_SRC" > notice.json
+            : > fl.log
+            LAUNCH_CATALOG=$PWD/notice.json launcher --port 18799 --launch $PWD/fake-launch 2>> launcher.log & npid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18799/ -o p6.html && break; sleep 0.2; done
+            ntoken="$(grep -o 'const TOKEN = "[0-9a-f]*"' p6.html | grep -o '[0-9a-f]\{32\}')"
+            curl -sf -X POST -H "X-Launcher-Token: $ntoken" http://127.0.0.1:18799/api/start/valtimo > n1.json
+            [ "$(jq -r .pending n1.json)" = true ] || fail "a start with a notice is not pending: $(cat n1.json)"
+            curl -sf http://127.0.0.1:18799/api/environments > n2.json
+            jq -e '.[] | select(.id == "valtimo") | (.pending.at | type == "number") and .notice.level == "danger"' n2.json >/dev/null \
+              || fail "the card does not show the pending notice: $(cat n2.json)"
+            curl -sf -X POST -H "X-Launcher-Token: $ntoken" http://127.0.0.1:18799/api/cancel/valtimo > /dev/null
+            sleep 3
+            ! grep -q "^valtimo --yes" fl.log || fail "started although 'Niet starten' was chosen"
+            curl -sf -X POST -H "X-Launcher-Token: $ntoken" http://127.0.0.1:18799/api/start/valtimo > /dev/null
+            for _ in $(seq 1 20); do grep -q "^valtimo --yes" fl.log && break; sleep 0.5; done
+            grep -q "^valtimo --yes" fl.log || fail "not started after its notice: $(cat fl.log)"
+            kill "$npid"
             # Starting an environment: the user takes over, the round ends.
             curl -s -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18798/api/start/mijn-bureau > /dev/null
             for _ in $(seq 1 30); do [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = false ] && break; sleep 0.5; done

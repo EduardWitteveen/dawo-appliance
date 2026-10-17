@@ -76,6 +76,9 @@ pinned by revision and SHA-256 (a supplier publishing its own environment).
 | `deploy.profile` | string | Optional: the profile the driver uses |
 | `deploy.compose_file`, `deploy.compose_profile`, `deploy.compose_override` | string | Optional, compose environments: upstream's compose file, the profile it is started with, and our override file (path in this directory) |
 | `health.url` | string | Answers when the environment is ready |
+| `notice.title`, `notice.text` | string | Optional: shown before the environment starts (Launcher card and `launch`), for example its terms when its license is not known (#261) |
+| `notice.seconds` | integer | Optional: how long the Launcher shows it before starting (default 60); "Nu starten" and "Niet starten" end it |
+| `notice.level` | `info` or `danger` | Optional: `danger` shows it in red |
 | `links` | list of tables | Optional: what runs next to it, each `title`, `url` and an optional `login`; the Launcher lists them on the card once the environment is ready |
 
 **Versions:** one version per environment at a time. Updating is a pull

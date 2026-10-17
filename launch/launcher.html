@@ -74,6 +74,10 @@
   .cycle { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
            margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; font-size: .95rem; }
   .cycle.active { border-color: var(--accent); }
+  .notice { border: 1px solid #d9a400; background: #fff8e0; color: #3d3000; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+  .notice.danger, .warn.danger { border: 2px solid #c62828; background: #fdecea; color: #8e0000; }
+  .notice.danger b, .warn.danger { color: #b71c1c; font-weight: 700; }
+  .notice-text { white-space: pre-wrap; font-size: .9rem; margin: 6px 0; }
   .links { font-size: .9rem; margin: 6px 0; }
   .links summary { cursor: pointer; color: var(--accent); }
   .links ul { margin: 6px 0 0; padding-left: 18px; }
@@ -116,7 +120,7 @@ async function act(verb, env) {
       !confirm("Let op:\n\n" + env.problems.join("\n\n") + "\n\nToch starten?")) return;
   if (acting) return;
   acting = true;  // one start or stop at a time (#257)
-  busy[env.id] = verb === "start" ? "Wordt gestart…" : "Wordt gestopt…";
+  busy[env.id] = { start: "Wordt gestart…", "start-now": "Wordt gestart…", stop: "Wordt gestopt…", cancel: "" }[verb];
   render(lastData);
   try {
     const r = await fetch(`/api/${verb}/${env.id}`, { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
@@ -146,9 +150,23 @@ function autoBlock(env) {
     el("button", { onclick: cancelAuto }, "Niet automatisch starten"));
 }
 
+// The environment's notice before it starts (#261), with a countdown.
+function noticeBlock(env) {
+  const n = env.notice;
+  return el("div", { class: "notice" + (n.level === "danger" ? " danger" : ""), "data-auto-at": env.pending.at },
+    el("b", {}, n.title || "Let op"),
+    el("p", { class: "notice-text" }, n.text || ""),
+    el("span", { class: "auto-text", "data-what": "De omgeving" }, ""),
+    el("div", { class: "actions" },
+      el("button", { class: "primary", onclick: () => act("start-now", env) }, "Nu starten"),
+      el("button", { onclick: () => act("cancel", env) }, "Niet starten")));
+}
+
 function card(env) {
   const actions = el("div", { class: "actions" });
-  if (env.state === "stopped") {
+  if (env.pending) {
+    // the notice block carries the buttons
+  } else if (env.state === "stopped") {
     actions.append(el("button", { class: "primary", onclick: () => act("start", env), ...(acting ? { disabled: "" } : {}) }, "Starten"));
   } else {
     if (env.state === "ready") {
@@ -167,6 +185,9 @@ function card(env) {
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
     env.state === "starting" ? progressBlock(env) : null,
     env.state === "stopped" && env.autostart ? autoBlock(env) : null,
+    env.pending && env.notice ? noticeBlock(env) : null,
+    env.state === "stopped" && !env.pending && env.notice
+      ? el("div", { class: env.notice.level === "danger" ? "warn danger" : "warn" }, env.notice.title || "Let op") : null,
     warn,
     env.state === "ready" && env.login ? el("div", { class: "login" }, "Inloggen: " + env.login) : null,
     env.state === "ready" && env.links && env.links.length
