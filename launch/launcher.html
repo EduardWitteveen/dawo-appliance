@@ -96,6 +96,7 @@
 const TOKEN = "__LAUNCHER_TOKEN__";
 const STATE = { ready: "Klaar", starting: "Wordt gestart…", stopped: "Niet actief" };
 const busy = {};
+let acting = false;
 
 function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
@@ -109,15 +110,18 @@ function el(tag, attrs, ...children) {
 async function act(verb, env) {
   if (verb === "start" && env.problems.length &&
       !confirm("Let op:\n\n" + env.problems.join("\n\n") + "\n\nToch starten?")) return;
+  if (acting) return;
+  acting = true;  // one start or stop at a time (#257)
   busy[env.id] = verb === "start" ? "Wordt gestart…" : "Wordt gestopt…";
   render(lastData);
   try {
     const r = await fetch(`/api/${verb}/${env.id}`, { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
     const j = await r.json();
-    busy[env.id] = j.ok ? "" : ("Dat lukte niet: " + (j.output || j.code));
+    busy[env.id] = j.ok ? "" : j.busy ? j.output : ("Dat lukte niet: " + (j.output || j.code));
   } catch (e) {
     busy[env.id] = "Dat lukte niet: " + e;
   }
+  acting = false;
   render(lastData);
   lastJson = "";
   refresh();
@@ -128,8 +132,8 @@ async function cancelAuto() {
   try {
     await fetch("/api/autostart/cancel", { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
   } catch (e) { /* the next refresh shows the state */ }
-  lastJson = "";
-  refresh();
+  lastJson = ""; lastCycle = "";
+  refresh(); refreshCycle();
 }
 
 function autoBlock(env) {
@@ -141,12 +145,12 @@ function autoBlock(env) {
 function card(env) {
   const actions = el("div", { class: "actions" });
   if (env.state === "stopped") {
-    actions.append(el("button", { class: "primary", onclick: () => act("start", env) }, "Starten"));
+    actions.append(el("button", { class: "primary", onclick: () => act("start", env), ...(acting ? { disabled: "" } : {}) }, "Starten"));
   } else {
     if (env.state === "ready") {
       actions.append(el("a", { class: "button primary", href: env.url, target: "_blank", rel: "noopener" }, "Openen"));
     }
-    actions.append(el("button", { onclick: () => act("stop", env) }, "Stoppen"));
+    actions.append(el("button", { onclick: () => act("stop", env), ...(acting ? { disabled: "" } : {}) }, "Stoppen"));
   }
   const warn = env.state === "stopped" && env.problems.length
     ? el("div", { class: "warn" }, "Let op:", el("ul", {}, ...env.problems.map(p => el("li", {}, p))))
@@ -214,8 +218,10 @@ function tick() {
   const now = Date.now() / 1000;
   for (const box of document.querySelectorAll(".auto[data-auto-at]")) {
     const left = Math.max(0, Math.ceil(+box.dataset.autoAt - now));
-    box.querySelector(".auto-text").textContent =
-      left > 0 ? `Start automatisch over ${dur(left)}` : "Wordt nu automatisch gestart…";
+    const t = box.querySelector(".auto-text"), what = t.dataset.what;
+    t.textContent = what
+      ? (left > 0 ? `${what} start automatisch over ${dur(left)}` : `${what} wordt nu gestart…`)
+      : (left > 0 ? `Start automatisch over ${dur(left)}` : "Wordt nu automatisch gestart…");
   }
   for (const box of document.querySelectorAll(".progress[data-started]")) {
     const step = +box.dataset.step, steps = +box.dataset.steps, exp = +box.dataset.expected;
@@ -296,11 +302,18 @@ function renderCycle(c) {
       el("button", { class: "primary", onclick: () => cycleAct("stop") }, "Rondgang stoppen")));
   } else {
     kids.push(el("div", { class: "cycle-head" }, el("b", {}, "Rondgang"), " · alle omgevingen om de beurt starten, 5 minuten laten draaien en weer stoppen: een test die vanzelf doorloopt."));
-    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start") }, "Rondgang starten")));
+    if (c.autostart) {
+      // The round as the automatic start (#257), with a way out.
+      kids.push(el("div", { class: "auto", "data-auto-at": c.autostart.at },
+        el("span", { class: "auto-text", "data-what": "De rondgang" }, "Start automatisch…"),
+        el("button", { onclick: cancelAuto }, "Niet automatisch starten")));
+    }
+    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start") }, "Rondgang nu starten")));
   }
   if (c.can_persist) {
+    // A marker on the stick: the round begins at once at the next start-up too.
     kids[kids.length - 1].append(el("button", { onclick: () => cycleAct(c.persisted ? "persist-off" : "persist-on") },
-      c.persisted ? "Bij elke start: aan (uitzetten)" : "Bij elke start: uit (aanzetten)"));
+      c.persisted ? "Na herstart meteen verder: aan (uitzetten)" : "Na herstart meteen verder: uit (aanzetten)"));
   }
   if (c.last && c.last.length) {
     kids.push(el("ul", { class: "cycle-last" }, ...c.last.slice(-3).map(l => el("li", {}, l))));

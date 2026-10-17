@@ -118,6 +118,18 @@ check() {
 # The systemd units that start and stop an environment on this machine.
 units_of() { jq -r --arg id "$1" '.environments[$id].units[]? // empty' "${config}" 2>/dev/null || true; }
 
+# The units only this environment lists: a unit others list too (the guest
+# VM) says nothing about which one runs (#257: every card showed "Wordt
+# gestart"). All of its units when it has none of its own.
+own_units_of() {
+  jq -r --arg id "$1" '
+    (.environments // {}) as $e
+    | ($e[$id].units // []) as $mine
+    | ([$e | to_entries[] | select(.key != $id) | .value.units // [] | .[]]) as $others
+    | ([$mine[] | select(. as $u | $others | index($u) | not)]) as $own
+    | (if ($own | length) > 0 then $own else $mine end)[]' "${config}" 2>/dev/null || true
+}
+
 # The environment's progress while it starts (#232): a JSON file it writes
 # itself, {step, steps, label, started, since, expected, error}; empty when there is
 # none or it is not valid JSON.
@@ -128,13 +140,15 @@ progress_of() {
   jq -c 'select(type == "object" and (.step | type) == "number" and (.steps | type) == "number")' "${f}" 2>/dev/null || true
 }
 
-# Whether any of the environment's units is active (starting or running).
+# Whether any of the environment's own units is active (starting or running),
+# or still waits in systemd's queue to start (behind the guest VM it needs).
 units_active() {
   local u
   while IFS= read -r u; do
     [[ -n "${u}" ]] || continue
     if "${systemctl_bin}" is-active --quiet "${u}"; then return 0; fi
-  done < <(units_of "$1")
+    if [[ -n "$("${systemctl_bin}" list-jobs --no-legend "${u}" 2>/dev/null || true)" ]]; then return 0; fi
+  done < <(own_units_of "$1")
   return 1
 }
 
