@@ -197,7 +197,10 @@ phase_ready() {
     sleep 5; waited=$((waited + 5))
   done
   info "Keycloak answers (${waited}s)"
-  until ok=""; for url in /management/health/readiness /api/management/health/readiness /actuator/health/readiness; do
+  # GZAC 13.4.1 answers 403 on the health groups (readiness) without a
+  # token; the aggregate /actuator/health says UP once it serves (tested
+  # in WSL 2026-10-17: UP at 206 s, the 7 demo cases created by then).
+  until ok=""; for url in /actuator/health /management/health/readiness /api/management/health/readiness; do
           if curl -fsS --max-time 5 "http://localhost:8080${url}" 2>/dev/null | grep -q '"UP"'; then ok="${url}"; break; fi
         done; [[ -n "${ok}" ]]; do
     [[ "${waited}" -ge 1200 ]] && die "the backend is not ready after ${waited}s"
