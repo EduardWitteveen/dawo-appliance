@@ -30,6 +30,13 @@
       "dawo-appliance-valtimo.service"
     ];
     environments.valtimo.progressFile = "/run/launch/progress/valtimo.json";
+    # Nextcloud Common Ground (#250): Conduction's demo in the same guest
+    # (live-nextcloud-commonground.nix).
+    environments.nextcloud-commonground.units = [
+      "dawo-appliance-guest.service"
+      "dawo-appliance-nextcloud-commonground.service"
+    ];
+    environments.nextcloud-commonground.progressFile = "/run/launch/progress/nextcloud-commonground.json";
     autostartFile = "/run/dawo-logs/launch-autostart.txt";
     launcher.enable = true;
     # Unattended runs (#238): the Launcher starts Mijn Bureau by itself one

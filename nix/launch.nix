@@ -150,7 +150,7 @@ let
     '' else ''
                   fail() { echo "FAIL: $*" >&2; exit 1; }
                   jq -e '.schema == 1 and (.environments | length) >= 1' ${json} >/dev/null
-                  launch > ls.txt; grep -q '^mijn-bureau' ls.txt || fail "listing"; grep -q '^valtimo' ls.txt || fail "listing valtimo"
+                  launch > ls.txt; grep -q '^mijn-bureau' ls.txt || fail "listing"; grep -q '^valtimo' ls.txt || fail "listing valtimo"; grep -q '^nextcloud-commonground' ls.txt || fail "listing nextcloud-commonground"
                   [ "$(launch --list --json | jq -r '.environments[0].id')" = mijn-bureau ] || fail "--list --json"
                   if launch does-not-exist 2>/dev/null; then fail "an unknown environment must fail"; fi
                   { launch does-not-exist 2>&1 || true; } | grep -q "onbekende omgeving" || fail "unknown message"

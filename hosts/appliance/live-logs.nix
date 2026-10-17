@@ -106,6 +106,8 @@ let
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
       # The Valtimo deployment log (live-valtimo.nix, #246).
       cp -f /var/log/dawo-appliance-valtimo.log "$dir/valtimo.txt" 2>/dev/null || true
+      # The Nextcloud Common Ground deployment log (live-nextcloud-commonground.nix, #250).
+      cp -f /var/log/dawo-appliance-nextcloud-commonground.log "$dir/nextcloud-commonground.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt.new" 2>&1 || true
