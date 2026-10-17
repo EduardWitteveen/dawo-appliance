@@ -32,11 +32,11 @@ done
 STATE_DIR="${VT_STATE_DIR:-/var/lib/dawo-appliance-valtimo}"
 SRC_DIR="${STATE_DIR}/gzac-docker-compose"
 DOWNLOADS="${STATE_DIR}/downloads"
-DOCKER_DIR="/opt/dawo-docker"
+DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
 PROFILE="demo"
 # The compose project (the directory name); manifest valtimo.compose.project.
 PROJECT="gzac-docker-compose"
-DOCKER_SOCK="unix:///run/dawo-docker.sock"
+DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
 
 info() { echo "    $*"; }
 log() { echo "==> $*"; }
@@ -62,7 +62,7 @@ download_verified() { # URL SHA256 DEST
 compose() {
   # Two images at a time: all at once choked a slow network (TLS handshake
   # timeouts to Docker Hub in the nested test, 2026-10-17).
-  run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST=unix:///run/dawo-docker.sock COMPOSE_PARALLEL_LIMIT=2 \
+  run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" COMPOSE_PARALLEL_LIMIT=2 \
     docker compose --project-directory "${SRC_DIR}" -f "${SRC_DIR}/docker-compose.yaml" -f "${VT_OVERRIDE:?}" \
     --profile "${PROFILE}" "$@"
 }
