@@ -236,6 +236,16 @@ start() {
       fi
     fi
   fi
+  # The environment's notice (#261), for example terms whose license is not
+  # known: shown before it starts; in a terminal the user confirms it.
+  if [[ "$(field "${id}" '.notice.title // empty')" != "" ]]; then
+    echo "== $(field "${id}" '.notice.title')"
+    field "${id}" '.notice.text // ""'
+    if [[ "${yes}" != "--yes" && -t 0 ]]; then
+      read -r -p "Starten? [j/N] " answer
+      case "${answer,,}" in j | ja | y | yes) ;; *) echo "Niet gestart."; exit 3 ;; esac
+    fi
+  fi
   mapfile -t units < <(units_of "${id}")
   if (( ${#units[@]} == 0 )); then
     echo "launch ${id}: starten is op deze machine niet ingericht (geen units in ${LAUNCH_CONFIG:-/etc/launch/config.json})." >&2

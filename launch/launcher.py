@@ -30,6 +30,11 @@ One start or stop at a time: while one runs, the page's buttons wait and a
 second request is answered 409 (#257: a start queued behind a stop cancelled
 that stop).
 
+An environment with a notice in its catalogue entry (for example the terms of
+a product whose license is not known, #261) does not start at once: its card
+shows the notice for its seconds, with "Nu starten" and "Niet starten", and
+then it starts. The round does the same.
+
 Safety: it listens on 127.0.0.1 only, and every action needs the random token
 that is put into the page when it is served, so another web site cannot press
 the buttons (cross-site requests cannot read the page). Starting and stopping
@@ -78,6 +83,36 @@ def act(args, timeout=300):
     with _LOCK:
         _CACHE["at"] = 0.0
     return rc, out, err
+
+
+# Starts that first show the environment's notice (#261): {id: time it starts}.
+PENDING = {}
+
+
+def notice_of(eid):
+    """The environment's notice {title, text, seconds}, or None."""
+    rc, out, _ = run(["--list", "--json"])
+    for env in (json.loads(out) if rc == 0 else {}).get("environments", []):
+        if env.get("id") == eid and isinstance(env.get("notice"), dict):
+            return env["notice"]
+    return None
+
+
+def pending_worker(eid):
+    """Start eid when its notice has been shown long enough, unless cancelled."""
+    while True:
+        with _LOCK:
+            at = PENDING.get(eid)
+        if at is None:
+            return
+        if time.time() >= at:
+            break
+        time.sleep(0.5)
+    with _LOCK:
+        if PENDING.pop(eid, None) is None:
+            return
+    rc, out, err = act([eid, "--yes"])
+    sys.stderr.write(f"launcher: start of {eid} after its notice: exit {rc}: {(out + err).strip()[-200:]}\n")
 
 
 _CACHE = {"at": 0.0, "data": []}
@@ -182,6 +217,22 @@ def cycle_worker():
                 break
             first = False
             CYCLE["skip"].clear()
+            notice = notice_of(eid)
+            if notice:
+                # Its notice first (#261), as when the user starts it.
+                secs = int(notice.get("seconds", 60))
+                with _LOCK:
+                    PENDING[eid] = time.time() + secs
+                    _CACHE["at"] = 0.0
+                cycle_wait(secs, "notice", eid, nxt)
+                with _LOCK:
+                    accepted = PENDING.pop(eid, None) is not None
+                    _CACHE["at"] = 0.0
+                if stop.is_set():
+                    break
+                if not accepted:
+                    cycle_report(f"ronde {n} {eid}: niet gestart (de gebruiker koos 'Niet starten')")
+                    continue
             with _LOCK:
                 CYCLE.update(phase="starting", env=eid, next=nxt, until=None)
             t0 = time.time()
@@ -301,6 +352,9 @@ def environments():
             # The automatic start that is still to come (#238), else None.
             "autostart": ({"at": AUTO["pending"]["at"]}
                           if AUTO["pending"] and AUTO["pending"]["id"] == eid else None),
+            # Shown before it starts (#261), and when that start comes.
+            "notice": env.get("notice") if isinstance(env.get("notice"), dict) else None,
+            "pending": {"at": PENDING[eid]} if eid in PENDING else None,
             "problems": check.get("problems", []),
         })
     return result
@@ -359,7 +413,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 _CACHE["at"] = 0.0
             self.send(200, json.dumps({"ok": True}))
             return
-        m = re.fullmatch(r"/api/(start|stop)/([a-z0-9-]+)", self.path)
+        m = re.fullmatch(r"/api/(start|start-now|cancel|stop)/([a-z0-9-]+)", self.path)
         if not m or not ID_RE.match(m.group(2)):
             self.send(404, json.dumps({"error": "not found"}))
             return
@@ -367,10 +421,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(403, json.dumps({"error": "forbidden"}))
             return
         verb, eid = m.groups()
+        if verb == "cancel":
+            # "Niet starten" while the notice shows (#261).
+            with _LOCK:
+                PENDING.pop(eid, None)
+                _CACHE["at"] = 0.0
+            self.send(200, json.dumps({"ok": True, "code": 0, "output": ""}))
+            return
+        if verb in ("start", "start-now") and CYCLE["active"] and eid not in PENDING:
+            cycle_stop()  # the user takes over: the round ends (#251)
+        if verb == "start" and eid not in PENDING and notice_of(eid):
+            # Its notice first (#261); "Nu starten" (start-now) skips the wait.
+            secs = int(notice_of(eid).get("seconds", 60))
+            with _LOCK:
+                AUTO["pending"] = None
+                PENDING[eid] = time.time() + secs
+                _CACHE["at"] = 0.0
+            threading.Thread(target=pending_worker, args=(eid,), daemon=True).start()
+            self.send(200, json.dumps({"ok": True, "code": 0, "pending": True, "output": ""}))
+            return
+        if verb == "start-now" and CYCLE["active"] and eid in PENDING:
+            # The round shows this notice: the round starts it now.
+            with _LOCK:
+                PENDING[eid] = time.time()
+            CYCLE["skip"].set()
+            self.send(200, json.dumps({"ok": True, "code": 0, "output": ""}))
+            return
         # One start or stop at a time (#257): a second one would replace the
         # first one's systemd job ("Job ... canceled").
-        if verb == "start" and CYCLE["active"]:
-            cycle_stop()  # the user takes over: the round ends (#251)
         if not ACTION.acquire(blocking=False):
             self.send(409, json.dumps({"ok": False, "code": 409, "busy": True,
                                        "output": "Er wordt al iets gestart of gestopt; even geduld."}))
@@ -378,9 +456,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             with _LOCK:
                 AUTO["pending"] = None  # the user chose; no automatic start
+                PENDING.pop(eid, None)
             if verb == "stop" and CYCLE["active"] and CYCLE["env"] == eid:
                 CYCLE["skip"].set()  # the round goes on with the next one (#257)
-            args = [eid, "--yes"] if verb == "start" else ["--stop", eid]
+            args = [eid, "--yes"] if verb in ("start", "start-now") else ["--stop", eid]
             rc, out, err = run(args, timeout=300)
         finally:
             ACTION.release()
