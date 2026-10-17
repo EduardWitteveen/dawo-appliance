@@ -101,7 +101,7 @@ let
 
   # The Launcher answers on 127.0.0.1 and refuses actions without its token.
   launcherCheck = pkgs.runCommand "launcher"
-    { nativeBuildInputs = [ launcher pkgs.curl pkgs.jq pkgs.gnugrep ]; }
+    { nativeBuildInputs = [ launcher cli pkgs.curl pkgs.jq pkgs.gnugrep ]; }
     ''
             fail() { echo "FAIL: $*" >&2; kill "$pid" 2>/dev/null || true; exit 1; }
             printf 'MemTotal:       32768000 kB
@@ -170,6 +170,58 @@ let
             curl -sf -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18794/api/cycle/stop > /dev/null || fail "cycle stop"
             for _ in $(seq 1 20); do [ "$(curl -sf http://127.0.0.1:18794/api/cycle | jq -r .active)" = false ] && break; sleep 0.3; done
             [ "$(curl -sf http://127.0.0.1:18794/api/cycle | jq -r .active)" = false ] || fail "cycle still active after stop"
+            kill "$pid"
+            # The round as the automatic start (#257): announced on /api/cycle,
+            # not on a card; with a short delay it begins.
+            launcher --port 18796 --auto-start-cycle --auto-start-delay 300 --cycle-file $PWD/no-marker 2>> launcher.log & pid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18796/api/cycle -o ac.json && break; sleep 0.2; done
+            jq -e '.autostart.at | type == "number"' ac.json >/dev/null || fail "round not announced as the automatic start: $(cat ac.json)"
+            [ "$(curl -sf http://127.0.0.1:18796/api/environments | jq '[.[].autostart] | map(select(. != null)) | length')" = 0 ] || fail "a card announces an automatic start"
+            kill "$pid"
+            launcher --port 18797 --auto-start-cycle --auto-start-delay 1 --cycle-file $PWD/no-marker --cycle-gap 300 \
+              --cycle-report $PWD/rondgang4.log 2>> launcher.log & pid=$!
+            for _ in $(seq 1 40); do grep -q "gestart" rondgang4.log 2>/dev/null && break; sleep 0.5; done
+            grep -q "gestart" rondgang4.log || { cat launcher.log >&2; fail "the automatic round did not begin"; }
+            kill "$pid"
+            # A fake launch: every environment is ready at once, start and stop
+            # take two seconds.
+            real="$(command -v launch)"
+            echo '[{"id":"mijn-bureau","state":"ready"},{"id":"valtimo","state":"ready"}]' > fake-status.json
+            echo '{"ok":true,"problems":[]}' > fake-check.json
+            {
+              echo '#!/bin/sh'
+              echo "echo \"\$*\" >> $PWD/fl.log"
+              echo 'case "$1" in'
+              echo "  --list) exec $real \"\$@\" ;;"
+              echo "  --status) cat $PWD/fake-status.json ;;"
+              echo "  --check) cat $PWD/fake-check.json ;;"
+              echo '  *) sleep 2 ;;'
+              echo 'esac'
+            } > fake-launch
+            chmod +x fake-launch
+            : > fl.log
+            touch marker5
+            launcher --port 18798 --launch $PWD/fake-launch --cycle-file $PWD/marker5 --cycle-gap 1 --cycle-hold 300 \
+              --cycle-report $PWD/rondgang5.log 2>> launcher.log & pid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18798/ -o p5.html && break; sleep 0.2; done
+            token="$(grep -o 'const TOKEN = "[0-9a-f]*"' p5.html | grep -o '[0-9a-f]\{32\}')"
+            for _ in $(seq 1 60); do [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .phase)" = up ] && break; sleep 0.5; done
+            [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .env)" = mijn-bureau ] || fail "round not up at mijn-bureau: $(curl -sf http://127.0.0.1:18798/api/cycle)"
+            # Stop on the card the round is at; a second action meanwhile waits (409).
+            curl -s -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18798/api/stop/mijn-bureau > stop1.json & spid=$!
+            sleep 0.7
+            code="$(curl -s -o busy.json -w '%{http_code}' -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18798/api/stop/mijn-bureau)"
+            [ "$code" = 409 ] || fail "a second action while one runs answered $code, want 409: $(cat busy.json)"
+            wait "$spid" || true
+            for _ in $(seq 1 40); do grep -q "valtimo --yes" fl.log && break; sleep 0.5; done
+            grep -q "ronde 1 mijn-bureau: klaar na .*door de gebruiker gestopt, door naar de volgende" rondgang5.log \
+              || { cat rondgang5.log >&2; fail "a Stop on the round's card did not move the round on"; }
+            grep -q "valtimo --yes" fl.log || { cat fl.log rondgang5.log >&2; fail "the round did not go on with valtimo"; }
+            [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = true ] || fail "the round ended on a card's Stop"
+            # Starting an environment: the user takes over, the round ends.
+            curl -s -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18798/api/start/mijn-bureau > /dev/null
+            for _ in $(seq 1 30); do [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = false ] && break; sleep 0.5; done
+            [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = false ] || fail "the round goes on after a Start"
             kill "$pid"
             touch $out
     '';
@@ -267,6 +319,15 @@ let
             rm -f up.d/deploy.service; : > sc.log
             LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json launch valtimo </dev/null > out || fail "start valtimo 2"
             ! grep -q "^stop " sc.log || fail "stopped although only the shared guest was active: $(cat sc.log)"
+            # The state is judged by the environment's own units (#257): with
+            # only the shared guest active, no card is "starting".
+            jq '.environments |= [.[0], (.[0] | .id = "valtimo" | .title = "Valtimo")]' down.json > two.json
+            LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json LAUNCH_CATALOG=$PWD/two.json launch --status --json > out.json
+            [ "$(jq -r '[.[].state] | join(",")' out.json)" = "stopped,stopped" ] || fail "shared guest only: $(cat out.json)"
+            touch up.d/vt.service
+            LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json LAUNCH_CATALOG=$PWD/two.json launch --status --json > out.json
+            [ "$(jq -r '[.[].state] | join(",")' out.json)" = "stopped,starting" ] || fail "only Valtimo's own unit: $(cat out.json)"
+            rm -f up.d/vt.service
             cp ${json} $out
     '');
 in

@@ -39,12 +39,13 @@
     environments.nextcloud-commonground.progressFile = "/run/launch/progress/nextcloud-commonground.json";
     autostartFile = "/run/dawo-logs/launch-autostart.txt";
     launcher.enable = true;
-    # Unattended runs (#238): the Launcher starts Mijn Bureau by itself one
-    # minute after login, unless the user clicks "Niet automatisch starten".
-    launcher.autoStart.environment = "mijn-bureau";
+    # Unattended runs (#238, #257): one minute after login the Launcher
+    # starts the round by itself, unless the user clicks "Niet automatisch
+    # starten" or starts something first.
+    launcher.autoStart.cycle = true;
     # The round (#251): every environment in turn, 5 minutes each, as a
-    # regression run on real hardware. On at every start when the stick
-    # carries launch-rondgang.txt; the Launcher switches it on and off.
+    # regression run on real hardware. At once at every start when the stick
+    # carries launch-rondgang.txt; the Launcher switches that on and off.
     launcher.cycle = {
       enable = true;
       file = "/run/dawo-logs/launch-rondgang.txt";
