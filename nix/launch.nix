@@ -138,6 +138,31 @@ let
             for _ in $(seq 1 60); do grep -q "automatic start of mijn-bureau: exit 2" launcher.log && break; sleep 0.5; done
             grep -q "automatic start of mijn-bureau: exit 2" launcher.log || { cat launcher.log >&2; fail "the automatic start did not run launch"; }
             kill "$pid"
+            # The round (#251), short: it starts by itself when the marker file
+            # exists, tries every environment in turn (none is set up here, so
+            # each is skipped) and reports it.
+            touch rondgang-marker
+            launcher --port 18793 --cycle-file $PWD/rondgang-marker --cycle-hold 1 --cycle-gap 1 \
+              --cycle-ready-timeout 3 --cycle-report $PWD/rondgang.log 2>> launcher.log & pid=$!
+            for _ in $(seq 1 80); do grep -q "rondgang stopt" rondgang.log 2>/dev/null && break; sleep 0.5; done
+            grep -q "ronde 1 mijn-bureau: overgeslagen" rondgang.log || { cat rondgang.log launcher.log >&2; fail "round: mijn-bureau not tried"; }
+            grep -q "ronde 1 valtimo: overgeslagen" rondgang.log || { cat rondgang.log >&2; fail "round: valtimo not tried"; }
+            curl -sf http://127.0.0.1:18793/api/cycle > cyc.json || fail "GET /api/cycle"
+            [ "$(jq -r '.available' cyc.json)" = true ] && [ "$(jq -r '.persisted' cyc.json)" = true ] || fail "cycle state: $(cat cyc.json)"
+            kill "$pid"
+            # Started from the page with a long pause, then stopped with the token.
+            rm -f rondgang-marker
+            launcher --port 18794 --cycle-file $PWD/rondgang-marker --cycle-gap 300 --cycle-report $PWD/rondgang2.log 2>> launcher.log & pid=$!
+            for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18794/ -o p2.html && break; sleep 0.2; done
+            token="$(grep -o 'const TOKEN = "[0-9a-f]*"' p2.html | grep -o '[0-9a-f]\{32\}')"
+            code="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18794/api/cycle/start)"
+            [ "$code" = 403 ] || fail "cycle start without the token answered $code"
+            curl -sf -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18794/api/cycle/start > /dev/null || fail "cycle start"
+            [ "$(curl -sf http://127.0.0.1:18794/api/cycle | jq -r .active)" = true ] || fail "cycle not active after start"
+            curl -sf -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18794/api/cycle/stop > /dev/null || fail "cycle stop"
+            for _ in $(seq 1 20); do [ "$(curl -sf http://127.0.0.1:18794/api/cycle | jq -r .active)" = false ] && break; sleep 0.3; done
+            [ "$(curl -sf http://127.0.0.1:18794/api/cycle | jq -r .active)" = false ] || fail "cycle still active after stop"
+            kill "$pid"
             touch $out
     '';
 
