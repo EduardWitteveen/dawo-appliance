@@ -11,44 +11,37 @@ Bureau / BZK distribution (`AGENTS.md`).
 
 ## Now
 
-**Handoff 2026-10-11 (Claude session on the KVM laptop, which is also the
-Dell Latitude 5550 the live USB is tested on):**
+**Handoff 2026-10-17 (release preparation for v0.1.0-rc.1, #175):**
 
-- **Towards v0.1.0** (checklist #175). The live USB works on the Dell: desktop
-  ~20 s, guest ~35 s, K3s ~50 s; Mijn Bureau's 14 phases passed on
-  2026-09-30. A fresh deploy on 2026-10-11 failed phase 13 because upstream
-  installs Nextcloud Office (`richdocuments`) unpinned from the app store and
-  only warns when that fails (#205, U5). Fix + Conduction apps: **PR #206**
-  (needs-kvm), on the USB SSD now (sha `a107ed7b…`); **a Dell run is the
-  next step**, then merge #206.
-- **Releases:** the live **disk image** (`.#appliance-live-img`, Rufus/Etcher,
-  `DAWO_LOGS` grown on the first boot, #192) is hosted on SourceForge
-  (`sourceforge.net/projects/dawo-appliance`, maintainer decision);
-  `scripts/release.sh publish` builds and uploads it (#198).
-- **Merged 2026-10-10/11:** disk image + ISO mounted from its partition
-  (#196, fixes `DAWO_LOGS` staying unused at random), SourceForge release
-  path (#198), DAWO-Core v0.2.0 (#199, nixpkgs kept: D40), atomic log files
-  (#200), ADR 0008 Launch (#201, #202, #207, #208) and the environment
-  catalogue (#204).
-- **Next direction (v0.2, ADR 0008):** **Launch**. A clean workplace boots,
-  the **Launcher** opens and the user starts an **environment** (*omgeving*:
-  Mijn Bureau, Valtimo, Open Zaak, PodiumD, ...) with `launch <id>`; data only
-  on the boot disk's `DAWO_LOGS`; a warning before starting when the laptop
-  falls short. Nothing in Launch says DAWO: it becomes its own project later.
-  Format: `environments/README.md`.
+- **Towards v0.1.0-rc.1** (checklist #175). Since 2026-10-11 merged: the
+  Mijn Bureau app-store repair (#205, U5; `user_oidc` 8.11.0, #234),
+  Bureaublad in Dutch (#225, U7), flatpak waits for Flathub (#218, U6), and
+  **Launch** phase B: `launch <id>` / `--stop` / `--status` with preflight
+  warnings (#212, #215, #228), the Launcher window with progress bars, time
+  left and automatic start one minute after login (#229, #232, #235, #238).
+  The README starts with "try it in three steps" (#243).
+- **Releases:** the release artefact is the live **disk image**
+  (`.#appliance-live-img`, Rufus/Etcher), hosted on SourceForge
+  (`sourceforge.net/projects/dawo-appliance`, empty until rc.1); the GitHub
+  release gets the notes, `SHA256SUMS` and the link. `scripts/release.sh`
+  plans by default; `--build`, `--stage DIR`, `--sourceforge-command` and
+  `--github` (draft only) are explicit steps (`docs/releasing.md`). The
+  installer ISO is no longer attached. The upload uses the maintainer's own
+  SourceForge key.
+- **Open, not in rc.1 unless merged first:** Valtimo environment (#246),
+  Nextcloud Common Ground environment (#250), `.git` in path: builds (#248).
 
 ## Next
 
 The live backlog is the GitHub issue tracker; highlights:
 
-1. Dell run with PR #206 on the SSD → merge #206 (#190, #205).
-2. v0.1.0-rc.1 (#175): fresh `REPORT=1 E2E=1 bash scripts/verify.sh`, demo
-   walk-through with `docs/demo-script.md`, `release.sh prepare/publish`,
-   image on SourceForge; then the held-back replies in the DAWO Signal groups.
-3. Launch phase B1 (ADR 0008): `launch <id>` / `--stop` / `--status` with the
-   preflight warning; the guest starts on demand.
-4. `test-live-iso-boot` does not boot the guest under nested KVM in WSL
-   (#184), which weakens the KVM merge gate; under investigation.
+1. v0.1.0-rc.1 (#175): fresh `REPORT=1 E2E=1 bash scripts/verify.sh`, demo
+   walk-through with `docs/demo-script.md`, `release.sh prepare 0.1.0-rc.1`,
+   build + stage, upload to SourceForge, draft release; then the README
+   download link and the held-back replies in the DAWO Signal groups.
+2. Second environment: Valtimo with Open Zaak (#246).
+3. `test-live-iso-boot` does not boot the guest under nested KVM in WSL
+   (#184), which weakens the KVM merge gate.
 
 ## GitHub workflow (since 2026-09-25)
 
