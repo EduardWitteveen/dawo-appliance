@@ -67,7 +67,8 @@ download_verified() { # URL SHA256 DEST
   info "downloaded and verified: ${dest}"
 }
 
-docker_cli() { run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker "$@"; }
+# Two images at a time (see the Valtimo driver): all at once choked a slow network.
+docker_cli() { run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" COMPOSE_PARALLEL_LIMIT=2 docker "$@"; }
 
 compose() {
   docker_cli compose --project-directory "${SRC_DIR}" -f "${COMPOSE_FILE}" -f "${NC_OVERRIDE:?}" "$@"
@@ -145,7 +146,7 @@ Wants=network-online.target
 
 [Service]
 Environment=PATH=${DOCKER_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=/var/lib/dawo-docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid
+ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=/var/lib/dawo-docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid --max-concurrent-downloads=2
 Restart=on-failure
 LimitNOFILE=1048576
 Delegate=yes
