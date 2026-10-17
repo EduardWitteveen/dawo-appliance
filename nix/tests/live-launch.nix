@@ -4,7 +4,9 @@
 # (hosts/appliance/live-launch-selftest.nix) then goes through the Launcher's
 # API the way the buttons do: a clean boot with nothing running, Starten (K3s
 # Ready), Stoppen (guest down), and the same once more. Passes on
-# `LAUNCH-TEST: DONE ok` and an untouched internal disk.
+# `LAUNCH-TEST: DONE ok` and an untouched internal disk. The result holds
+# report.txt and screens/: the desktop screenshots from the stick, among them
+# launch-cli.png, the `launch` command line for the README (#252).
 #
 # Needs KVM (nested guest). Offline, like test-live-iso-boot.
 { pkgs, iso }:
@@ -78,4 +80,19 @@ pkgs.runCommand "live-launch"
     mkdir -p $out
     grep -a "DAWO-LIVE:\|LAUNCH-TEST:" serial.log | tr -d '\r' > $out/report.txt
     echo "result=$result seconds=$SECONDS internal-disk=unchanged" >> $out/report.txt
+
+    # The desktop screenshots the image saved on the stick (debug mode, every
+    # 30 s, and launch-cli.png of the command line, #252), read from the
+    # stick image without mounting it, into $out/screens/; the session dir's
+    # name goes into $out/screens/SESSION. For the README:
+    # scripts/screenshots.sh --test.
+    python3 ${../../tests/exfat-read.py} logs.raw 0 stick dawo-appliance > stick.txt
+    mkdir -p $out/screens
+    for d in stick/dawo-appliance/*/; do
+      [ -d "$d/screens" ] || continue
+      cp "$d"/screens/*.png $out/screens/ 2>/dev/null || true
+      basename "$d" >> $out/screens/SESSION
+    done
+    echo "screens: $(find $out/screens -name '*.png' | wc -l) from $(cat $out/screens/SESSION 2>/dev/null || echo none)" | tee -a $out/report.txt
+    if [ -f $out/screens/launch-cli.png ]; then echo "launch-cli.png: present"; else echo "launch-cli.png: MISSING (see 'cli screenshot' lines)"; fi
   ''
