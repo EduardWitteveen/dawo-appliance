@@ -225,17 +225,41 @@ alfresco() { # alfresco METHOD PATH [JSON]: Alfresco's REST API as upstream's ad
     "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/$2" ${3:+-d "$3"}
 }
 
-# Upstream's own first-run step ("01. Setup" in the Admin Tools: sites,
-# groups, templates, demo users in groups), once; then the login dawo / dawo
-# (#258): a user in upstream's LDAP (Keycloak signs in against it), in
-# Alfresco's administrators, and an admin of Keycloak's own console.
+# Upstream's own first-run step ("01. Setup" in the Admin Tools: the
+# webscript contezza/config/setup) stops at its first step that needs the ZGW
+# part we leave out (createObjecttypeSites asks the Objecttypen API). So its
+# steps are called one by one, in its order, by their names in upstream's
+# library (tezza-api.lib.js), through the JavaScript console the platform
+# ships (OOTBee); a step that needs ZGW fails and the next one goes on. The
+# Tezza app configuration comes from upstream's webscript contezza/config/tezza.
+# Then the login dawo / dawo (#258): a user in upstream's LDAP (Keycloak signs
+# in against it), an Alfresco administrator, an admin of Keycloak's console.
+SETUP_STEPS=(createSites createRootGroups createServiceAccount createFolderTemplates createTezzaTemplates
+             createZaaktypeSites createObjecttypeSites createAuditRole createPostintakeDummyData
+             assignLDAPUsersToZaaktypeGroups assignLDAPUsersToGroups createRMRoles createRootRMGroups
+             addRMGroupsToRMRoles assignLDAPUsersToRMGroups)
+
 phase_setup() {
-  log "Tezza's setup (upstream's '01. Setup') and the login dawo / dawo"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: GET /alfresco/service/contezza/config/setup; ldapadd dawo; Alfresco admin dawo; kcadm master dawo"; return 0; fi
+  log "Tezza's setup (upstream's steps) and the login dawo / dawo"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd dawo; Alfresco admin dawo; kcadm master dawo"; return 0; fi
   if [[ ! -f "${STATE_DIR}/setup.done" ]]; then
-    curl -fsS -o "${STATE_DIR}/setup.log" --max-time 1800 -u admin:admin \
-      http://localhost:8080/alfresco/service/contezza/config/setup \
-      || die "upstream's setup did not run (see ${STATE_DIR}/setup.log)"
+    python3 - "${SETUP_STEPS[@]}" > "${STATE_DIR}/setup.json" <<'PY'
+import json, sys
+calls = "".join(f"run('{s}');\n" for s in sys.argv[1:])
+script = ('<import resource="classpath:alfresco/templates/webscripts/nl/contezza/api/tezza-api.lib.js">\n'
+          "var out = [];\n"
+          "function run(n) { try { (eval(n))(); out.push(n + ': ok'); } catch (e) { out.push(n + ': not done (' + (e.message || e) + ')'); } }\n"
+          + calls + "print(out.join('\\n'));\n")
+print(json.dumps({"script": script, "template": "", "runas": "admin", "transaction": "readwrite",
+                  "spaceNodeRef": "", "documentNodeRef": "", "urlargs": ""}))
+PY
+    curl -fsS --max-time 1800 -u admin:admin -H 'Content-Type: application/json' -d "@${STATE_DIR}/setup.json" \
+      http://localhost:8080/alfresco/service/ootbee/jsconsole/execute > "${STATE_DIR}/setup.log" \
+      || die "upstream's setup steps did not run"
+    python3 -c 'import json, sys; [print("    " + l) for l in "\n".join(json.load(open(sys.argv[1]))["printOutput"]).splitlines()]' \
+      "${STATE_DIR}/setup.log" || true
+    curl -fsS -o /dev/null --max-time 300 -u admin:admin http://localhost:8080/alfresco/service/contezza/config/tezza \
+      || die "upstream's app configuration (contezza/config/tezza) did not run"
     touch "${STATE_DIR}/setup.done"
     info "upstream's setup done"
   else
@@ -243,7 +267,8 @@ phase_setup() {
   fi
   # LDAP (upstream's users.ldif shape).
   if ! compose exec -T openldap ldapsearch -x -H ldap://localhost -b ou=Users,dc=contezza,dc=local -D cn=admin,dc=contezza,dc=local -w admin "(uid=dawo)" uid 2>/dev/null | grep -q '^uid: dawo'; then
-    compose exec -T openldap ldapadd -x -H ldap://localhost -D cn=admin,dc=contezza,dc=local -w admin >/dev/null <<'EOF'
+    # 68: the entry is there already (the check above may not see it).
+    compose exec -T openldap ldapadd -x -H ldap://localhost -D cn=admin,dc=contezza,dc=local -w admin >/dev/null <<'EOF' || [[ $? -eq 68 ]]
 dn: cn=dawo,ou=Users,dc=contezza,dc=local
 objectClass: person
 objectClass: inetOrgPerson

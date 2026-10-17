@@ -8,6 +8,16 @@
 #                           complete stack"; we run the document base)
 #   depends_on (app-tezza)  upstream's app waits for gzac-backend, which is in
 #                           the ZGW part we leave out
+#   extra_hosts (app-tezza) its nginx refuses to start when gzac-backend.local
+#                           does not resolve: it points at the app itself (the
+#                           ZGW menus do not work, the rest does)
+#   depends_on, restart     the Admin Tools' nginx stops for good when
+#     (app-tezza-admin)     authorization-profiles.local is not up yet (upstream
+#                           has no restart policy and no such dependency)
+#   LDAP_REMOVE_CONFIG_...  osixia/openldap deletes its bootstrap directory
+#     (openldap)            after the first start, and every later start (Tezza
+#                           stopped and started again) fails copying the seed
+#                           there: the image's own switch keeps it
 #
 # Nothing else differs from upstream: realm, LDAP users, ports and settings
 # are upstream's. The driver starts only the document base by name and adds
@@ -45,6 +55,8 @@ services:
   openldap:
     image: docker.io/osixia/openldap:1.5.0@sha256:18742e9c449c9c1afe129d3f2f3ee15fb34cc43e5f940a20f3399728f41d7c28
     mem_limit: 256m
+    environment:
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "false"
 
   share:
     image: harbor.contezza.nl/public/tezza-share:4.15.1@sha256:2130ee6545b66f9ededf3a7f825962541645abc5fbe50ec26bd3cb827626664f
@@ -55,10 +67,17 @@ services:
     mem_limit: 256m
     depends_on: !override
       - platform
+    extra_hosts:
+      - "gzac-backend.local:127.0.0.1"
+    restart: on-failure
 
   app-tezza-admin:
     image: harbor.contezza.nl/public/apps/tezza-admin:4.15.1@sha256:94ae086b0d11f841b12254b02c4aa79ba31ee872d3fcffc24a0fc755b59d1618
     mem_limit: 256m
+    depends_on: !override
+      - platform
+      - authorization-profiles
+    restart: on-failure
 
   authorization-profiles:
     image: harbor.contezza.nl/public/contezza-authorization-profiles:1.1.0@sha256:57fd3febedb3badd3432a4f7260abded277dee0f871a0953b3413b78b2c3f097
