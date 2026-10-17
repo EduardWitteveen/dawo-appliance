@@ -41,3 +41,40 @@ compose_override = "compose/override.yaml"
 
 [health]
 url = "http://localhost/"
+
+# What runs next to Valtimo (#260), shown on the card once it is ready; the
+# logins are upstream's (gzac-docker-compose README and imports/).
+[[links]]
+title = "Burgerformulier (Open Formulieren)"
+url = "http://localhost:8003/leningaanvragen/"
+login = "inloggen als burger met DigiD-simulatie"
+
+[[links]]
+title = "Open Formulieren beheer"
+url = "http://localhost:8003/admin/"
+login = "via de Valtimo-login: dawo / dawo"
+
+[[links]]
+title = "Open Zaak beheer"
+url = "http://localhost:8001/admin/"
+login = "admin / admin"
+
+[[links]]
+title = "Objecten beheer"
+url = "http://localhost:8010/admin/"
+login = "admin / admin"
+
+[[links]]
+title = "Objecttypen beheer"
+url = "http://localhost:8011/admin/"
+login = "admin / admin"
+
+[[links]]
+title = "Open Notificaties beheer"
+url = "http://localhost:8002/admin/"
+login = "admin / admin"
+
+[[links]]
+title = "Keycloak beheer"
+url = "http://localhost:8081/auth/admin/"
+login = "admin / admin"

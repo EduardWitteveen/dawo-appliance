@@ -291,6 +291,9 @@ def environments():
             "version": env.get("version", ""),
             "url": env.get("url", ""),
             "login": env.get("login", ""),
+            # What runs next to it, with its own login (#260).
+            "links": [{"title": l.get("title", ""), "url": l.get("url", ""), "login": l.get("login", "")}
+                      for l in env.get("links", []) if isinstance(l, dict)],
             "state": states.get(eid, {}).get("state", "stopped"),
             # While it starts: {step, steps, label, started, since, expected,
             # error} as the environment wrote it (#232), else None.
