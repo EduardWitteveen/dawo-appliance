@@ -1,0 +1,69 @@
+# Our changes to Contezza's tezza-packaging (4.15.1, docker-compose.yml), kept
+# apart from its files (#261). Applied as a second -f file. Each change and why:
+#
+#   image: ...@sha256:...   pinned by digest (AGENTS rule 4); the tags are
+#                           upstream's own, the digests are in the manifest
+#   mem_limit               the guest has 16 GiB; upstream sets none (its
+#                           README: "reken op minimaal 16 GB RAM voor de
+#                           complete stack"; we run the document base)
+#   depends_on (app-tezza)  upstream's app waits for gzac-backend, which is in
+#                           the ZGW part we leave out
+#
+# Nothing else differs from upstream: realm, LDAP users, ports and settings
+# are upstream's. The driver starts only the document base by name and adds
+# the login dawo / dawo after start (apps/tezza/deploy.sh phase_setup).
+
+services:
+  platform:
+    image: harbor.contezza.nl/public/tezza-platform:4.15.1@sha256:8881398f330047decb51ba28b482e6ea175bda1c6b7694d925be1679239ca71e
+    mem_limit: 4608m
+
+  platform-ass:
+    image: docker.io/alfresco/alfresco-search-services:2.0.8.2@sha256:8150e76574964cdd560459179846bee6f8b342e915ecc9116a4d51fa1514e443
+    mem_limit: 2560m
+
+  platform-db:
+    image: docker.io/library/postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    mem_limit: 512m
+
+  platform-activemq:
+    image: docker.io/alfresco/alfresco-activemq:5.15.8@sha256:f0d855904632ffea6d4f32c16f8887845a10adda60e98a936a708a366b243e2c
+    mem_limit: 768m
+
+  platform-transform-core-aio:
+    image: docker.io/alfresco/alfresco-transform-core-aio:3.1.1@sha256:c50472d06023889f287bea8558982f778277668a80cfeecb69bd5415b4f148d8
+    mem_limit: 1536m
+
+  identity:
+    image: harbor.contezza.nl/public/tezza-identity:4.15.1@sha256:55718f62329df03dfa9c5222db861bcac9da36a5b759c8b30ccda628c7b2e52a
+    mem_limit: 1g
+
+  identity-db:
+    image: docker.io/library/postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    mem_limit: 512m
+
+  openldap:
+    image: docker.io/osixia/openldap:1.5.0@sha256:18742e9c449c9c1afe129d3f2f3ee15fb34cc43e5f940a20f3399728f41d7c28
+    mem_limit: 256m
+
+  share:
+    image: harbor.contezza.nl/public/tezza-share:4.15.1@sha256:2130ee6545b66f9ededf3a7f825962541645abc5fbe50ec26bd3cb827626664f
+    mem_limit: 1280m
+
+  app-tezza:
+    image: harbor.contezza.nl/public/apps/tezza:4.15.1@sha256:7be065e26750f4077c2a1e16a40a197cbc29dfceabfd44293777400ccb090684
+    mem_limit: 256m
+    depends_on: !override
+      - platform
+
+  app-tezza-admin:
+    image: harbor.contezza.nl/public/apps/tezza-admin:4.15.1@sha256:94ae086b0d11f841b12254b02c4aa79ba31ee872d3fcffc24a0fc755b59d1618
+    mem_limit: 256m
+
+  authorization-profiles:
+    image: harbor.contezza.nl/public/contezza-authorization-profiles:1.1.0@sha256:57fd3febedb3badd3432a4f7260abded277dee0f871a0953b3413b78b2c3f097
+    mem_limit: 1g
+
+  authorization-profiles-db:
+    image: docker.io/library/postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    mem_limit: 512m

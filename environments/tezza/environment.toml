@@ -1,0 +1,64 @@
+# The Tezza environment (ADR 0008, #261). Format: environments/README.md.
+#
+# Contezza's own demo setup: tezza-packaging (pinned by commit), the document
+# base of its docker-compose.yml (Alfresco with Tezza, Share, Keycloak, LDAP),
+# started in the guest with one override file of ours (compose/override.yaml:
+# digests, memory limits, the app's dependency on the ZGW part we leave out).
+# Nothing of Tezza is in the image or this repository: it is downloaded from
+# Contezza when the user starts it, after the notice below.
+
+schema = 1
+id = "tezza"
+
+# What the user sees on the card (Dutch, for the target audience).
+title = "Tezza"
+summary = "Documenten en archief beheren: dossiers, documenttypen en metadata, op Alfresco."
+version = "Tezza 4.15.1 (demo)"
+url = "http://localhost:8082/"
+login = "dawo / dawo (of admin / admin)"
+# Not demonstrably open source (#261): no license in the source repositories.
+license = "NOASSERTION"
+standards = ["Documentbeheer (Alfresco)", "OpenID Connect", "LDAP"]
+
+# Shown before the download (#261, the maintainer's wording).
+[notice]
+title = "Licentie onduidelijk"
+level = "danger"
+seconds = 60
+text = """
+Tezza wordt gepresenteerd als Common Ground-oplossing, maar we hebben geen openbare licentie gevonden waaruit blijkt dat het echt open source is, bijvoorbeeld onder de EUPL. Zonder die licentie is niet vast te stellen of je de software vrij mag gebruiken, aanpassen en delen.
+
+De software wordt pas nu gedownload, rechtstreeks bij Contezza; in deze werkplek zit er niets van. Door te starten gebruik je het onder de voorwaarden van Contezza (https://tezza.eu/tezza-pricing/)."""
+
+[source]
+repo = "https://git.contezza.nl/community/tezza-packaging"
+rev = "53ad698ca69eb961c89d2ce28c11073166759485"
+# The same pin as manifest/appliance-manifest.json upstream.tezza_packaging.
+manifest = "tezza_packaging"
+
+[needs]
+memory_gib = 16 # the document base takes about 9-11 GiB in the guest
+cpus = 4
+disk_gib = 20 # images (about 6 GB) and the repository on DAWO_LOGS
+kvm = true
+internet = true # every start downloads from Contezza the first time
+
+[deploy]
+kind = "driver"
+driver = "apps/tezza/deploy.sh"
+compose_file = "docker-compose.yml"
+compose_override = "compose/override.yaml"
+
+[health]
+url = "http://localhost:8082/"
+
+# What runs next to the Tezza app, shown on the card once it is ready.
+[[links]]
+title = "Tezza beheer (Admin Tools)"
+url = "http://localhost:8084/"
+login = "dawo / dawo of admin / admin"
+
+[[links]]
+title = "Keycloak beheer"
+url = "http://identity:8181/auth/admin/"
+login = "dawo / dawo of admin / admin"

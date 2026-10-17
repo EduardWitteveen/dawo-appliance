@@ -70,6 +70,15 @@
       "sha256": "4954bdfd21874c32db8c49b58df77a6a15e8dbf99dd1cd417982e0db83e6559f",
       "license": "EUPL-1.2",
       "purpose": "Conduction's local demo setup (one compose file, inline configs) for the Nextcloud Common Ground environment (#250); the last commit that touched the file (main was at 04cb50eb on 2026-10-17)"
+    },
+    "tezza_packaging": {
+      "url": "https://git.contezza.nl/community/tezza-packaging.git",
+      "tag": "tezza-packaging-4.15.1",
+      "rev": "53ad698ca69eb961c89d2ce28c11073166759485",
+      "commit_date": "2026-10-13",
+      "inspected": "2026-10-17",
+      "license": "none stated in the repository (no LICENSE file; README links https://tezza.eu/tezza-pricing/); github.com/Contezza/Tezza holds only an EUPL-1.2 LICENSE.md and no code; the Alfresco Community parts are LGPL-3.0. Fetched at start, never in the image (#261)",
+      "purpose": "Contezza's own demo setup (docker-compose.yml + resources/) for the Tezza environment, document base only (#261)"
     }
   },
   "nix": {
@@ -505,6 +514,63 @@
         "version": "0.2.8",
         "url": "https://github.com/ConductionNL/portaliq/releases/download/v0.2.8/portaliq-0.2.8.tar.gz",
         "sha256": "99e83a80747fd66fe459b010277203664baebed7353e747f7dcfe89f2d8a06e8"
+      }
+    }
+  },
+  "tezza": {
+    "note": "The Tezza environment (#261): upstream.tezza_packaging plus environments/tezza/compose/override.yaml; downloaded from Contezza when it starts. The Docker Engine and compose are valtimo.tooling (D43). Must equal the override (tests/test-tezza-driver.sh).",
+    "images": {
+      "platform": {
+        "image": "harbor.contezza.nl/public/tezza-platform:4.15.1",
+        "digest": "sha256:8881398f330047decb51ba28b482e6ea175bda1c6b7694d925be1679239ca71e"
+      },
+      "platform-ass": {
+        "image": "docker.io/alfresco/alfresco-search-services:2.0.8.2",
+        "digest": "sha256:8150e76574964cdd560459179846bee6f8b342e915ecc9116a4d51fa1514e443"
+      },
+      "platform-db": {
+        "image": "docker.io/library/postgres:17.6",
+        "digest": "sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"
+      },
+      "platform-activemq": {
+        "image": "docker.io/alfresco/alfresco-activemq:5.15.8",
+        "digest": "sha256:f0d855904632ffea6d4f32c16f8887845a10adda60e98a936a708a366b243e2c"
+      },
+      "platform-transform-core-aio": {
+        "image": "docker.io/alfresco/alfresco-transform-core-aio:3.1.1",
+        "digest": "sha256:c50472d06023889f287bea8558982f778277668a80cfeecb69bd5415b4f148d8"
+      },
+      "identity": {
+        "image": "harbor.contezza.nl/public/tezza-identity:4.15.1",
+        "digest": "sha256:55718f62329df03dfa9c5222db861bcac9da36a5b759c8b30ccda628c7b2e52a"
+      },
+      "identity-db": {
+        "image": "docker.io/library/postgres:17.6",
+        "digest": "sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"
+      },
+      "openldap": {
+        "image": "docker.io/osixia/openldap:1.5.0",
+        "digest": "sha256:18742e9c449c9c1afe129d3f2f3ee15fb34cc43e5f940a20f3399728f41d7c28"
+      },
+      "share": {
+        "image": "harbor.contezza.nl/public/tezza-share:4.15.1",
+        "digest": "sha256:2130ee6545b66f9ededf3a7f825962541645abc5fbe50ec26bd3cb827626664f"
+      },
+      "app-tezza": {
+        "image": "harbor.contezza.nl/public/apps/tezza:4.15.1",
+        "digest": "sha256:7be065e26750f4077c2a1e16a40a197cbc29dfceabfd44293777400ccb090684"
+      },
+      "app-tezza-admin": {
+        "image": "harbor.contezza.nl/public/apps/tezza-admin:4.15.1",
+        "digest": "sha256:94ae086b0d11f841b12254b02c4aa79ba31ee872d3fcffc24a0fc755b59d1618"
+      },
+      "authorization-profiles": {
+        "image": "harbor.contezza.nl/public/contezza-authorization-profiles:1.1.0",
+        "digest": "sha256:57fd3febedb3badd3432a4f7260abded277dee0f871a0953b3413b78b2c3f097"
+      },
+      "authorization-profiles-db": {
+        "image": "docker.io/library/postgres:17.6",
+        "digest": "sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"
       }
     }
   }
