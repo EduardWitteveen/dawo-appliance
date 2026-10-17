@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: EUPL-1.2
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 pass=0; fail=0
 ok() { printf '  \033[32mPASS\033[0m %s\n' "$1"; pass=$((pass + 1)); }
@@ -24,7 +24,8 @@ PY="$(command -v python3 || command -v python)"
 
 DRIVER=apps/valtimo/deploy.sh
 export VT_REPO=https://example.invalid/gzac VT_REV=0123456789abcdef0123456789abcdef01234567
-export VT_OVERRIDE=environments/valtimo/compose/override.yaml VT_STATE_DIR="$(mktemp -d)"
+VT_STATE_DIR="$(mktemp -d)"
+export VT_OVERRIDE=environments/valtimo/compose/override.yaml VT_STATE_DIR
 export DOCKER_URL=https://example.invalid/docker-1.tgz DOCKER_SHA=00 COMPOSE_URL=https://example.invalid/compose COMPOSE_SHA=00
 
 echo "-- 1. dry runs --"
