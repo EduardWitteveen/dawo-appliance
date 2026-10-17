@@ -7,7 +7,8 @@
 # frontend settings stay exactly as upstream ships them.
 #
 # Started and stopped by Launch (`launch valtimo`, the Launcher card); one
-# environment at a time: the driver parks Mijn Bureau's K3s first.
+# environment at a time: the driver parks Mijn Bureau's K3s and any other
+# compose environment (Nextcloud Common Ground) first.
 #
 # Experimental and unofficial. Not for production.
 { pkgs, lib, ... }:
@@ -38,7 +39,7 @@ let
 
       # Progress for the Launcher (#232, #235): the same JSON as Mijn Bureau's.
       names=(vm park net docker source pull up ready)
-      labels=("Virtuele machine starten" "Mijn Bureau even stilzetten" "Wachten op internet (wifi Dawo of een netwerkkabel)"
+      labels=("Virtuele machine starten" "Andere omgevingen even stilzetten (er draait er één tegelijk)" "Wachten op internet (wifi Dawo of een netwerkkabel)"
               "Docker installeren" "Valtimo ophalen (de officiële demo)" "Onderdelen downloaden"
               "Valtimo starten" "Wachten tot Valtimo klaar is (de demozaken worden aangemaakt)")
       steps=''${#names[@]}
