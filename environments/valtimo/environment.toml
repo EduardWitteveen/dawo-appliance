@@ -57,24 +57,24 @@ login = "via de Valtimo-login: dawo / dawo"
 [[links]]
 title = "Open Zaak beheer"
 url = "http://localhost:8001/admin/"
-login = "admin / admin"
+login = "dawo / dawo of admin / admin"
 
 [[links]]
 title = "Objecten beheer"
 url = "http://localhost:8010/admin/"
-login = "admin / admin"
+login = "dawo / dawo of admin / admin"
 
 [[links]]
 title = "Objecttypen beheer"
 url = "http://localhost:8011/admin/"
-login = "admin / admin"
+login = "dawo / dawo of admin / admin"
 
 [[links]]
 title = "Open Notificaties beheer"
 url = "http://localhost:8002/admin/"
-login = "admin / admin"
+login = "dawo / dawo of admin / admin"
 
 [[links]]
 title = "Keycloak beheer"
 url = "http://localhost:8081/auth/admin/"
-login = "admin / admin"
+login = "dawo / dawo of admin / admin"
