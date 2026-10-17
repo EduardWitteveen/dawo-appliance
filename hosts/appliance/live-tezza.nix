@@ -1,0 +1,38 @@
+# The Tezza environment on the live USB (#261, ADR 0008): Contezza's own demo
+# setup (tezza-packaging, the document base) in the guest, deployed by
+# apps/tezza/deploy.sh through the compose-environment runner
+# (live-compose-environments.nix). Nothing of Tezza is in this image: it is
+# downloaded from Contezza when the user starts it (after the Launcher's
+# notice). The browser keeps upstream's addresses: the host forwards
+# localhost:8082 (Tezza), :8084 (Admin Tools) and :8181 (Keycloak, which the
+# browser reaches as http://identity:8181, upstream's README) to the guest.
+#
+# Experimental and unofficial. Not for production.
+{ ... }:
+
+let
+  manifest = builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json);
+  up = manifest.upstream.tezza_packaging;
+  stateDir = "/var/lib/dawo-appliance-tezza";
+in
+{
+  appliance.composeEnvironments.tezza = {
+    title = "Tezza";
+    driver = ../../apps/tezza/deploy.sh;
+    inherit stateDir;
+    files."override.yaml" = ../../environments/tezza/compose/override.yaml;
+    env = { TZ_REPO = up.url; TZ_REV = up.rev; TZ_OVERRIDE = "${stateDir}/override.yaml"; TZ_STATE_DIR = stateDir; };
+    phases = [
+      { name = "docker"; label = "Docker installeren"; typical = 40; }
+      { name = "source"; label = "Tezza ophalen (de demo van Contezza)"; typical = 15; }
+      { name = "pull"; label = "Onderdelen downloaden (ongeveer 6 GB)"; typical = 900; }
+      { name = "up"; label = "Tezza starten"; typical = 60; }
+      { name = "ready"; label = "Wachten tot Tezza klaar is (de eerste keer wordt alles ingericht)"; typical = 420; }
+      { name = "setup"; label = "Tezza inrichten (sites, groepen, sjablonen) en de login dawo"; typical = 120; }
+    ];
+    ports = [ 8082 8084 8181 ];
+    # Upstream's README: "127.0.0.1 identity" (the realm's issuer).
+    hostNames = [ "identity" ];
+    readyUrl = "http://localhost:8082/";
+  };
+}

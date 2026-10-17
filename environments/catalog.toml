@@ -20,3 +20,7 @@ path = "valtimo"
 [[environment]]
 id = "nextcloud-commonground"
 path = "nextcloud-commonground"
+
+[[environment]]
+id = "tezza"
+path = "tezza"
