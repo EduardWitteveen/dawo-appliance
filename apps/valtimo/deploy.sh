@@ -258,7 +258,7 @@ add_dawo_login() {
   local id client
   id="$("${kc[@]}" get clients "${cfg[@]}" -r valtimo -q clientId=valtimo-console --fields id 2>/dev/null \
         | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["id"])' 2>/dev/null || true)"
-  [[ -n "${id}" ]] || { info "Open Formulieren sign-in: client valtimo-console not found; skipped"; return 0; }
+  [[ -n "${id}" ]] || info "Open Formulieren sign-in: client valtimo-console not found"
   client="$("${kc[@]}" get "clients/${id}" "${cfg[@]}" -r valtimo --fields redirectUris,webOrigins 2>/dev/null \
             | python3 -c '
 import json, sys
@@ -268,11 +268,30 @@ if "http://localhost:8003/*" in c.get("redirectUris", []):
 c["redirectUris"] = c.get("redirectUris", []) + ["http://localhost:8003/*"]
 c["webOrigins"] = c.get("webOrigins", []) + ["http://localhost:8003"]
 print(json.dumps(c))' || true)"
-  if [[ -n "${client}" ]]; then
+  if [[ -n "${id}" && -n "${client}" ]]; then
     env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker exec -i gzac-docker-compose-gzac-keycloak \
       /opt/keycloak/bin/kcadm.sh update "clients/${id}" "${cfg[@]}" -r valtimo -f - <<<"${client}" >/dev/null
   fi
   info "Open Formulieren may sign in through the realm (http://localhost:8003)"
+  # The components underneath too (#258): a superuser dawo / dawo in each
+  # Django admin (next to upstream's admin / admin) and an admin of
+  # Keycloak's own console (master realm).
+  local svc
+  for svc in openzaak objecten-api objecttypen-api open-notificaties; do
+    compose exec -T "${svc}" python src/manage.py shell -c "
+from django.contrib.auth import get_user_model
+U = get_user_model()
+u = U.objects.filter(username='dawo').first() or U(username='dawo', email='dawo@example.com')
+u.is_active = u.is_staff = u.is_superuser = True
+u.set_password('dawo')
+u.save()" >/dev/null 2>&1 || info "${svc}: no dawo login (its admin keeps admin / admin)"
+  done
+  if ! "${kc[@]}" get users "${cfg[@]}" -r master -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
+    "${kc[@]}" create users "${cfg[@]}" -r master -s username=dawo -s enabled=true >/dev/null
+  fi
+  "${kc[@]}" set-password "${cfg[@]}" -r master --username dawo --new-password dawo >/dev/null
+  "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername dawo --rolename admin >/dev/null
+  info "login dawo / dawo also in Open Zaak, Objecten, Objecttypen, Open Notificaties and the Keycloak console"
 }
 
 # The other environment starts: stop the containers (they keep their data).
