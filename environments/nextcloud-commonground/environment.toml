@@ -1,0 +1,46 @@
+# The Nextcloud Common Ground environment (ADR 0008, #250). Format:
+# environments/README.md.
+#
+# Conduction's own local demo setup: dossiq-compose.yaml from ConductionNL/dossiq
+# (pinned by commit and SHA-256) started with `docker compose up` in the
+# guest, plus one override file of ours (compose/override.yaml: digests, app
+# versions, memory limits). Our driver adds three of Conduction's apps that
+# upstream's file does not install (OpenCatalogi, Pipelinq, Portaliq) and runs
+# the apps' own demo data. The browser keeps upstream's address
+# (http://localhost:8609): the host forwards it to the guest while this
+# environment runs.
+
+schema = 1
+id = "nextcloud-commonground"
+
+# What the user sees on the card (Dutch, for the target audience).
+title = "Nextcloud Common Ground"
+summary = "Common Ground in een doos: Nextcloud met de apps van Conduction voor registers, zaakgericht werken, klantcontact en een publieksportaal, gevuld met demozaken."
+version = "Nextcloud 34.0.5 met Dossiq 0.4.0 (demo)"
+url = "http://localhost:8609/apps/dossiq/"
+login = "admin / admin"
+license = "EUPL-1.2"
+standards = ["Common Ground", "Zaakgericht werken", "NL Design System"]
+
+[source]
+repo = "https://github.com/ConductionNL/dossiq"
+rev = "c2d5e17b46d7acae0506bea1c7ab4fb5a010bc45"
+# The same pin as manifest/appliance-manifest.json upstream.dossiq_compose.
+manifest = "dossiq_compose"
+
+[needs]
+memory_gib = 8 # about 3-4 GiB in the guest
+cpus = 4
+disk_gib = 10 # images, apps and the database on DAWO_LOGS
+kvm = true
+internet = true # the first start downloads the images and the apps
+
+[deploy]
+kind = "driver"
+driver = "apps/nextcloud-commonground/deploy.sh"
+# The upstream compose file it runs, and our override.
+compose_file = "dossiq-compose.yaml"
+compose_override = "compose/override.yaml"
+
+[health]
+url = "http://localhost:8609/status.php"

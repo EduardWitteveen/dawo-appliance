@@ -146,6 +146,7 @@ in
     ./live-data.nix
     ./live-mijnbureau.nix
     ./live-valtimo.nix
+    ./live-nextcloud-commonground.nix
     ./live-dutch.nix
   ];
 

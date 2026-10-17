@@ -16,3 +16,7 @@ path = "mijn-bureau"
 [[environment]]
 id = "valtimo"
 path = "valtimo"
+
+[[environment]]
+id = "nextcloud-commonground"
+path = "nextcloud-commonground"

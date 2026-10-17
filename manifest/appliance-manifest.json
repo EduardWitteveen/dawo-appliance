@@ -58,6 +58,18 @@
       "inspected": "2026-10-16",
       "license": "none stated in the repository (fetched at deploy time by commit, not vendored); Valtimo/GZAC itself is EUPL-1.2",
       "purpose": "The official GZAC demo setup (docker compose --profile demo) for the Valtimo environment (#246)"
+    },
+    "dossiq_compose": {
+      "url": "https://github.com/ConductionNL/dossiq",
+      "branch": "main",
+      "rev": "c2d5e17b46d7acae0506bea1c7ab4fb5a010bc45",
+      "commit_date": "2026-08-28",
+      "inspected": "2026-10-17",
+      "path": "dossiq-compose.yaml",
+      "raw_url": "https://raw.githubusercontent.com/ConductionNL/dossiq/c2d5e17b46d7acae0506bea1c7ab4fb5a010bc45/dossiq-compose.yaml",
+      "sha256": "4954bdfd21874c32db8c49b58df77a6a15e8dbf99dd1cd417982e0db83e6559f",
+      "license": "EUPL-1.2",
+      "purpose": "Conduction's local demo setup (one compose file, inline configs) for the Nextcloud Common Ground environment (#250); the last commit that touched the file (main was at 04cb50eb on 2026-10-17)"
     }
   },
   "nix": {
@@ -339,6 +351,68 @@
         "url": "https://github.com/docker/compose/releases/download/v5.6.0/docker-compose-linux-x86_64",
         "sha256": "40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a",
         "license": "Apache-2.0"
+      }
+    }
+  },
+  "nextcloud_commonground": {
+    "note": "The Nextcloud Common Ground environment (#250): upstream.dossiq_compose plus environments/nextcloud-commonground/compose/override.yaml. The Docker Engine and compose are valtimo.tooling (one engine for the compose environments, D43). Must equal the override (tests/test-nextcloud-commonground-driver.sh).",
+    "compose": {
+      "project": "dossiq-demo",
+      "port": 8609
+    },
+    "images": {
+      "db": {
+        "image": "docker.io/library/postgres:16.15-alpine",
+        "digest": "sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+        "upstream_tag": "postgres:16-alpine"
+      },
+      "app-installer": {
+        "image": "docker.io/library/alpine:3.20.10",
+        "digest": "sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc",
+        "upstream_tag": "alpine:3.20"
+      },
+      "nextcloud": {
+        "image": "docker.io/library/nextcloud:34.0.5-apache",
+        "digest": "sha256:6d69b9052afab060afe8d004e9b00820f95a040b42db967b31eef9a48661e8bc",
+        "upstream_tag": "nextcloud:34-apache"
+      }
+    },
+    "apps_note": "Conduction's stable GitHub releases (EUPL-1.2; the newest non-prerelease of each on 2026-10-17); all declare Nextcloud 32-34 or 32-35 and PHP >= 8.3. sha256 = the release's .sha256 asset, equal to GitHub's asset digest. The first four are upstream's list (and its *_VERSION variables); opencatalogi, pipelinq and portaliq are ours (D45). Newer than mijn_bureau.nextcloud_apps for pipelinq and portaliq: a separate environment.",
+    "apps": {
+      "openregister": {
+        "version": "2.1.0",
+        "url": "https://github.com/ConductionNL/openregister/releases/download/v2.1.0/openregister-2.1.0.tar.gz",
+        "sha256": "c55f8e34e08b62da94f0f980b0f837be48eaf5b001b90b27278fd8194875101b"
+      },
+      "thematiq": {
+        "version": "1.2.10",
+        "url": "https://github.com/ConductionNL/thematiq/releases/download/v1.2.10/thematiq-1.2.10.tar.gz",
+        "sha256": "0745f26b79b822abb57744962cb8194d9449fcf44001f8da1ed13268c0d3289f"
+      },
+      "integriq": {
+        "version": "0.4.4",
+        "url": "https://github.com/ConductionNL/integriq/releases/download/v0.4.4/integriq-0.4.4.tar.gz",
+        "sha256": "dfd3004716c0de8c521348964b8c59e50ca550b5235e5040880e445af50a5672"
+      },
+      "dossiq": {
+        "version": "0.4.0",
+        "url": "https://github.com/ConductionNL/dossiq/releases/download/v0.4.0/dossiq-0.4.0.tar.gz",
+        "sha256": "db5882979201e31a971acfcc6dff6a64bb458d83f32f64bd64e6c9934086094e"
+      },
+      "opencatalogi": {
+        "version": "2.1.0",
+        "url": "https://github.com/ConductionNL/opencatalogi/releases/download/v2.1.0/opencatalogi-2.1.0.tar.gz",
+        "sha256": "af624d8d0b8d3392640aba25e3c1aefa296c835c201bf5093581530b69e27346"
+      },
+      "pipelinq": {
+        "version": "0.5.14",
+        "url": "https://github.com/ConductionNL/pipelinq/releases/download/v0.5.14/pipelinq-0.5.14.tar.gz",
+        "sha256": "aa00f5217a0e329c0e345023628564274ef2bda0857b04c5461dcc0af3dd8296"
+      },
+      "portaliq": {
+        "version": "0.2.8",
+        "url": "https://github.com/ConductionNL/portaliq/releases/download/v0.2.8/portaliq-0.2.8.tar.gz",
+        "sha256": "99e83a80747fd66fe459b010277203664baebed7353e747f7dcfe89f2d8a06e8"
       }
     }
   }
