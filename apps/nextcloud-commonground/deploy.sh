@@ -36,8 +36,8 @@ STATE_DIR="${NC_STATE_DIR:-/var/lib/dawo-appliance-nextcloud-commonground}"
 SRC_DIR="${STATE_DIR}/dossiq"
 COMPOSE_FILE="${SRC_DIR}/dossiq-compose.yaml"
 DOWNLOADS="${STATE_DIR}/downloads"
-DOCKER_DIR="/opt/dawo-docker"
-DOCKER_SOCK="unix:///run/dawo-docker.sock"
+DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
+DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
 # Upstream's `name:` in dossiq-compose.yaml; manifest nextcloud_commonground.compose.project.
 PROJECT="dossiq-demo"
 PORT=8609 # upstream's DEMO_PORT default, kept
