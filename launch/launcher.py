@@ -6,7 +6,7 @@ page on 127.0.0.1 with a card per environment of the catalogue and runs the
 workplace.
 
   launcher.py [--port 8790] [--launch launch] [--page launcher.html]
-              [--auto-start ID [--auto-start-delay 60]]
+              [--auto-start ID | --auto-start-cycle] [--auto-start-delay 60]
               [--cycle-file FILE [--cycle-hold 300] [--cycle-gap 60]
                [--cycle-ready-timeout 5400] [--cycle-report FILE]
                [--cycle-persist-units ON-UNIT OFF-UNIT]]
@@ -14,15 +14,21 @@ workplace.
 With --auto-start the Launcher starts that environment by itself after the
 delay (#238), so a machine can run unattended: the page shows the countdown
 and a button to cancel it. It fires once, and only when nothing runs yet;
-any start or stop through the page cancels it.
+any start or stop through the page cancels it. --auto-start-cycle starts the
+round that way instead.
 
 The round ("rondgang", #251) is a regression run while nobody watches: each
 environment of the catalogue in turn is started, kept up for --cycle-hold
 seconds once it is ready, stopped, and after --cycle-gap seconds the next one
-starts; round after round until someone stops it on the page (or starts or
-stops something). Every result goes to --cycle-report. It starts by itself
-when --cycle-file exists; the page can switch that on and off by starting
-the two --cycle-persist-units (polkit decides who may).
+starts; round after round until someone stops it on the page, or starts an
+environment. Stopping the environment the round is at moves it on to the
+next one. Every result goes to --cycle-report. It starts at once when
+--cycle-file exists; the page can switch that on and off by starting the two
+--cycle-persist-units (polkit decides who may).
+
+One start or stop at a time: while one runs, the page's buttons wait and a
+second request is answered 409 (#257: a start queued behind a stop cancelled
+that stop).
 
 Safety: it listens on 127.0.0.1 only, and every action needs the random token
 that is put into the page when it is served, so another web site cannot press
@@ -60,16 +66,30 @@ def run(args, timeout=60):
         return 124, "", "timeout"
 
 
+# One start or stop at a time (#257). The page's request does not wait for
+# it; the round does.
+ACTION = threading.Lock()
+
+
+def act(args, timeout=300):
+    """run() a start or stop while holding ACTION; the caller holds nothing."""
+    with ACTION:
+        rc, out, err = run(args, timeout=timeout)
+    with _LOCK:
+        _CACHE["at"] = 0.0
+    return rc, out, err
+
+
 _CACHE = {"at": 0.0, "data": []}
 _LOCK = threading.Lock()
 
 # The pending automatic start (#238): {"id", "at"} until it fires or is
-# cancelled, then None.
+# cancelled, then None. The id None means the round (#257).
 AUTO = {"pending": None}
 
 
 def auto_start_worker(eid, at):
-    """Start eid at time `at`, unless cancelled or something already runs."""
+    """Start eid (None: the round) at time `at`, unless cancelled or something already runs."""
     while time.time() < at:
         time.sleep(0.5)
         if AUTO["pending"] is None:
@@ -79,19 +99,20 @@ def auto_start_worker(eid, at):
             return
         AUTO["pending"] = None
         _CACHE["at"] = 0.0
+    if eid is None:
+        cycle_start()
+        return
     busy = [e["id"] for e in environments() if e["state"] != "stopped"]
     if busy:
         sys.stderr.write(f"launcher: automatic start of {eid} skipped: {', '.join(busy)} already runs\n")
         return
-    rc, out, err = run([eid, "--yes"], timeout=300)
+    rc, out, err = act([eid, "--yes"])
     sys.stderr.write(f"launcher: automatic start of {eid}: exit {rc}: {(out + err).strip()}\n")
-    with _LOCK:
-        _CACHE["at"] = 0.0
 
 
 # The round (#251): its state for the page, and a flag to stop it.
 CYCLE = {"active": False, "round": 0, "env": None, "phase": "", "until": None,
-         "next": None, "last": [], "stop": threading.Event()}
+         "next": None, "last": [], "stop": threading.Event(), "skip": threading.Event()}
 
 
 def cycle_report(line):
@@ -109,10 +130,17 @@ def cycle_report(line):
 
 
 def cycle_wait(seconds, phase, eid=None, nxt=None):
-    """Wait, showing the phase and the countdown; False when stopped."""
+    """Wait, showing the phase and the countdown; False when stopped, or
+    when the user stopped the environment the round is at (CYCLE["skip"])."""
     with _LOCK:
         CYCLE.update(phase=phase, env=eid, next=nxt, until=time.time() + seconds)
-    return not CYCLE["stop"].wait(seconds)
+    end = time.time() + seconds
+    while time.time() < end:
+        if CYCLE["stop"].wait(min(1.0, max(0.0, end - time.time()))):
+            return False
+        if CYCLE["skip"].is_set():
+            return False
+    return True
 
 
 def env_state(eid):
@@ -130,6 +158,7 @@ def cycle_worker():
         CYCLE.update(active=True, round=0)
         AUTO["pending"] = None
     cycle_report(f"gestart (in de lucht {OPTS.cycle_hold} s, pauze {OPTS.cycle_gap} s)")
+    first = True  # the first one starts at once: the user (or the automatic start) already waited
     while not stop.is_set():
         rc, out, _ = run(["--list", "--json"])
         ids = [e["id"] for e in (json.loads(out) if rc == 0 else {}).get("environments", [])]
@@ -148,12 +177,15 @@ def cycle_worker():
         done_any = False
         for i, eid in enumerate(ids):
             nxt = ids[i + 1] if i + 1 < len(ids) else (ids[0] if ids else None)
-            if not cycle_wait(OPTS.cycle_gap, "pause", eid, nxt):
+            CYCLE["skip"].clear()
+            if not first and not cycle_wait(OPTS.cycle_gap, "pause", eid, nxt) and stop.is_set():
                 break
+            first = False
+            CYCLE["skip"].clear()
             with _LOCK:
                 CYCLE.update(phase="starting", env=eid, next=nxt, until=None)
             t0 = time.time()
-            rc, out, err = run([eid, "--yes"], timeout=600)
+            rc, out, err = act([eid, "--yes"], timeout=600)
             if rc == 2:
                 cycle_report(f"ronde {n} {eid}: overgeslagen (niet ingericht op deze machine)")
                 continue
@@ -162,7 +194,7 @@ def cycle_worker():
                 continue
             done_any = True
             result, seen_starting = None, False
-            while not stop.is_set() and result is None:
+            while not stop.is_set() and not CYCLE["skip"].is_set() and result is None:
                 state, error = env_state(eid)
                 if state == "ready":
                     result = f"klaar na {int(time.time() - t0)} s"
@@ -175,19 +207,27 @@ def cycle_worker():
                 if result is None and time.time() - t0 > OPTS.cycle_ready_timeout:
                     result = f"MISLUKT: niet klaar na {OPTS.cycle_ready_timeout} s"
                 if result is None:
-                    stop.wait(10)
+                    cycle_wait(10, "starting", eid, nxt)
+                    with _LOCK:
+                        CYCLE["until"] = None
             if stop.is_set():
                 cycle_report(f"ronde {n} {eid}: rondgang gestopt tijdens het starten")
                 break
+            if CYCLE["skip"].is_set():
+                # The user stopped it on its card (#257): the round goes on.
+                cycle_report(f"ronde {n} {eid}: {result or 'tijdens het starten'}; door de gebruiker gestopt, door naar de volgende")
+                continue
             if result.startswith("klaar"):
-                ok = cycle_wait(OPTS.cycle_hold, "up", eid, nxt)
-                if not ok:
-                    cycle_report(f"ronde {n} {eid}: {result}; rondgang gestopt (blijft draaien)")
-                    break
+                if not cycle_wait(OPTS.cycle_hold, "up", eid, nxt):
+                    if stop.is_set():
+                        cycle_report(f"ronde {n} {eid}: {result}; rondgang gestopt (blijft draaien)")
+                        break
+                    cycle_report(f"ronde {n} {eid}: {result}; door de gebruiker gestopt, door naar de volgende")
+                    continue
             with _LOCK:
                 CYCLE.update(phase="stopping", env=eid, until=None)
-            rc, out, err = run(["--stop", eid], timeout=600)
-            cycle_report(f"ronde {n} {eid}: {result}; " + ("gestopt" if rc == 0 else f"stoppen mislukt (exit {rc})"))
+            rc, out, err = act(["--stop", eid], timeout=600)
+            cycle_report(f"ronde {n} {eid}: {result}; " + ("gestopt" if rc == 0 else f"stoppen mislukt (exit {rc}: {(out + err).strip()[-200:]})"))
         if not done_any and not stop.is_set():
             cycle_report("geen omgeving ingericht; rondgang stopt")
             break
@@ -202,6 +242,8 @@ def cycle_start():
         if CYCLE["active"]:
             return False
         CYCLE["stop"] = threading.Event()
+        CYCLE["skip"] = threading.Event()
+        AUTO["pending"] = None
     threading.Thread(target=cycle_worker, daemon=True).start()
     return True
 
@@ -216,6 +258,9 @@ def cycle_state():
     st["available"] = bool(OPTS.cycle_file)
     st["persisted"] = bool(OPTS.cycle_file) and os.path.exists(OPTS.cycle_file)
     st["can_persist"] = bool(OPTS.cycle_persist_units)
+    # The round as the automatic start that is still to come (#257), else None.
+    pend = AUTO["pending"]
+    st["autostart"] = {"at": pend["at"]} if pend and pend["id"] is None else None
     return st
 
 
@@ -319,12 +364,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send(403, json.dumps({"error": "forbidden"}))
             return
         verb, eid = m.groups()
-        with _LOCK:
-            AUTO["pending"] = None  # the user chose; no automatic start
-        if CYCLE["active"]:
-            cycle_stop()  # nor a round (#251)
-        args = [eid, "--yes"] if verb == "start" else ["--stop", eid]
-        rc, out, err = run(args, timeout=300)
+        # One start or stop at a time (#257): a second one would replace the
+        # first one's systemd job ("Job ... canceled").
+        if verb == "start" and CYCLE["active"]:
+            cycle_stop()  # the user takes over: the round ends (#251)
+        if not ACTION.acquire(blocking=False):
+            self.send(409, json.dumps({"ok": False, "code": 409, "busy": True,
+                                       "output": "Er wordt al iets gestart of gestopt; even geduld."}))
+            return
+        try:
+            with _LOCK:
+                AUTO["pending"] = None  # the user chose; no automatic start
+            if verb == "stop" and CYCLE["active"] and CYCLE["env"] == eid:
+                CYCLE["skip"].set()  # the round goes on with the next one (#257)
+            args = [eid, "--yes"] if verb == "start" else ["--stop", eid]
+            rc, out, err = run(args, timeout=300)
+        finally:
+            ACTION.release()
         with _LOCK:
             _CACHE["at"] = 0.0  # show the new state on the next refresh
         self.send(200 if rc == 0 else 500,
@@ -341,6 +397,7 @@ def main():
     ap.add_argument("--launch", default="launch")
     ap.add_argument("--page", required=True)
     ap.add_argument("--auto-start", default="")
+    ap.add_argument("--auto-start-cycle", action="store_true")
     ap.add_argument("--auto-start-delay", type=int, default=60)
     ap.add_argument("--cycle-file", default="")
     ap.add_argument("--cycle-hold", type=int, default=300)
@@ -349,15 +406,15 @@ def main():
     ap.add_argument("--cycle-report", default=os.path.expanduser("~/.local/state/launch/rondgang.log"))
     ap.add_argument("--cycle-persist-units", nargs=2, default=None, metavar=("ON", "OFF"))
     OPTS = ap.parse_args()
+    if OPTS.auto_start and not ID_RE.match(OPTS.auto_start):
+        ap.error("--auto-start: not an environment id")
     if OPTS.cycle_file and os.path.exists(OPTS.cycle_file):
-        cycle_start()  # the round instead of the single automatic start
-        OPTS.auto_start = ""
-    if OPTS.auto_start:
-        if not ID_RE.match(OPTS.auto_start):
-            ap.error("--auto-start: not an environment id")
+        cycle_start()  # the round at once, instead of the automatic start
+    elif OPTS.auto_start_cycle or OPTS.auto_start:
+        eid = None if OPTS.auto_start_cycle else OPTS.auto_start
         at = time.time() + OPTS.auto_start_delay
-        AUTO["pending"] = {"id": OPTS.auto_start, "at": at}
-        threading.Thread(target=auto_start_worker, args=(OPTS.auto_start, at), daemon=True).start()
+        AUTO["pending"] = {"id": eid, "at": at}
+        threading.Thread(target=auto_start_worker, args=(eid, at), daemon=True).start()
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", OPTS.port), Handler)
     sys.stderr.write(f"launcher: http://127.0.0.1:{OPTS.port}/\n")
     httpd.serve_forever()

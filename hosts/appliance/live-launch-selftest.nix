@@ -7,8 +7,10 @@
 #      Launcher", no guest running;
 #   2. the Launcher answers (user service in the desktop session) and refuses
 #      a start without its token;
-#   3. the automatic start (#238) is announced and fires by itself (round 1),
-#      then Starten through the Launcher's API (round 2): K3s Ready;
+#   3. the automatic start (#238; the round, #257) is announced and fires by
+#      itself (round 1), the round is stopped so it does not go on to the next
+#      environment, then Starten through the Launcher's API (round 2): K3s
+#      Ready;
 #   4. Stoppen: guest unit inactive, no libvirt domain running, state stopped;
 #   5. Starten again (re-entrant): K3s Ready again.
 #
@@ -76,6 +78,7 @@ let
       progress_text() { curl -sf "$api/api/environments" | jq -r --arg id "$env" '.[] | select(.id == $id) | .progress | "stap \(.step) van \(.steps): \(.label) (nog ~\(.rest) s na deze stap)"'; }
       has_rest() { curl -sf "$api/api/environments" | jq -e --arg id "$env" '.[] | select(.id == $id) | .progress.rest | type == "number"' >/dev/null; }
       at_step() { [ "$(step)" -ge "$1" ]; }
+      round_off() { curl -sf "$api/api/cycle" | jq -e '.active == false' >/dev/null; }
       post() { # post start|stop -> the JSON answer
         curl -s -m 600 -X POST -H "X-Launcher-Token: $token" "$api/api/$1/$env"
       }
@@ -144,15 +147,22 @@ let
       code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$api/api/start/$env")"
       [ "$code" = 403 ] || fail "start without token answered $code, not 403"
       say "start without token refused (403)"
-      # The automatic start (#238) is announced at boot.
-      curl -sf "$api/api/environments" | jq -e --arg id "$env" '.[] | select(.id == $id) | .autostart.at | type == "number"' >/dev/null         || fail "no automatic start announced for $env"
-      say "automatic start announced"
+      # The automatic start (#238) is announced at boot: the round (#257).
+      curl -sf "$api/api/cycle" | jq -e '.autostart.at | type == "number"' >/dev/null \
+        || fail "no automatic start of the round announced: $(curl -sf "$api/api/cycle")"
+      say "automatic start of the round announced"
 
       for round in 1 2; do
         if [ "$round" = 1 ]; then
           # 3a. Nobody presses anything: the Launcher starts it by itself (#238).
           wait_for 300 "automatic start" at_step 1
-          say "start 1: started automatically (no button pressed)"
+          [ "$(curl -sf "$api/api/cycle" | jq -r .env)" = "$env" ] || fail "the round did not start $env first"
+          say "start 1: started automatically by the round (no button pressed)"
+          # Only $env here (no internet for the others): the round stops,
+          # $env goes on starting.
+          curl -sf -X POST -H "X-Launcher-Token: $token" "$api/api/cycle/stop" >/dev/null || fail "stopping the round"
+          wait_for 30 "the round stopped" round_off
+          say "start 1: round stopped, $env goes on"
         else
           # 3b. Starten, as the button does.
           answer="$(post start)"

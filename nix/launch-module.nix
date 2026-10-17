@@ -91,6 +91,14 @@ in
             something first. For machines that run unattended.
           '';
         };
+        cycle = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Start the round (cycle) by itself after `delaySeconds` instead of
+            one environment (#257); needs cycle.enable.
+          '';
+        };
         delaySeconds = lib.mkOption {
           type = lib.types.ints.positive;
           default = 60;
@@ -105,7 +113,7 @@ in
         file = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
-          description = "When this file exists at start, the round begins by itself (instead of autoStart).";
+          description = "When this file exists at start, the round begins at once (instead of autoStart).";
         };
         holdSeconds = lib.mkOption { type = lib.types.ints.positive; default = 300; description = "How long each environment stays up once it is ready."; };
         gapSeconds = lib.mkOption { type = lib.types.ints.positive; default = 60; description = "The pause before the next environment starts."; };
@@ -165,8 +173,10 @@ in
       environment.LAUNCH_CONFIG = "/etc/launch/config.json";
       serviceConfig = {
         ExecStart = "${launch.launcher}/bin/launcher --port ${toString cfg.launcher.port}"
-          + lib.optionalString (cfg.launcher.autoStart.environment != null)
-          " --auto-start ${cfg.launcher.autoStart.environment} --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}"
+          + (if cfg.launcher.autoStart.cycle && cyc.enable then
+            " --auto-start-cycle --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}"
+          else lib.optionalString (cfg.launcher.autoStart.environment != null)
+            " --auto-start ${cfg.launcher.autoStart.environment} --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}")
           + lib.optionalString cyc.enable (
           " --cycle-hold ${toString cyc.holdSeconds} --cycle-gap ${toString cyc.gapSeconds}"
           + " --cycle-ready-timeout ${toString cyc.readyTimeoutSeconds}"
