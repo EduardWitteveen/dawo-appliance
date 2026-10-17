@@ -34,6 +34,9 @@ SRC_DIR="${STATE_DIR}/gzac-docker-compose"
 DOWNLOADS="${STATE_DIR}/downloads"
 DOCKER_DIR="/opt/dawo-docker"
 PROFILE="demo"
+# The compose project (the directory name); manifest valtimo.compose.project.
+PROJECT="gzac-docker-compose"
+DOCKER_SOCK="unix:///run/dawo-docker.sock"
 
 info() { echo "    $*"; }
 log() { echo "==> $*"; }
@@ -62,12 +65,32 @@ compose() {
     --profile "${PROFILE}" "$@"
 }
 
+# One environment at a time (ADR 0008). The containers of every other compose
+# project on the shared Docker Engine (dawo-docker, D43) are stopped
+# explicitly: upstream's `restart: unless-stopped` (and `always`) would
+# otherwise bring them back each time the engine starts, for example after
+# the guest rebooted while Nextcloud Common Ground ran. Explicitly stopped
+# containers stay stopped; their volumes and data stay.
+park_other_compose_projects() {
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "DRY-RUN: docker ps: stop the running containers of every compose project but ${PROJECT}"; return 0
+  fi
+  "${DOCKER_DIR}/bin/docker" -H "${DOCKER_SOCK}" info >/dev/null 2>&1 || { info "Docker Engine is not running"; return 0; }
+  local others
+  others="$("${DOCKER_DIR}/bin/docker" -H "${DOCKER_SOCK}" ps --format '{{.ID}} {{.Label "com.docker.compose.project"}}' \
+             | awk -v me="${PROJECT}" '$2 != "" && $2 != me')"
+  if [[ -z "${others}" ]]; then info "no other compose project runs"; return 0; fi
+  # shellcheck disable=SC2046 # one container id per word
+  "${DOCKER_DIR}/bin/docker" -H "${DOCKER_SOCK}" stop $(awk '{ print $1 }' <<<"${others}") >/dev/null
+  info "stopped the containers of: $(awk '{ print $2 }' <<<"${others}" | sort -u | tr '\n' ' ')"
+}
+
 # One environment at a time (ADR 0008): Mijn Bureau runs on K3s in this guest.
 # Stop K3s and its pods so they do not take the memory; it starts again at the
 # guest's next boot (Mijn Bureau's start boots the guest).
 phase_park() {
-  log "park the other environment (K3s)"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: systemctl stop k3s; /usr/local/bin/k3s-killall.sh"; return 0; fi
+  log "park the other environments (K3s, other compose projects)"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: systemctl stop k3s; /usr/local/bin/k3s-killall.sh"; park_other_compose_projects; return 0; fi
   if systemctl is-active --quiet k3s 2>/dev/null; then
     run systemctl stop k3s
   fi
@@ -75,32 +98,37 @@ phase_park() {
     run /usr/local/bin/k3s-killall.sh >/dev/null 2>&1 || true
   fi
   info "K3s is stopped"
+  park_other_compose_projects
 }
 
 # Docker Engine and the compose plugin, pinned static binaries, as a unit of
 # our own (dawo-docker, own socket and data root) next to K3s's containerd.
+# Shared with the Nextcloud Common Ground environment (#250): the unit below
+# MUST equal the one in apps/nextcloud-commonground/deploy.sh
+# (tests/test-nextcloud-commonground-driver.sh).
 phase_docker() {
   log "Docker Engine ${DOCKER_URL##*/} and compose"
   download_verified "${DOCKER_URL:?}" "${DOCKER_SHA:?}" "${DOWNLOADS}/${DOCKER_URL##*/}"
   download_verified "${COMPOSE_URL:?}" "${COMPOSE_SHA:?}" "${DOWNLOADS}/docker-compose"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: unpack into ${DOCKER_DIR}, install dawo-docker.service, start it"; return 0; fi
-  if ! cmp -s "${DOWNLOADS}/${DOCKER_URL##*/}.unpacked" <(printf '%s\n' "${DOCKER_SHA}") 2>/dev/null; then
-    rm -rf "${DOCKER_DIR}/bin"; mkdir -p "${DOCKER_DIR}/bin"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: unpack into ${DOCKER_DIR}, install dawo-docker.service, start it"; park_other_compose_projects; return 0; fi
+  if ! cmp -s "${DOCKER_DIR}/bin/.sha256" <(printf '%s\n' "${DOCKER_SHA}") 2>/dev/null; then
+    rm -rf "${DOCKER_DIR:?}/bin"; mkdir -p "${DOCKER_DIR}/bin"
     tar -xzf "${DOWNLOADS}/${DOCKER_URL##*/}" -C "${DOCKER_DIR}/bin" --strip-components=1
-    printf '%s\n' "${DOCKER_SHA}" > "${DOWNLOADS}/${DOCKER_URL##*/}.unpacked"
+    printf '%s\n' "${DOCKER_SHA}" > "${DOCKER_DIR}/bin/.sha256"
   fi
   mkdir -p "${DOCKER_DIR}/cli-plugins"
   install -m 0755 "${DOWNLOADS}/docker-compose" "${DOCKER_DIR}/cli-plugins/docker-compose"
   mkdir -p /root/.docker && ln -sfn "${DOCKER_DIR}/cli-plugins" /root/.docker/cli-plugins
-  cat > /etc/systemd/system/dawo-docker.service <<EOF
+  # BEGIN dawo-docker.service
+  cat > /etc/systemd/system/dawo-docker.service.new <<EOF
 [Unit]
-Description=Docker Engine for the Valtimo environment (dawo-appliance #246)
+Description=Docker Engine for the compose environments (dawo-appliance #246, #250)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Environment=PATH=${DOCKER_DIR}/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=${STATE_DIR}/docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid
+ExecStart=${DOCKER_DIR}/bin/dockerd --host=unix:///run/dawo-docker.sock --data-root=/var/lib/dawo-docker --exec-root=/run/dawo-docker --pidfile=/run/dawo-docker.pid
 Restart=on-failure
 LimitNOFILE=1048576
 Delegate=yes
@@ -109,15 +137,25 @@ KillMode=process
 [Install]
 WantedBy=
 EOF
-  systemctl daemon-reload
+  # END dawo-docker.service
+  if ! cmp -s /etc/systemd/system/dawo-docker.service.new /etc/systemd/system/dawo-docker.service; then
+    mv -f /etc/systemd/system/dawo-docker.service.new /etc/systemd/system/dawo-docker.service
+    systemctl daemon-reload
+    systemctl try-restart dawo-docker
+  else
+    rm -f /etc/systemd/system/dawo-docker.service.new
+  fi
   systemctl start dawo-docker
-  local i
-  for i in $(seq 1 60); do
+  local _
+  for _ in $(seq 1 60); do
     "${DOCKER_DIR}/bin/docker" -H unix:///run/dawo-docker.sock info >/dev/null 2>&1 && break
     sleep 1
   done
   "${DOCKER_DIR}/bin/docker" -H unix:///run/dawo-docker.sock info >/dev/null 2>&1 || die "dockerd did not start"
   info "Docker Engine runs ($("${DOCKER_DIR}/bin/docker" -H unix:///run/dawo-docker.sock version --format '{{.Server.Version}}'))"
+  # The engine just started: containers of another environment with a
+  # restart policy are back. Park them again.
+  park_other_compose_projects
 }
 
 # Upstream's compose at the pinned commit; the commit hash verifies the files.
