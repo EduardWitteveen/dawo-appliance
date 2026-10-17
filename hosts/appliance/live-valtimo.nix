@@ -1,8 +1,10 @@
 # The Valtimo environment on the live USB (#246, ADR 0008): upstream's
-# official GZAC demo (gzac-docker-compose, `--profile demo`) in the guest,
+# official GZAC demo (gzac-docker-compose, profiles demo, zgw and
+# openformulieren, #260) in the guest,
 # deployed by apps/valtimo/deploy.sh phase by phase, with progress for the
 # Launcher (#232/#235). The browser keeps upstream's addresses: while this
-# environment runs, the host forwards localhost:80, :8080 and :8081 to the
+# environment runs, the host forwards localhost:80, :8080, :8081 (and the ZGW
+# services and Open Formulieren: :8001, :8002, :8003, :8010, :8011) to the
 # guest (systemd-socket-proxyd), so the realm, the redirect URIs and the
 # frontend settings stay exactly as upstream ships them.
 #
@@ -20,7 +22,9 @@ let
   driver = ../../apps/valtimo/deploy.sh;
   override = ../../environments/valtimo/compose/override.yaml;
   guestIp = "192.168.150.10";
-  ports = [ 80 8080 8081 ];
+  # Valtimo, its backend and Keycloak; Open Zaak, Open Notificaties, Open
+  # Formulieren (the citizen form), Objecten and Objecttypen (#260).
+  ports = [ 80 8080 8081 8001 8002 8003 8010 8011 ];
   logFile = "/var/log/dawo-appliance-valtimo.log";
   progressFile = "/run/launch/progress/valtimo.json";
 
@@ -41,7 +45,7 @@ let
       names=(vm park net docker source pull up ready)
       labels=("Virtuele machine starten" "Andere omgevingen even stilzetten (er draait er één tegelijk)" "Wachten op internet (wifi Dawo of een netwerkkabel)"
               "Docker installeren" "Valtimo ophalen (de officiële demo)" "Onderdelen downloaden"
-              "Valtimo starten" "Wachten tot Valtimo klaar is (de demozaken worden aangemaakt)")
+              "Valtimo starten" "Wachten tot Valtimo, Open Zaak en het burgerformulier klaar zijn")
       steps=''${#names[@]}
       since="$(date +%s)"
       durations=/var/lib/dawo-appliance/vt-durations
@@ -49,7 +53,7 @@ let
       typical() {
         case "$1" in
           vm) echo 120 ;; park) echo 15 ;; net) echo 5 ;; docker) echo 40 ;; source) echo 10 ;;
-          pull) echo 300 ;; up) echo 30 ;; ready) echo 180 ;; *) echo 30 ;;
+          pull) echo 480 ;; up) echo 240 ;; ready) echo 420 ;; *) echo 30 ;;
         esac
       }
       key_exp() { local e; e="$(last_secs "$1")"; echo "''${e:-$(typical "$1")}"; }

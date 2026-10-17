@@ -74,6 +74,10 @@
   .cycle { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
            margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; font-size: .95rem; }
   .cycle.active { border-color: var(--accent); }
+  .links { font-size: .9rem; margin: 6px 0; }
+  .links summary { cursor: pointer; color: var(--accent); }
+  .links ul { margin: 6px 0 0; padding-left: 18px; }
+  .linklogin { color: var(--muted); }
   .cycle-last { margin: 0; padding-left: 18px; color: var(--muted); font-size: .85rem; }
   .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
@@ -165,6 +169,12 @@ function card(env) {
     env.state === "stopped" && env.autostart ? autoBlock(env) : null,
     warn,
     env.state === "ready" && env.login ? el("div", { class: "login" }, "Inloggen: " + env.login) : null,
+    env.state === "ready" && env.links && env.links.length
+      ? el("details", { class: "links" }, el("summary", {}, "Ook in deze omgeving"),
+          el("ul", {}, ...env.links.map(l => el("li", {},
+            el("a", { href: l.url, target: "_blank", rel: "noopener" }, l.title),
+            l.login ? el("span", { class: "linklogin" }, " · " + l.login) : null))))
+      : null,
     el("div", { class: "message" }, busy[env.id] || ""),
     actions);
 }
