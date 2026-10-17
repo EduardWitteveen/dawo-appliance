@@ -106,6 +106,8 @@ let
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
       # The Valtimo deployment log (live-valtimo.nix, #246).
       cp -f /var/log/dawo-appliance-valtimo.log "$dir/valtimo.txt" 2>/dev/null || true
+      # The Launcher's round report (#251), written as the desktop user.
+      cp -f /home/dawo/.local/state/launch/rondgang.log "$dir/rondgang.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt.new" 2>&1 || true

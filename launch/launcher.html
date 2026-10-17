@@ -71,6 +71,10 @@
   .auto { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--warn-bg);
           color: var(--warn); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
   .auto button { font-size: .85rem; padding: 6px 12px; }
+  .cycle { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
+           margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; font-size: .95rem; }
+  .cycle.active { border-color: var(--accent); }
+  .cycle-last { margin: 0; padding-left: 18px; color: var(--muted); font-size: .85rem; }
   .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
   @media (prefers-reduced-motion: reduce) {
@@ -83,6 +87,7 @@
 <main>
   <h1>Launcher</h1>
   <p class="lead">Kies een omgeving om te proberen. De eerste keer duurt starten lang (alles wordt gedownload: reken op een half uur tot een uur); daarna gaat het veel sneller. Hieronder zie je steeds bij welke stap het is.</p>
+  <div id="cycle"></div>
   <div class="grid" id="grid" aria-live="polite"><p>Even geduld…</p></div>
   <footer>Experimenteel en onofficieel. Er draait één omgeving tegelijk.</footer>
 </main>
@@ -269,6 +274,66 @@ async function refresh() {
 }
 refresh();
 setInterval(refresh, 5000);
+
+// The round (#251): every environment in turn, as a test that runs by itself.
+const title = id => (lastData.find(e => e.id === id) || {}).title || id || "";
+async function cycleAct(verb) {
+  try {
+    await fetch(`/api/cycle/${verb}`, { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
+  } catch (e) { /* the next refresh shows the state */ }
+  lastCycle = ""; refreshCycle(); lastJson = ""; refresh();
+}
+function renderCycle(c) {
+  const box = document.getElementById("cycle");
+  if (!c.available) { box.replaceChildren(); return; }
+  const kids = [];
+  if (c.active) {
+    kids.push(el("div", { class: "cycle-head" },
+      el("b", {}, `Rondgang (ronde ${c.round})`), " · ",
+      el("span", { class: "cycle-now", "data-phase": c.phase || "", "data-until": c.until || "",
+                   "data-env": title(c.env), "data-next": title(c.next) }, "")));
+    kids.push(el("div", { class: "actions" },
+      el("button", { class: "primary", onclick: () => cycleAct("stop") }, "Rondgang stoppen")));
+  } else {
+    kids.push(el("div", { class: "cycle-head" }, el("b", {}, "Rondgang"), " · alle omgevingen om de beurt starten, 5 minuten laten draaien en weer stoppen: een test die vanzelf doorloopt."));
+    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start") }, "Rondgang starten")));
+  }
+  if (c.can_persist) {
+    kids[kids.length - 1].append(el("button", { onclick: () => cycleAct(c.persisted ? "persist-off" : "persist-on") },
+      c.persisted ? "Bij elke start: aan (uitzetten)" : "Bij elke start: uit (aanzetten)"));
+  }
+  if (c.last && c.last.length) {
+    kids.push(el("ul", { class: "cycle-last" }, ...c.last.slice(-3).map(l => el("li", {}, l))));
+  }
+  box.replaceChildren(el("section", { class: "cycle" + (c.active ? " active" : "") }, ...kids));
+  tickCycle();
+}
+function tickCycle() {
+  const s = document.querySelector(".cycle-now");
+  if (!s) return;
+  const left = s.dataset.until ? Math.max(0, Math.ceil(+s.dataset.until - Date.now() / 1000)) : 0;
+  const env = s.dataset.env, next = s.dataset.next;
+  const t = {
+    pause: `${env} start over ${dur(left)}`,
+    starting: `${env} wordt gestart (zie de kaart)`,
+    up: `${env} is klaar, nog ${dur(left)} in de lucht`,
+    stopping: `${env} wordt gestopt`,
+  }[s.dataset.phase] || "";
+  s.textContent = t + (next && next !== env ? ` · daarna ${next}` : "");
+}
+setInterval(tickCycle, 1000);
+let lastCycle = "";
+async function refreshCycle() {
+  try {
+    const r = await fetch("/api/cycle", { cache: "no-store" });
+    const text = await r.text();
+    if (text === lastCycle) return;
+    lastCycle = text;
+    renderCycle(JSON.parse(text));
+  } catch (e) { /* the next refresh tries again */ }
+}
+refreshCycle();
+setInterval(refreshCycle, 5000);
 </script>
 </body>
 </html>

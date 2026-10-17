@@ -35,6 +35,13 @@
     # Unattended runs (#238): the Launcher starts Mijn Bureau by itself one
     # minute after login, unless the user clicks "Niet automatisch starten".
     launcher.autoStart.environment = "mijn-bureau";
+    # The round (#251): every environment in turn, 5 minutes each, as a
+    # regression run on real hardware. On at every start when the stick
+    # carries launch-rondgang.txt; the Launcher switches it on and off.
+    launcher.cycle = {
+      enable = true;
+      file = "/run/dawo-logs/launch-rondgang.txt";
+    };
   };
 
   # The desktop user starts and stops environments without sudo (polkit).
