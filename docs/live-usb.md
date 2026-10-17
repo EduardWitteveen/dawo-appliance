@@ -28,6 +28,61 @@ starts clean every time.
 | Boot medium | **A USB SSD of 64 GB or more** (an SSD in a USB enclosure, or a portable one such as a Samsung T7). A USB flash stick of 16 GB boots the desktop, but keeping the guest on it means hours of writes (a Mijn Bureau deployment grows the guest disk to about 13 GB): a SanDisk stick died after two days of this and ran hot (#139). The image takes about 7 GB; the rest becomes the `DAWO_LOGS` partition for logs, screenshots and data ("Writing the stick" below). Everything on it is erased the first time; up to 2 TB (MBR). `io.txt` in each session's logs records how many GB the session wrote (#147) |
 | Second stick (optional) | Only when `DAWO_LOGS` is not on the boot stick: any USB stick formatted FAT32 or exFAT with the name `DAWO_LOGS`. Files on it are kept |
 
+## 0. Downloaden en op een USB-SSD zetten (Nederlands)
+
+*Voor wie de appliance wil proberen zonder hem zelf te bouwen. De rest van dit
+document is technisch en in het Engels.*
+
+Vanaf versie **v0.1.0-rc.1** kun je het schijfbestand downloaden. Het is te
+groot voor GitHub (ongeveer 7 GB), daarom staat het op SourceForge:
+<https://sourceforge.net/projects/dawo-appliance/files/>, in de map met het
+versienummer (bijvoorbeeld `v0.1.0-rc.1`). Tot die versie er is, is de map
+nog leeg; bouw het bestand dan zelf (stap 1 en 2a hieronder).
+
+**1. Downloaden.** Download uit die map twee bestanden naar je map
+*Downloads*: `dawo-appliance-live.img` (het schijfbestand) en
+`dawo-appliance-live.img.sha256` (de controlecode). De controlecode staat ook
+in de release-notities op GitHub
+(<https://github.com/EduardWitteveen/dawo-appliance/releases>).
+
+**2. Controleren of de download goed is.** Een download van 7 GB kan
+beschadigd raken. Open PowerShell (Startmenu, typ `PowerShell`, Enter; geen
+beheerdersrechten nodig) en typ:
+
+```powershell
+cd $env:USERPROFILE\Downloads
+$verwacht = (Get-Content .\dawo-appliance-live.img.sha256).Split(' ')[0]
+$echt = (Get-FileHash .\dawo-appliance-live.img -Algorithm SHA256).Hash
+if ($echt -eq $verwacht) { 'Goed: het bestand is onbeschadigd' } else { 'FOUT: download het bestand opnieuw' }
+```
+
+Het berekenen duurt een minuut. Zie je **Goed**, ga dan verder. Zie je
+**FOUT**, download het bestand dan opnieuw. (Op Linux of macOS:
+`sha256sum -c dawo-appliance-live.img.sha256`.)
+
+**3. Op de USB-SSD zetten.** Gebruik een USB-SSD van 64 GB of meer. **Alles
+wat erop staat, wordt gewist.** Kies een van deze twee programma's:
+
+- **Rufus** (Windows, <https://rufus.ie>): kies bovenaan bij *Device* de
+  USB-SSD (let op de naam en de grootte), klik op *SELECT* en kies
+  `dawo-appliance-live.img`, klik op *START*. Rufus schrijft een `.img` zoals
+  het is (DD-modus). Klik *OK* bij de waarschuwing dat de schijf gewist wordt.
+  Zie je de USB-SSD niet in de lijst, open dan *Show advanced drive
+  properties* en zet *List USB Hard Drives* aan. (In een Nederlandse Windows
+  kunnen de knoppen Nederlandse namen hebben.)
+- **balenaEtcher** (Windows, macOS, Linux, <https://etcher.balena.io>):
+  *Flash from file* en kies `dawo-appliance-live.img`, *Select target* en kies
+  de USB-SSD, *Flash!*.
+
+Stelt Windows daarna voor een schijf te formatteren, kies dan **Annuleren**:
+Windows kan de schijf niet lezen, en formatteren maakt hem kapot.
+
+**4. Starten.** Zet de laptop uit, steek de USB-SSD erin en start van de USB-schijf
+(bij een Dell: direct na het aanzetten een paar keer op F12 drukken, dan de
+USB-schijf kiezen; meer in "4. Firmware settings and booting" hieronder). De
+eerste keer maakt de appliance de rest van de USB-SSD klaar voor je gegevens.
+Na het inloggen opent de Launcher en start Mijn Bureau vanzelf.
+
 ## 1. Build the image
 
 In a WSL shell (`wsl -d Ubuntu-24.04`; the prompt ends in `$`):
