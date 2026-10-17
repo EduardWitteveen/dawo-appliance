@@ -20,7 +20,11 @@
 
 let
   cfg = config.services.launch;
-  allUnits = lib.unique (lib.concatMap (e: e.units) (lib.attrValues cfg.environments));
+  cyc = cfg.launcher.cycle;
+  # The round (#251): two oneshot units switch it on and off for every start,
+  # since the desktop user may not write where the marker file lives.
+  cycleUnits = lib.optionals (cyc.enable && cyc.file != null) [ "launch-cycle-on.service" "launch-cycle-off.service" ];
+  allUnits = lib.unique (lib.concatMap (e: e.units) (lib.attrValues cfg.environments)) ++ cycleUnits;
   configJson = pkgs.writeText "launch-config.json" (builtins.toJSON {
     inherit (cfg) dataPath reserveGiB internetUrl;
     environments = lib.mapAttrs (_: e: { inherit (e) units progressFile; }) cfg.environments;
@@ -93,6 +97,20 @@ in
           description = "Seconds after the Launcher starts before the automatic start.";
         };
       };
+      cycle = {
+        enable = lib.mkEnableOption ''
+          the round (#251): start every environment in turn, keep it up for a
+          while, stop it, and go on, round after round; a regression run while
+          nobody watches. The page can start and stop it'';
+        file = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "When this file exists at start, the round begins by itself (instead of autoStart).";
+        };
+        holdSeconds = lib.mkOption { type = lib.types.ints.positive; default = 300; description = "How long each environment stays up once it is ready."; };
+        gapSeconds = lib.mkOption { type = lib.types.ints.positive; default = 60; description = "The pause before the next environment starts."; };
+        readyTimeoutSeconds = lib.mkOption { type = lib.types.ints.positive; default = 5400; description = "How long an environment may take to become ready."; };
+      };
     };
     autostart = lib.mkOption {
       type = lib.types.listOf lib.types.str;
@@ -148,7 +166,12 @@ in
       serviceConfig = {
         ExecStart = "${launch.launcher}/bin/launcher --port ${toString cfg.launcher.port}"
           + lib.optionalString (cfg.launcher.autoStart.environment != null)
-          " --auto-start ${cfg.launcher.autoStart.environment} --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}";
+          " --auto-start ${cfg.launcher.autoStart.environment} --auto-start-delay ${toString cfg.launcher.autoStart.delaySeconds}"
+          + lib.optionalString cyc.enable (
+          " --cycle-hold ${toString cyc.holdSeconds} --cycle-gap ${toString cyc.gapSeconds}"
+          + " --cycle-ready-timeout ${toString cyc.readyTimeoutSeconds}"
+          + lib.optionalString (cyc.file != null)
+            " --cycle-file ${cyc.file} --cycle-persist-units launch-cycle-on.service launch-cycle-off.service");
         Restart = "on-failure";
       };
     };
@@ -167,6 +190,17 @@ in
         }
       });
     '';
+
+    systemd.services.launch-cycle-on = lib.mkIf (cycleUnits != [ ]) {
+      description = "Launch: start the round (#251) at every start";
+      serviceConfig.Type = "oneshot";
+      script = "${pkgs.coreutils}/bin/touch ${lib.escapeShellArg cyc.file}";
+    };
+    systemd.services.launch-cycle-off = lib.mkIf (cycleUnits != [ ]) {
+      description = "Launch: do not start the round (#251) at every start";
+      serviceConfig.Type = "oneshot";
+      script = "${pkgs.coreutils}/bin/rm -f ${lib.escapeShellArg cyc.file}";
+    };
 
     systemd.services.launch-autostart = lib.mkIf (cfg.autostart != [ ] || cfg.autostartFile != null) {
       description = "Launch: start the environments marked to start at boot";
