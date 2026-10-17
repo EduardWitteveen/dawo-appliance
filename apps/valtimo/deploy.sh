@@ -243,8 +243,14 @@ add_dawo_login() {
   local kc=(env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker exec gzac-docker-compose-gzac-keycloak
             /opt/keycloak/bin/kcadm.sh)
   local cfg=(--config /tmp/dawo-kcadm.config)
-  "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8080/auth --realm master \
-    --user admin --password admin >/dev/null 2>&1 || { info "login dawo / dawo: Keycloak admin CLI not reachable; skipped"; return 0; }
+  # Keycloak's admin login comes a little after its realm: up to 2 minutes.
+  local try
+  for try in $(seq 1 24); do
+    "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8080/auth --realm master \
+      --user admin --password admin >/dev/null 2>&1 && break
+    [[ "${try}" -eq 24 ]] && { info "login dawo / dawo: Keycloak admin CLI not reachable; skipped"; return 0; }
+    sleep 5
+  done
   if ! "${kc[@]}" get users "${cfg[@]}" -r valtimo -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
     "${kc[@]}" create users "${cfg[@]}" -r valtimo -s username=dawo -s enabled=true -s emailVerified=true \
       -s firstName=Dawo -s lastName=Demo -s email=dawo@example.com >/dev/null
