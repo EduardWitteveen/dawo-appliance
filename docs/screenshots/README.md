@@ -22,6 +22,10 @@ Only pictures of the **pinned configuration as it really behaves**:
 - `live-*.png` — the live USB on real hardware (#118): one debug screenshot
   per milestone from a session on one of the maintainer's own test laptops,
   e.g. `live-status-page-dell.png`. Provenance in `HARDWARE.md`.
+- `live-launch-cli.png` — the `launch` command line (`launch`,
+  `launch --check valtimo`, `launch --status`) in a terminal on the live
+  image, from the KVM test `test-live-launch` (#252). Provenance in
+  `TESTS.md`.
 - Later: the Mijn Bureau dashboard in the browser.
 
 Not allowed: mock-ups, retouched images, pictures of upstream's pilots or of
@@ -47,6 +51,18 @@ takes one of them in: cropped to its centre and scaled to 1280 px wide,
 nothing else, with the machine, session, capture time and the original's
 SHA-256 in the generated `HARDWARE.md`. Pick a frame with no personal data on
 screen; the demo password `dawo` is fine.
+
+KVM-test pictures of the live image come the same way, without hardware:
+`test-live-launch` boots the real live image with an emulated `DAWO_LOGS`
+stick, its self-test opens a terminal with the `launch` commands and saves
+`launch-cli.png` next to the 30-s debug screenshots, and the test copies them
+off the stick image (`tests/exfat-read.py`, read-only) into
+`result/screens/`. Then
+`bash scripts/screenshots.sh --test <result-dir> <file.png> <dest.png> "<what>"`
+takes one in, cropped and scaled as above, with the test, its result path,
+the session, the git revision and the original's SHA-256 in the generated
+`TESTS.md`. Run it from a normal checkout (in a git worktree under WSL the
+revision reads `unknown`).
 
 ## When
 

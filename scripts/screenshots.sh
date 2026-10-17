@@ -23,17 +23,24 @@
 # retouched; a row with the
 # session, machine model, capture time and the original's SHA-256 goes into
 # docs/screenshots/HARDWARE.md (generated; one row per dest image).
+#
+# Test mode (#252): take ONE screenshot from the result of a KVM test that
+# exports the screenshots of its DAWO_LOGS stick (test-live-launch:
+# result/screens/, e.g. launch-cli.png, the `launch` command line):
+#   bash scripts/screenshots.sh --test <result-dir> <screenshot.png> <dest.png> "<what it shows>"
+# Cropped and scaled as in stick mode; a row with the test, its result path,
+# the session, the git revision and the original's SHA-256 goes into
+# docs/screenshots/TESTS.md (generated; one row per dest image).
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 out_dir="docs/screenshots"
 mkdir -p "${out_dir}"
 
-if [[ "${1:-}" == "--stick" ]]; then
-  session="${2:?session dir}"; shot="${3:?screenshot file name}"; dest="${4:?dest name}"; what="${5:?what it shows}"
-  src="${session%/}/screens/${shot}"
-  [[ -f "${src}" ]] || { echo "no such screenshot: ${src}" >&2; exit 1; }
-  model="$(sed -n '/^== model/{n;N;s/\n/ /;p;q}' "${session%/}/hardware.txt" 2>/dev/null || true)"
+# take SRC DEST: crop to 16:9 at full height and scale to 1280 px wide,
+# nothing else (stick and test mode).
+take() {
+  local src="$1" dest="$2" magick_bin w h cw gravity
   magick_bin="$(nix build --inputs-from "path:${PWD}" nixpkgs#imagemagick --no-link --print-out-paths --no-warn-dirty | tail -n1)/bin/magick"
   read -r w h < <("${magick_bin}" identify -format '%w %h\n' "${src}")
   cw=$(( h * 16 / 9 )); (( cw > w )) && cw="${w}"
@@ -51,6 +58,55 @@ if [[ "${1:-}" == "--stick" ]]; then
   fi
   chmod 644 "${out_dir}/${dest}"
   echo "==> ${src} (${w}x${h}) → ${out_dir}/${dest} ($(stat -c %s "${out_dir}/${dest}") bytes)"
+}
+
+# put_row FILE DEST ROW: DEST's row in a generated table, replaced.
+put_row() {
+  grep -v "^| \`${2}\` |" "${1}" > "${1}.new" || true
+  printf '%s\n' "${3}" >> "${1}.new"
+  mv "${1}.new" "${1}"
+}
+
+if [[ "${1:-}" == "--test" ]]; then
+  result="${2:?test result dir}"; shot="${3:?screenshot file name}"; dest="${4:?dest name}"; what="${5:?what it shows}"
+  src="${result%/}/screens/${shot}"
+  [[ -f "${src}" ]] || { echo "no such screenshot: ${src}" >&2; exit 1; }
+  store="$(readlink -f "${result}")"
+  # /nix/store/<hash>-live-launch -> test-live-launch
+  test_name="test-$(basename "${store}" | cut -d- -f2-)"
+  session="$(head -n1 "${result%/}/screens/SESSION" 2>/dev/null || echo unknown)"
+  rev="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  [[ -n "$(git status --porcelain 2>/dev/null)" ]] && rev="${rev}, uncommitted changes"
+  take "${src}" "${dest}"
+  tests_md="${out_dir}/TESTS.md"
+  if [[ ! -f "${tests_md}" ]]; then
+    cat >"${tests_md}" <<'EOF'
+# Screenshots from KVM test runs
+
+Written by `bash scripts/screenshots.sh --test ...`; do not edit or replace
+the images by hand. Each image is a desktop screenshot that the real live
+image saved on the emulated `DAWO_LOGS` stick of a KVM test run (debug mode,
+`hosts/appliance/live-logs.nix`; `launch-cli.png` by the Launch self-test,
+`hosts/appliance/live-launch-selftest.nix`), taken off the stick image by the
+test with `tests/exfat-read.py`, cropped to its centre and scaled down,
+nothing else. The test VM has no GPU (software rendering) and no internet.
+Rules: [`README.md`](README.md).
+
+| Image | Source test | Test result | Session (UTC boot time_boot id) | Repository | Original SHA-256 | What it shows |
+| --- | --- | --- | --- | --- | --- | --- |
+EOF
+  fi
+  sha="$(sha256sum "${src}" | cut -c1-16)"
+  put_row "${tests_md}" "${dest}" "| \`${dest}\` | \`${test_name}\` | \`$(basename "${store}")\` | \`${session}\` | \`${rev}\` | \`${sha}…\` | ${what} |"
+  exit 0
+fi
+
+if [[ "${1:-}" == "--stick" ]]; then
+  session="${2:?session dir}"; shot="${3:?screenshot file name}"; dest="${4:?dest name}"; what="${5:?what it shows}"
+  src="${session%/}/screens/${shot}"
+  [[ -f "${src}" ]] || { echo "no such screenshot: ${src}" >&2; exit 1; }
+  model="$(sed -n '/^== model/{n;N;s/\n/ /;p;q}' "${session%/}/hardware.txt" 2>/dev/null || true)"
+  take "${src}" "${dest}"
   hw="${out_dir}/HARDWARE.md"
   if [[ ! -f "${hw}" ]]; then
     cat >"${hw}" <<'EOF'
@@ -68,10 +124,7 @@ EOF
   fi
   sha="$(sha256sum "${src}" | cut -c1-16)"
   taken="$(basename "${shot}" .png | sed -E 's/^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})$/\1-\2-\3 \4:\5:\6/')"
-  row="| \`${dest}\` | ${model:-unknown} | \`$(basename "${session%/}")\` | ${taken} | \`${sha}…\` | ${what} |"
-  grep -v "^| \`${dest}\` |" "${hw}" > "${hw}.new" || true
-  printf '%s\n' "${row}" >> "${hw}.new"
-  mv "${hw}.new" "${hw}"
+  put_row "${hw}" "${dest}" "| \`${dest}\` | ${model:-unknown} | \`$(basename "${session%/}")\` | ${taken} | \`${sha}…\` | ${what} |"
   exit 0
 fi
 
