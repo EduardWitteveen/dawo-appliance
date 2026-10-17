@@ -260,11 +260,86 @@ phase_enable() {
 # Conduction's own demo data: Dossiq's caseload and Pipelinq's dataset. Both
 # commands are idempotent (they skip what is already there).
 phase_seed() {
-  log "demo data (dossiq:demo:seed, pipelinq:demo:seed)"
+  log "demo data (dossiq:demo:seed, pipelinq:demo:seed, the apps' own example data)"
   occ dossiq:demo:seed --verify-only || true
   occ dossiq:demo:seed
   occ pipelinq:demo:seed
   add_dawo_login
+  out_of_the_box
+}
+
+# Out of the box (#259): the answers each app's setup wizard asks for, so no
+# wizard covers the app ("HET MOET OUT OF THE BOX WERKEN"), the example data
+# the wizards' "Laden" buttons load, and no first-run screens or tours. Every
+# key is the app's own (its SetupController status(), checked in the pinned
+# releases); an app shows its wizard while a required step is not done.
+# Idempotent: it runs on every start.
+out_of_the_box() {
+  log "out of the box: setup answered, example data, no first-run screens"
+  local base="http://localhost:${PORT}/index.php/apps" app user
+  # Nextcloud's own first-run screens and admin notices.
+  for app in firstrunwizard nextcloud_announcements updatenotification survey_client support; do
+    occ app:disable "${app}" >/dev/null 2>&1 || true
+  done
+  occ config:system:set updatechecker --type=boolean --value=false >/dev/null
+  # Required steps: register settings (normally set by the apps' repair
+  # step), Pipelinq's reporting currency, OpenCatalogi's scope.
+  if ! occ config:app:get dossiq case_type_schema >/dev/null 2>&1 \
+     || ! occ config:app:get opencatalogi listing_register >/dev/null 2>&1; then
+    occ maintenance:repair >/dev/null
+  fi
+  occ config:app:set pipelinq currency --value=EUR >/dev/null
+  occ config:app:set pipelinq receipt_company_name --value="Gemeente Voorbeeld" >/dev/null
+  occ config:app:set pipelinq receipt_company_city --value="Voorbeeld" >/dev/null
+  occ config:app:set pipelinq receipt_company_country --value="Nederland" >/dev/null
+  occ config:app:set opencatalogi default_catalog_scope --value=public >/dev/null
+  occ config:app:set opencatalogi onboarding_completed_version --value=3 >/dev/null
+  # Dossiq's optional dwangsom step wants a callback secret: made here, once,
+  # never in git or the image.
+  if ! occ config:app:get dossiq dwangsom_callback_secret >/dev/null 2>&1; then
+    occ config:app:set dossiq dwangsom_callback_secret --value="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" >/dev/null
+  fi
+  occ dossiq:bezwaar:seed >/dev/null 2>&1 || true
+  occ portaliq:example-site:install zuiddrecht >/dev/null 2>&1 || true
+  # The wizards' own example data has no occ command: their setup action, as
+  # the admin (upstream's admin / admin), once per app.
+  for app in openregister integriq dossiq opencatalogi portaliq; do
+    if [[ "$(occ config:app:get "${app}" demo_data_decided 2>/dev/null || true)" != installed ]]; then
+      if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: POST ${base}/${app}/api/setup/action/load-demo-data"
+      else
+        curl -fsS -o /dev/null --max-time 600 -u admin:admin -H 'OCS-APIRequest: true' -X POST -d dataset=demo \
+          "${base}/${app}/api/setup/action/load-demo-data" || info "${app}: example data not loaded (the wizard can still do it)"
+      fi
+    fi
+    occ config:app:set "${app}" demo_dataset --value=demo >/dev/null
+    occ config:app:set "${app}" demo_data_decided --value=installed >/dev/null
+  done
+  occ config:app:set pipelinq demo_dataset --value=demo >/dev/null
+  occ config:app:set pipelinq demo_data_decided --value=seeded >/dev/null
+  occ config:app:set pipelinq setup_dismissed_version --value=1 >/dev/null
+  # Per user (admin and dawo): no guided tour, no support dialog, no
+  # first-run dashboard.
+  for user in admin dawo; do
+    occ user:setting "${user}" firstrunwizard show 0 >/dev/null 2>&1 || true
+    occ user:setting "${user}" dashboard firstRun 0 >/dev/null 2>&1 || true
+    for app in openregister integriq opencatalogi pipelinq; do
+      occ user:setting "${user}" "${app}" pref_walkthroughseenversion 999.0.0 >/dev/null
+    done
+    for app in dossiq portaliq; do
+      occ user:setting "${user}" "${app}" pref_walkthroughcompletedversion 999.0.0 >/dev/null
+    done
+    for app in openregister integriq dossiq opencatalogi pipelinq portaliq; do
+      occ user:setting "${user}" "${app}" pref_support-dialog-seen 1 >/dev/null
+    done
+  done
+  # The notifications the seeding made (one per created object).
+  if [[ "${DRY_RUN}" -eq 0 ]]; then
+    for user in admin:admin dawo:dawo; do
+      curl -fsS -o /dev/null --max-time 60 -u "${user}" -H 'OCS-APIRequest: true' -X DELETE \
+        "http://localhost:${PORT}/ocs/v2.php/apps/notifications/api/v2/notifications" || true
+    done
+  fi
+  info "setup answered, example data loaded, tours and first-run screens off"
 }
 
 # The appliance's one demo login, dawo / dawo (#258), next to upstream's
