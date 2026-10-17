@@ -119,7 +119,10 @@ hardening, not in v0.1.
 ## OQ-8 (RESOLVED 2026-09-25): how to obtain the "pinned release of this repository"
 
 **Resolution:** GitHub releases on `EduardWitteveen/dawo-appliance`: tag
-`vX.Y.Z` with the ISO, the manifest and their SHA-256 as assets. The
+`vX.Y.Z` with the manifest and the SHA-256 files as assets (since
+v0.1.0-rc.1 the release image is the live disk image, hosted on SourceForge
+because of GitHub's 2 GiB asset limit; the installer ISO is no longer
+attached, #175). The
 bootstrap's default `--manifest-url` is the asset of exactly the ISO's own
 version (development builds use the shipped copy). Procedure and script:
 `docs/releasing.md`, `scripts/release.sh`.

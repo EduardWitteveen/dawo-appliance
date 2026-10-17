@@ -52,8 +52,8 @@ In the repository root, following the OpenWebconcept / D-OmniTwin layout (draft,
 | --- | --- |
 | [`development.md`](development.md) | Day-to-day commands: local checks without Nix, Nix checks and builds, `appliance-vm`, manifest checksum, make targets. |
 | [`testing.md`](testing.md) | Which check covers which requirement; how to read a failure; the "a bug becomes a check first" rule. |
-| [`releasing.md`](releasing.md) | How a release is cut: tag, ISO, manifest, draft GitHub release; how the bootstrap finds the release manifest. |
-| [`live-usb.md`](live-usb.md) | Try the appliance on your own laptop from a live USB stick (disk untouched), with debug logs on a `DAWO_LOGS` partition; writing the stick with `scripts/windows/dawo-stick.ps1` (Windows) or `scripts/write-live-stick.sh` (Linux). |
+| [`releasing.md`](releasing.md) | How a release is cut with `scripts/release.sh` (plan by default): the live disk image on SourceForge, notes and checksums in a draft GitHub release; how the bootstrap finds the release manifest. |
+| [`live-usb.md`](live-usb.md) | Section 0 (Dutch): download the disk image, check its checksum on Windows, write it with Rufus or balenaEtcher. Try the appliance on your own laptop from a live USB stick (disk untouched), with debug logs on a `DAWO_LOGS` partition; writing the stick with `scripts/windows/dawo-stick.ps1` (Windows) or `scripts/write-live-stick.sh` (Linux). |
 | [`nix-setup.md`](nix-setup.md) | Runbook for installing Nix in WSL2 and making KVM usable inside the Nix sandbox. |
 | [`verification-latest.md`](verification-latest.md) | **Generated** by `REPORT=1 bash scripts/verify.sh`: result and timings of the latest real run. |
 | `verification-history.csv` | **Generated**: every recorded check duration, feeds the mean/range columns above. |
