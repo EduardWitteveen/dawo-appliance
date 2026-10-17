@@ -9,6 +9,7 @@ One line per document. Generated files are marked; never edit those by hand.
 
 | Document | What it answers |
 | --- | --- |
+| [`technical-overview.md`](technical-overview.md) | The technical overview that used to be the README's English part: what the appliance is, status, verification, timings, scope, hardware, upstream, layout (#253). |
 | [`purpose.md`](purpose.md) | Why the project exists, what it adds, where it deviates from upstream, what it costs, what "done" means for v0.1. |
 | [`deviations.md`](deviations.md) | Every deviation from upstream or common practice, one line each, with the reason and where it is motivated. |
 | [`architecture.md`](architecture.md) | The boot-to-demo flow, topology, component boundaries, manifest trust chain, safety model. |
@@ -23,6 +24,7 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | --- | --- |
 | [`demo-script.md`](demo-script.md) | A 5-minute meeting demonstration script for municipal decision makers, highlighting sovereignty and local processing. |
 | [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
+| [`audience/voor-gemeenten.md`](audience/voor-gemeenten.md) | For municipalities (Dutch): why this exists, what works, what you need and the FAQ; moved out of the README to keep the front page short (#253). |
 | [`audience/mijn-bureau-apps.md`](audience/mijn-bureau-apps.md) | For everyone: a tour of the Mijn Bureau apps in the demo (sign-in, Bureaublad, Nextcloud, Collabora, Element) with real-hardware screenshots, and the apps left out of the laptop profile. |
 | [`audience/functionele-architectuur.md`](audience/functionele-architectuur.md) | For architects, information managers and functional administrators: the components in plain terms, the user journey, where data lands, and what "local" means (first draft, #162). |
 | [`audience/bio-compliance.md`](audience/bio-compliance.md) | For CISOs: explains the security boundaries of the demo vs. the hardened DAWO production stack (LUKS, TPM). |

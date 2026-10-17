@@ -16,7 +16,7 @@
 #              (`nix build --rebuild`); by default a cached pass counts
 #   VERIFY_LOG_DIR=DIR  where per-check logs go (default: $TMPDIR/dawo-appliance-verify)
 #   REPORT=1   also write the summary as Markdown to docs/verification-latest.md
-#              (the file README.md links to; the ONLY way that file is updated)
+#              (the file docs/technical-overview.md links to; the ONLY way that file is updated)
 #
 # Nothing here writes to any disk other than the Nix store, the log dir and,
 # with REPORT=1, docs/verification-latest.md in the working tree.
