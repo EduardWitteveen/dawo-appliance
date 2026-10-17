@@ -95,7 +95,8 @@ let
         uid="$(id -u dawo 2>/dev/null)"
         # The desktop comes up a few seconds after the Launcher answers.
         for _ in $(seq 1 90); do
-          pid="$(pgrep -u dawo -x plasmashell | head -n1)"
+          # -f: on NixOS the process is .plasmashell-wrapped (-x never matched).
+          pid="$(pgrep -o -u dawo -f plasmashell || true)"
           [ -n "$pid" ] && break; sleep 1
         done
         sleep 5
