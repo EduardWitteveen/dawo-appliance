@@ -148,6 +148,7 @@ in
     ./live-compose-environments.nix
     ./live-valtimo.nix
     ./live-nextcloud-commonground.nix
+    ./live-tezza.nix
     ./live-dutch.nix
   ];
 
