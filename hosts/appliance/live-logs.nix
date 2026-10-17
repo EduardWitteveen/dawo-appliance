@@ -29,7 +29,7 @@
 #     screens/       debug mode (default for now): a screenshot every 30 s
 #
 # Experimental and unofficial. Not for production.
-{ pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   mnt = "/run/dawo-logs";
@@ -104,12 +104,12 @@ let
       cp -f /run/dawo-appliance/launch-selftest.txt "$dir/launch-selftest.txt" 2>/dev/null || true
       # The Mijn Bureau deployment log (live-mijnbureau.nix, #111).
       cp -f /var/log/dawo-appliance-mijnbureau.log "$dir/mijnbureau.txt" 2>/dev/null || true
-      # The Valtimo deployment log (live-valtimo.nix, #246).
-      cp -f /var/log/dawo-appliance-valtimo.log "$dir/valtimo.txt" 2>/dev/null || true
-      # The Launcher's round report (#251), written as the desktop user.
+      # The compose environments' deployment logs (live-compose-environments.nix):
+      # <id>.txt each (valtimo.txt, nextcloud-commonground.txt, tezza.txt).
+      ${lib.concatMapStrings (id: ''
+      cp -f /var/log/dawo-appliance-${id}.log "$dir/${id}.txt" 2>/dev/null || true
+      '') (lib.attrNames config.appliance.composeEnvironments)}      # The Launcher's round report (#251), written as the desktop user.
       cp -f /home/dawo/.local/state/launch/rondgang.log "$dir/rondgang.txt" 2>/dev/null || true
-      # The Nextcloud Common Ground deployment log (live-nextcloud-commonground.nix, #250).
-      cp -f /var/log/dawo-appliance-nextcloud-commonground.log "$dir/nextcloud-commonground.txt" 2>/dev/null || true
       # The desktop's health check / dashboard opener log (health/README.md).
       cp -f /home/dawo/.local/state/dawo-appliance/health.log "$dir/health.log" 2>/dev/null || true
       journalctl -b --no-pager -o short-iso-precise > "$dir/journal.txt.new" 2>&1 || true
