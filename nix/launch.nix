@@ -64,7 +64,9 @@ let
         (p "deploy.kind must be one of ${lib.concatStringsSep ", " deployKinds}")
       ++ lib.optional ((deploy.kind or null) == "driver" && !(builtins.pathExists (../. + "/${deploy.driver or "-"}")))
         (p "deploy.driver must name an existing file in this repository")
-      ++ lib.optional (!(isStr ((env.health or { }).url or null))) (p "missing health.url");
+      ++ lib.optional (!(isStr ((env.health or { }).url or null))) (p "missing health.url")
+      ++ lib.optional (!(builtins.isList (env.links or [ ])) || lib.any (l: !(isStr (l.title or null)) || !(isStr (l.url or null))) (env.links or [ ]))
+        (p "links: each needs a title and a url");
 
   ids = map (e: e.id or "") entries;
   problems =

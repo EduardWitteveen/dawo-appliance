@@ -337,6 +337,98 @@
       "gzac-demo-frontend": {
         "image": "docker.io/ritense/gzac-evenementenvergunning-demo-frontend:13.4.1",
         "digest": "sha256:2725cc40ae5ac143edef212a7bce72db87e61c2f846b4e645f1f0abde4bf29c9"
+      },
+      "openzaak": {
+        "image": "docker.io/openzaak/open-zaak:1.25.0",
+        "digest": "sha256:79a78bc78419670c8695ac5ba16b0af5e7a6a67d3ecbfe5b9095ded2aba177eb"
+      },
+      "openzaak-database": {
+        "image": "docker.io/postgis/postgis:17-3.4",
+        "digest": "sha256:d0b5a6ecab18997637f55a83cb4a9467391de5645916cfa1b6f2a8d19eee7be5"
+      },
+      "openzaak-redis": {
+        "image": "docker.io/library/redis:8.2.2",
+        "digest": "sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
+      },
+      "objecten-api": {
+        "image": "docker.io/maykinmedia/objects-api:3.3.0",
+        "digest": "sha256:882f384035ba00de7c9f405c692497182b8a49491638a9e935cf609746fd067b"
+      },
+      "objecten-api-database": {
+        "image": "docker.io/postgis/postgis:17-3.4",
+        "digest": "sha256:d0b5a6ecab18997637f55a83cb4a9467391de5645916cfa1b6f2a8d19eee7be5"
+      },
+      "objecten-api-import": {
+        "image": "docker.io/maykinmedia/objects-api:3.3.0",
+        "digest": "sha256:882f384035ba00de7c9f405c692497182b8a49491638a9e935cf609746fd067b"
+      },
+      "objecten-api-redis": {
+        "image": "docker.io/library/redis:8.2.2",
+        "digest": "sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
+      },
+      "objecten-api-celery": {
+        "image": "docker.io/maykinmedia/objects-api:3.3.0",
+        "digest": "sha256:882f384035ba00de7c9f405c692497182b8a49491638a9e935cf609746fd067b"
+      },
+      "objecttypen-api": {
+        "image": "docker.io/maykinmedia/objecttypes-api:3.3.0",
+        "digest": "sha256:6d12d8e2ad1bf6408df0e23027f9b8f338b09cc074516adde9fd3d857a644654"
+      },
+      "objecttypen-api-database": {
+        "image": "docker.io/library/postgres:17.4",
+        "digest": "sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad"
+      },
+      "objecttypen-api-import": {
+        "image": "docker.io/maykinmedia/objecttypes-api:3.3.0",
+        "digest": "sha256:6d12d8e2ad1bf6408df0e23027f9b8f338b09cc074516adde9fd3d857a644654"
+      },
+      "open-notificaties-rabbitmq": {
+        "image": "docker.io/library/rabbitmq:4.1.0-management",
+        "digest": "sha256:935b3f84c1e4a4ce45d211627f00030fa6721350efb52e0a6ed6924adedc68b7"
+      },
+      "open-notificaties-celery": {
+        "image": "docker.io/openzaak/open-notificaties:1.13.0",
+        "digest": "sha256:7a7ea7fe45063618e9d5e12a6403dd0128504f9f9f8d4632e66e218ead7efee5"
+      },
+      "open-notificaties": {
+        "image": "docker.io/openzaak/open-notificaties:1.13.0",
+        "digest": "sha256:7a7ea7fe45063618e9d5e12a6403dd0128504f9f9f8d4632e66e218ead7efee5"
+      },
+      "open-notificaties-database": {
+        "image": "docker.io/library/postgres:17.4",
+        "digest": "sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad"
+      },
+      "open-notificaties-redis": {
+        "image": "docker.io/library/redis:8.2.2",
+        "digest": "sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
+      },
+      "open-forms-database": {
+        "image": "docker.io/library/postgres:17.4",
+        "digest": "sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad"
+      },
+      "open-forms-redis": {
+        "image": "docker.io/library/redis:8.2.2",
+        "digest": "sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
+      },
+      "open-forms-web": {
+        "image": "docker.io/openformulieren/open-forms:3.1.9",
+        "digest": "sha256:045a0d5b7fd772a9934a096ccdbfcd83d2ae503fc4931cacadc68eaf3c81c974"
+      },
+      "open-forms-celery": {
+        "image": "docker.io/openformulieren/open-forms:3.1.9",
+        "digest": "sha256:045a0d5b7fd772a9934a096ccdbfcd83d2ae503fc4931cacadc68eaf3c81c974"
+      },
+      "open-forms-celery-beat": {
+        "image": "docker.io/openformulieren/open-forms:3.1.9",
+        "digest": "sha256:045a0d5b7fd772a9934a096ccdbfcd83d2ae503fc4931cacadc68eaf3c81c974"
+      },
+      "open-forms-celery-flower": {
+        "image": "docker.io/openformulieren/open-forms:3.1.9",
+        "digest": "sha256:045a0d5b7fd772a9934a096ccdbfcd83d2ae503fc4931cacadc68eaf3c81c974"
+      },
+      "open-forms-busybox": {
+        "image": "docker.io/library/busybox:1.37.0",
+        "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
       }
     },
     "tooling": {

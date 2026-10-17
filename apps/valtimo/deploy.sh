@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Deploys the Valtimo environment (#246) in the guest: upstream's official GZAC
-# demo, gzac-docker-compose at a pinned commit, `docker compose --profile demo`,
-# plus our override file (environments/valtimo/compose/override.yaml). Runs in
+# demo, gzac-docker-compose at a pinned commit, `docker compose --profile demo
+# --profile zgw --profile openformulieren` (Valtimo, Open Zaak, Objecten, Open
+# Notificaties and Open Formulieren, #260), plus our override file (environments/valtimo/compose/override.yaml). Runs in
 # the Ubuntu guest as root, one phase at a time, called by the host runner
 # (hosts/appliance/live-valtimo.nix). Every phase is idempotent.
 #
@@ -33,7 +34,11 @@ STATE_DIR="${VT_STATE_DIR:-/var/lib/dawo-appliance-valtimo}"
 SRC_DIR="${STATE_DIR}/gzac-docker-compose"
 DOWNLOADS="${STATE_DIR}/downloads"
 DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
-PROFILE="demo"
+# Upstream's README: "with demo data: --profile demo --profile zgw"; plus its
+# openformulieren profile for the citizen form (#260). Not openklant: nothing
+# in the demo uses it.
+PROFILES=(demo zgw openformulieren)
+PROFILE="${PROFILES[*]}"
 # The compose project (the directory name); manifest valtimo.compose.project.
 PROJECT="gzac-docker-compose"
 DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
@@ -59,12 +64,15 @@ download_verified() { # URL SHA256 DEST
   info "downloaded and verified: ${dest}"
 }
 
+PROFILE_ARGS=()
+for p in "${PROFILES[@]}"; do PROFILE_ARGS+=(--profile "${p}"); done
+
 compose() {
   # Two images at a time: all at once choked a slow network (TLS handshake
   # timeouts to Docker Hub in the nested test, 2026-10-17).
   run env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" COMPOSE_PARALLEL_LIMIT=2 \
     docker compose --project-directory "${SRC_DIR}" -f "${SRC_DIR}/docker-compose.yaml" -f "${VT_OVERRIDE:?}" \
-    --profile "${PROFILE}" "$@"
+    "${PROFILE_ARGS[@]}" "$@"
 }
 
 # One environment at a time (ADR 0008). The containers of every other compose
@@ -183,7 +191,7 @@ phase_pull() {
 }
 
 phase_up() {
-  log "start the demo (docker compose --profile ${PROFILE} up -d)"
+  log "start the demo (docker compose, profiles ${PROFILE}: up -d)"
   compose up -d
 }
 
@@ -214,6 +222,15 @@ phase_ready() {
     sleep 5; waited=$((waited + 5))
   done
   info "frontend answers (${waited}s)"
+  # Open Zaak and the citizen form (#260): their first migrations take a few
+  # minutes more.
+  for url in http://localhost:8001/admin/ http://localhost:8003/leningaanvragen/; do
+    until curl -sS -o /dev/null --max-time 5 -w '%{http_code}' "${url}" 2>/dev/null | grep -q '^[23]'; do
+      [[ "${waited}" -ge 1800 ]] && die "${url} does not answer after ${waited}s"
+      sleep 5; waited=$((waited + 5))
+    done
+    info "${url} answers (${waited}s)"
+  done
   add_dawo_login
 }
 
@@ -235,6 +252,27 @@ add_dawo_login() {
   "${kc[@]}" set-password "${cfg[@]}" -r valtimo --username dawo --new-password dawo >/dev/null
   "${kc[@]}" add-roles "${cfg[@]}" -r valtimo --uusername dawo --rolename ROLE_ADMIN --rolename ROLE_USER >/dev/null
   info "login dawo / dawo (roles ROLE_ADMIN, ROLE_USER)"
+  # Open Formulieren's admin signs in through this realm (upstream's fixture:
+  # client valtimo-console), but the client only lets localhost:80/8080/4200
+  # back in: add Open Formulieren's address (#260).
+  local id client
+  id="$("${kc[@]}" get clients "${cfg[@]}" -r valtimo -q clientId=valtimo-console --fields id 2>/dev/null \
+        | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["id"])' 2>/dev/null || true)"
+  [[ -n "${id}" ]] || { info "Open Formulieren sign-in: client valtimo-console not found; skipped"; return 0; }
+  client="$("${kc[@]}" get "clients/${id}" "${cfg[@]}" -r valtimo --fields redirectUris,webOrigins 2>/dev/null \
+            | python3 -c '
+import json, sys
+c = json.load(sys.stdin)
+if "http://localhost:8003/*" in c.get("redirectUris", []):
+    sys.exit(0)
+c["redirectUris"] = c.get("redirectUris", []) + ["http://localhost:8003/*"]
+c["webOrigins"] = c.get("webOrigins", []) + ["http://localhost:8003"]
+print(json.dumps(c))' || true)"
+  if [[ -n "${client}" ]]; then
+    env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker exec -i gzac-docker-compose-gzac-keycloak \
+      /opt/keycloak/bin/kcadm.sh update "clients/${id}" "${cfg[@]}" -r valtimo -f - <<<"${client}" >/dev/null
+  fi
+  info "Open Formulieren may sign in through the realm (http://localhost:8003)"
 }
 
 # The other environment starts: stop the containers (they keep their data).
