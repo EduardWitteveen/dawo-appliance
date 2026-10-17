@@ -18,7 +18,7 @@ title = "Nextcloud Common Ground"
 summary = "Common Ground in een doos: Nextcloud met de apps van Conduction voor registers, zaakgericht werken, klantcontact en een publieksportaal, gevuld met demozaken."
 version = "Nextcloud 34.0.5 met Dossiq 0.4.0 (demo)"
 url = "http://localhost:8609/apps/dossiq/"
-login = "admin / admin"
+login = "dawo / dawo (of admin / admin)"
 license = "EUPL-1.2"
 standards = ["Common Ground", "Zaakgericht werken", "NL Design System"]
 

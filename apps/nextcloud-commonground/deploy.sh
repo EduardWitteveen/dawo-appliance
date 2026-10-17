@@ -264,6 +264,20 @@ phase_seed() {
   occ dossiq:demo:seed --verify-only || true
   occ dossiq:demo:seed
   occ pipelinq:demo:seed
+  add_dawo_login
+}
+
+# The appliance's one demo login, dawo / dawo (#258), next to upstream's
+# admin / admin: a Nextcloud user in the admin group. Done again on every
+# start (it is there already: only the password is set again).
+add_dawo_login() {
+  if occ user:info dawo >/dev/null 2>&1; then
+    compose exec -T -u www-data -e OC_PASS=dawo nextcloud php occ user:resetpassword --password-from-env dawo >/dev/null
+  else
+    compose exec -T -u www-data -e OC_PASS=dawo nextcloud php occ user:add --password-from-env       --display-name="Dawo Demo" --group=admin dawo >/dev/null
+  fi
+  occ group:adduser admin dawo >/dev/null 2>&1 || true
+  info "login dawo / dawo (group admin)"
 }
 
 # The other environment starts: stop the containers (they keep their data).
