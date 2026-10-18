@@ -234,12 +234,12 @@ phase_ready() {
   add_dawo_login
 }
 
-# The appliance's one demo login, dawo / dawo (#258), next to upstream's
+# The appliance's one demo login, launcher / launcher (#258), next to upstream's
 # users: a user in upstream's realm with the same roles as its admin. Made
 # through Keycloak's own admin CLI with upstream's admin account; done again
 # on every start (it is there already: nothing changes).
 add_dawo_login() {
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: kcadm: user dawo / dawo in realm valtimo, roles ROLE_ADMIN ROLE_USER"; return 0; fi
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: kcadm: user launcher / launcher in realm valtimo, roles ROLE_ADMIN ROLE_USER"; return 0; fi
   local kc=(env PATH="${DOCKER_DIR}/bin:${PATH}" DOCKER_HOST="${DOCKER_SOCK}" docker exec gzac-docker-compose-gzac-keycloak
             /opt/keycloak/bin/kcadm.sh)
   local cfg=(--config /tmp/dawo-kcadm.config)
@@ -248,16 +248,16 @@ add_dawo_login() {
   for try in $(seq 1 24); do
     "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8080/auth --realm master \
       --user admin --password admin >/dev/null 2>&1 && break
-    [[ "${try}" -eq 24 ]] && { info "login dawo / dawo: Keycloak admin CLI not reachable; skipped"; return 0; }
+    [[ "${try}" -eq 24 ]] && { info "login launcher / launcher: Keycloak admin CLI not reachable; skipped"; return 0; }
     sleep 5
   done
-  if ! "${kc[@]}" get users "${cfg[@]}" -r valtimo -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
-    "${kc[@]}" create users "${cfg[@]}" -r valtimo -s username=dawo -s enabled=true -s emailVerified=true \
-      -s firstName=Dawo -s lastName=Demo -s email=dawo@example.com >/dev/null
+  if ! "${kc[@]}" get users "${cfg[@]}" -r valtimo -q username=launcher -q exact=true --fields username 2>/dev/null | grep -q '"launcher"'; then
+    "${kc[@]}" create users "${cfg[@]}" -r valtimo -s username=launcher -s enabled=true -s emailVerified=true \
+      -s firstName=Launcher -s lastName=Demo -s email=launcher@example.com >/dev/null
   fi
-  "${kc[@]}" set-password "${cfg[@]}" -r valtimo --username dawo --new-password dawo >/dev/null
-  "${kc[@]}" add-roles "${cfg[@]}" -r valtimo --uusername dawo --rolename ROLE_ADMIN --rolename ROLE_USER >/dev/null
-  info "login dawo / dawo (roles ROLE_ADMIN, ROLE_USER)"
+  "${kc[@]}" set-password "${cfg[@]}" -r valtimo --username launcher --new-password launcher >/dev/null
+  "${kc[@]}" add-roles "${cfg[@]}" -r valtimo --uusername launcher --rolename ROLE_ADMIN --rolename ROLE_USER >/dev/null
+  info "login launcher / launcher (roles ROLE_ADMIN, ROLE_USER)"
   # Open Formulieren's admin signs in through this realm (upstream's fixture:
   # client valtimo-console), but the client only lets localhost:80/8080/4200
   # back in: add Open Formulieren's address (#260).
@@ -279,7 +279,7 @@ print(json.dumps(c))' || true)"
       /opt/keycloak/bin/kcadm.sh update "clients/${id}" "${cfg[@]}" -r valtimo -f - <<<"${client}" >/dev/null
   fi
   info "Open Formulieren may sign in through the realm (http://localhost:8003)"
-  # The components underneath too (#258): a superuser dawo / dawo in each
+  # The components underneath too (#258): a superuser launcher / launcher in each
   # Django admin (next to upstream's admin / admin) and an admin of
   # Keycloak's own console (master realm).
   local svc
@@ -287,17 +287,17 @@ print(json.dumps(c))' || true)"
     compose exec -T "${svc}" python src/manage.py shell -c "
 from django.contrib.auth import get_user_model
 U = get_user_model()
-u = U.objects.filter(username='dawo').first() or U(username='dawo', email='dawo@example.com')
+u = U.objects.filter(username='launcher').first() or U(username='launcher', email='launcher@example.com')
 u.is_active = u.is_staff = u.is_superuser = True
-u.set_password('dawo')
-u.save()" >/dev/null 2>&1 || info "${svc}: no dawo login (its admin keeps admin / admin)"
+u.set_password('launcher')
+u.save()" >/dev/null 2>&1 || info "${svc}: no launcher login (its admin keeps admin / admin)"
   done
-  if ! "${kc[@]}" get users "${cfg[@]}" -r master -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
-    "${kc[@]}" create users "${cfg[@]}" -r master -s username=dawo -s enabled=true >/dev/null
+  if ! "${kc[@]}" get users "${cfg[@]}" -r master -q username=launcher -q exact=true --fields username 2>/dev/null | grep -q '"launcher"'; then
+    "${kc[@]}" create users "${cfg[@]}" -r master -s username=launcher -s enabled=true >/dev/null
   fi
-  "${kc[@]}" set-password "${cfg[@]}" -r master --username dawo --new-password dawo >/dev/null
-  "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername dawo --rolename admin >/dev/null
-  info "login dawo / dawo also in Open Zaak, Objecten, Objecttypen, Open Notificaties and the Keycloak console"
+  "${kc[@]}" set-password "${cfg[@]}" -r master --username launcher --new-password launcher >/dev/null
+  "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername launcher --rolename admin >/dev/null
+  info "login launcher / launcher also in Open Zaak, Objecten, Objecttypen, Open Notificaties and the Keycloak console"
 }
 
 # The other environment starts: stop the containers (they keep their data).

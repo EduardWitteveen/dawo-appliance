@@ -12,7 +12,7 @@
 #
 # Nothing else differs from upstream: realm, users, ports, the demo case and
 # the ZGW and Open Formulieren fixtures are upstream's. (The driver adds the
-# login dawo / dawo and Open Formulieren's address to the realm's console
+# login launcher / launcher and Open Formulieren's address to the realm's console
 # client after start: apps/valtimo/deploy.sh add_dawo_login.)
 
 services:
