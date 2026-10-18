@@ -2,7 +2,9 @@
 
 All notable changes to the DAWO appliance. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [Semantic Versioning](https://semver.org/) (`appliance.version` in `manifest/appliance-manifest.json`; procedure in [`docs/releasing.md`](./docs/releasing.md)). `scripts/release.sh prepare X.Y.Z` turns the `[Unreleased]` section into `[X.Y.Z]`; its text becomes the GitHub release notes.
 
-## [Unreleased] — towards 0.1.0-rc.1
+## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-10-18
 
 First version, as a release candidate for testing on real hardware. Release checklist: [#175](https://github.com/EduardWitteveen/dawo-appliance/issues/175). The release is the live disk image `dawo-appliance-live.img`, downloaded from SourceForge (larger than GitHub's 2 GiB asset limit) and written with Rufus or balenaEtcher.
 
