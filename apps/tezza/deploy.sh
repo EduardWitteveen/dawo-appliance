@@ -238,12 +238,33 @@ SETUP_STEPS=(createSites createRootGroups createServiceAccount createFolderTempl
              createZaaktypeSites createObjecttypeSites createAuditRole createPostintakeDummyData
              assignLDAPUsersToZaaktypeGroups assignLDAPUsersToGroups createRMRoles createRootRMGroups
              addRMGroupsToRMRoles assignLDAPUsersToRMGroups)
+# Steps that need the ZGW part we leave out (the Objecttypen API).
+SETUP_STEPS_ZGW=(createObjecttypeSites)
+
+# What the app checks before it lets an administrator in ("Setup vereist"
+# otherwise): a site of type "beheer" in the search index.
+beheer_site() {
+  curl -fsS --max-time 30 -u admin:admin -H 'Content-Type: application/json'     -d '{"query":{"query":"TYPE:\"st:site\" AND ASPECT:\"tza:site\" AND =tza:siteType:\"beheer\"","language":"afts"}}'     http://localhost:8080/alfresco/api/-default-/public/search/versions/1/search 2>/dev/null     | python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)["list"]["entries"] else 1)' 2>/dev/null
+}
 
 phase_setup() {
   log "Tezza's setup (upstream's steps) and the login dawo / dawo"
   if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd dawo; Alfresco admin dawo; kcadm master dawo"; return 0; fi
+  # Done before only counts when the app's own check agrees (an earlier run
+  # marked it done while createSites had failed: the Dell, 2026-10-18).
+  if [[ -f "${STATE_DIR}/setup.done" ]] && ! beheer_site; then
+    info "setup was marked done, but the 'beheer' site is missing: again"
+    rm -f "${STATE_DIR}/setup.done"
+  fi
   if [[ ! -f "${STATE_DIR}/setup.done" ]]; then
-    python3 - "${SETUP_STEPS[@]}" > "${STATE_DIR}/setup.json" <<'PY'
+    # The steps check what exists already. Right after start Alfresco may
+    # still refuse a write ("ConcurrencyFailureException" on the Dell,
+    # 2026-10-18; then the sites and everything after them were missing and
+    # the app said "Setup vereist"): up to four rounds, until every step but
+    # the ZGW ones is done.
+    local round failed
+    for round in 1 2 3 4; do
+      python3 - "${SETUP_STEPS[@]}" > "${STATE_DIR}/setup.json" <<'PY'
 import json, sys
 calls = "".join(f"run('{s}');\n" for s in sys.argv[1:])
 script = ('<import resource="classpath:alfresco/templates/webscripts/nl/contezza/api/tezza-api.lib.js">\n'
@@ -253,13 +274,27 @@ script = ('<import resource="classpath:alfresco/templates/webscripts/nl/contezza
 print(json.dumps({"script": script, "template": "", "runas": "admin", "transaction": "readwrite",
                   "spaceNodeRef": "", "documentNodeRef": "", "urlargs": ""}))
 PY
-    curl -fsS --max-time 1800 -u admin:admin -H 'Content-Type: application/json' -d "@${STATE_DIR}/setup.json" \
-      http://localhost:8080/alfresco/service/ootbee/jsconsole/execute > "${STATE_DIR}/setup.log" \
-      || die "upstream's setup steps did not run"
-    python3 -c 'import json, sys; [print("    " + l) for l in "\n".join(json.load(open(sys.argv[1]))["printOutput"]).splitlines()]' \
-      "${STATE_DIR}/setup.log" || true
+      curl -fsS --max-time 1800 -u admin:admin -H 'Content-Type: application/json' -d "@${STATE_DIR}/setup.json" \
+        http://localhost:8080/alfresco/service/ootbee/jsconsole/execute > "${STATE_DIR}/setup.log" \
+        || die "upstream's setup steps did not run"
+      info "round ${round}:"
+      python3 -c 'import json, sys; [print("    " + l) for l in "\n".join(json.load(open(sys.argv[1]))["printOutput"]).splitlines()]' \
+        "${STATE_DIR}/setup.log" || true
+      failed="$(python3 -c 'import json, sys; print(" ".join(l.split(":")[0] for l in "\n".join(json.load(open(sys.argv[1]))["printOutput"]).splitlines() if ": not done" in l and l.split(":")[0] not in sys.argv[2:]))' \
+        "${STATE_DIR}/setup.log" "${SETUP_STEPS_ZGW[@]}" || echo unknown)"
+      [[ -z "${failed}" ]] && break
+      [[ "${round}" -eq 4 ]] && die "upstream's setup steps not done: ${failed}"
+      info "not done yet: ${failed}; again in 30 s"
+      sleep 30
+    done
     curl -fsS -o /dev/null --max-time 300 -u admin:admin http://localhost:8080/alfresco/service/contezza/config/tezza \
       || die "upstream's app configuration (contezza/config/tezza) did not run"
+    local waited=0
+    until beheer_site; do
+      [[ "${waited}" -ge 300 ]] && die "no site of type 'beheer' after ${waited}s: the app would say 'Setup vereist'"
+      sleep 10; waited=$((waited + 10))
+    done
+    info "the app finds its 'beheer' site (no 'Setup vereist')"
     touch "${STATE_DIR}/setup.done"
     info "upstream's setup done"
   else
