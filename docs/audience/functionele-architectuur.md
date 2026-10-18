@@ -63,7 +63,7 @@ DAWO is de **werkplek**: wat er op het apparaat van de medewerker draait. Mijn B
 2. **Werkplek na ongeveer 20 seconden.** De medewerker `dawo` is automatisch ingelogd. De statuspagina opent vanzelf.
 3. **Lokale cloud na ongeveer een minuut.** De virtuele machine en Kubernetes starten op de achtergrond.
 4. **Mijn Bureau na ongeveer 8 minuten.** Mijn Bureau installeert zichzelf in 14 stappen; de statuspagina toont de voortgang. De allereerste keer duurt het langer, omdat de apps dan nog gedownload worden.
-5. **Aan het werk.** Klik op *Open Mijn Bureau* en log in (demo: `dawo` / `dawo`). Vanaf het dashboard open je bestanden, documenten en chat zonder opnieuw in te loggen.
+5. **Aan het werk.** Klik op *Open Mijn Bureau* en log in (demo: `launcher` / `launcher`). Vanaf het dashboard open je bestanden, documenten en chat zonder opnieuw in te loggen.
 6. **Afsluiten en USB-SSD eruit.** De laptop is weer zoals hij was. De volgende keer start alles met de bewaarde gegevens.
 
 ## 4. De datareis: waar staat een document?
