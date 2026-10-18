@@ -63,9 +63,15 @@ fi
 # --- 3. tampered manifest is rejected --------------------------------------
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/dawo-test.XXXXXX")"
 trap 'rm -rf "${tmp}"' EXIT
+# set_version SRC DEST VERSION: the manifest with another appliance.version,
+# whatever the shipped one is (the suite also runs on a release branch, where
+# `release.sh prepare` has just set X.Y.Z-rc.N).
+set_version() {
+  sed -E '0,/"version": "[^"]*"/s//"version": "'"$3"'"/' "$1" > "$2"
+}
 tampered="${tmp}/appliance-manifest.json"
 # Change the content so the checksum no longer matches the trusted .sha256.
-sed 's/"version": "0.1.0-dev"/"version": "9.9.9-evil"/' "${MANIFEST}" >"${tampered}"
+set_version "${MANIFEST}" "${tampered}" "9.9.9-evil"
 
 if run_bootstrap plan --offline \
       --manifest-url "file://${tampered}" \
@@ -165,15 +171,19 @@ else
 fi
 
 # --- 10. default manifest URL follows the shipped version (docs/releasing.md) --
-dev_default="$(run_bootstrap help 2>&1 | sed -n 's/.*Default: //p' | head -1)"
-if [[ "${dev_default}" == "file://${REPO_ROOT}/manifest/appliance-manifest.json" ]]; then
+dev="${tmp}/dev"; mkdir -p "${dev}/installer/bootstrap" "${dev}/manifest"
+cp "${BOOTSTRAP}" "${dev}/installer/bootstrap/"
+set_version "${MANIFEST}" "${dev}/manifest/appliance-manifest.json" "9.8.7-dev"
+( cd "${dev}/manifest" && sha256sum appliance-manifest.json > appliance-manifest.json.sha256 )
+dev_default="$(bash "${dev}/installer/bootstrap/dawo-appliance-bootstrap" help 2>&1 | sed -n 's/.*Default: //p' | head -1)"
+if [[ "${dev_default}" == "file://${dev}/manifest/appliance-manifest.json" ]]; then
   ok "dev build defaults to the shipped manifest (file://)"
 else
   bad "dev default manifest URL is '${dev_default}'"
 fi
 rel="${tmp}/rel"; mkdir -p "${rel}/installer/bootstrap" "${rel}/manifest"
 cp "${BOOTSTRAP}" "${rel}/installer/bootstrap/"
-sed 's/"version": "[^"]*-dev"/"version": "9.8.7"/' "${MANIFEST}" > "${rel}/manifest/appliance-manifest.json"
+set_version "${MANIFEST}" "${rel}/manifest/appliance-manifest.json" "9.8.7"
 ( cd "${rel}/manifest" && sha256sum appliance-manifest.json > appliance-manifest.json.sha256 )
 rel_default="$(bash "${rel}/installer/bootstrap/dawo-appliance-bootstrap" help 2>&1 | sed -n 's/.*Default: //p' | head -1)"
 if [[ "${rel_default}" == "https://github.com/EduardWitteveen/dawo-appliance/releases/download/v9.8.7/appliance-manifest.json" ]]; then
