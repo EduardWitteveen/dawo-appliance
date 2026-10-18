@@ -193,7 +193,13 @@ let
           log "guest: nousershstk added to the kernel command line (#176); rebooting the guest once"
           state "de virtuele machine herstart eenmalig (instelling)"
           progress 1 "Virtuele machine herstart eenmalig (instelling)" reboot
+          # The guest watchdog (fwwatch) watched only the first boot; under
+          # nested KVM this reboot can hang in the firmware too (#184, three
+          # KVM runs on 2026-10-18): watch it from here in the console log.
+          mkdir -p /run/dawo-appliance
+          cat /var/log/libvirt/qemu/*-console.log 2>/dev/null | wc -c > /run/dawo-appliance/fwwatch-offset || true
           g sudo systemctl reboot || true
+          systemctl restart dawo-appliance-guest-fwwatch.service || true
           sleep 20
           reboot_t0="$(date +%s)"
           wait_guest || log "guest: not back after the nousershstk reboot"
