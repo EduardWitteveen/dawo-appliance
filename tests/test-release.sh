@@ -44,7 +44,7 @@ repo="${tmp}/repo"
 mkdir -p "${repo}/scripts" "${repo}/manifest"
 cp "${REPO_ROOT}/scripts/release.sh" "${repo}/scripts/"
 cp "${REPO_ROOT}/manifest/appliance-manifest.json" "${repo}/manifest/"
-sed -i 's/"version": "[0-9.]*-dev"/"version": "0.1.0-dev"/' "${repo}/manifest/appliance-manifest.json"
+sed -E -i '0,/"version": "[^"]*"/s//"version": "0.1.0-dev"/' "${repo}/manifest/appliance-manifest.json"
 (cd "${repo}/manifest" && sha256sum --text appliance-manifest.json > appliance-manifest.json.sha256)
 cat > "${repo}/CHANGELOG.md" <<'EOF'
 # Changelog
