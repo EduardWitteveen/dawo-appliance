@@ -21,7 +21,7 @@ Op de USB-schijf staat alles:
 | Inloggen, één keer | Het dashboard Mijn Bureaublad |
 | --- | --- |
 | [![Het inlogscherm van Mijn Bureau met gebruikersnaam dawo](../screenshots/live-login-dell.png)](../screenshots/live-login-dell.png) | [![Het dashboard Mijn Bureaublad na het inloggen, met tabbladen voor Element en Nextcloud](../screenshots/live-bureaublad-dell.png)](../screenshots/live-bureaublad-dell.png) |
-| Inloggen met `dawo` / `dawo`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
+| Inloggen met `launcher` / `launcher`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
 | **Bestanden (Nextcloud)** | **Chat (Element)** |
 | [![Nextcloud Bestanden, nog leeg, na het inloggen via Mijn Bureau](../screenshots/live-nextcloud-dell.png)](../screenshots/live-nextcloud-dell.png) | [![Element chat met het welkomstscherm voor DAWO Demo en de ruimte welkom](../screenshots/live-element-dell.png)](../screenshots/live-element-dell.png) |
 | Het alternatief voor OneDrive. | Het alternatief voor Teams-chat, op de open standaard Matrix. |
