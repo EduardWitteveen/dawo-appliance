@@ -47,7 +47,7 @@ readonly CA_SECRET_NAME="dawo-appliance-ca"
 readonly CA_CONFIGMAP_NAME="dawo-appliance-ca"
 readonly CA_MOUNT_PATH="/etc/dawo-appliance-ca"
 # Laptop profile only (#173): Keycloak login theme that signs in the published
-# demo account (dawo/dawo) by itself. See autologin_theme_* below.
+# demo account (launcher/launcher) by itself. See autologin_theme_* below.
 readonly AUTOLOGIN_THEME="dawo-autologin"
 readonly AUTOLOGIN_CONFIGMAP="dawo-autologin-theme"
 readonly KEYCLOAK_STS="keycloak-keycloak"
@@ -593,11 +593,11 @@ resource:
     limits: { cpu: "2", memory: "2Gi" }
 
 user:
-  - email: dawo@example.com
-    username: dawo
+  - email: launcher@example.com
+    username: launcher
     firstname: DAWO
     lastname: Demo
-    password: dawo
+    password: launcher
 '
   else
     presets='  resourcesPreset: "none"
@@ -899,7 +899,7 @@ patch_collabora_args() {
 # The workplace, and so Firefox and its cookies, starts clean on every live
 # boot, so the Keycloak login appeared on every "Open Mijn Bureau". A child of
 # Keycloak's stock `keycloak` login theme adds one script that fills in the
-# published demo account from phase 7 (dawo/dawo) and submits it once per
+# published demo account from phase 7 (launcher/launcher) and submits it once per
 # browser tab: not after a failed attempt (error shown), not a second time in
 # the same tab (after a logout the form stays, so another account can be
 # used). Why not an X.509 client certificate: the pinned Keycloak 26.3.3 has
@@ -917,7 +917,7 @@ EOF
 autologin_theme_js() {
   cat <<'EOF'
 // DAWO appliance (experimental demo, #173): sign in the published demo
-// account dawo/dawo automatically, once per browser tab.
+// account launcher/launcher automatically, once per browser tab.
 (function () {
   "use strict";
   var KEY = "dawo-autologin-attempted";
@@ -932,8 +932,8 @@ autologin_theme_js() {
       if (window.sessionStorage.getItem(KEY)) { return; }
       window.sessionStorage.setItem(KEY, "1");
     } catch (e) { return; }
-    user.value = "dawo";
-    pass.value = "dawo";
+    user.value = "launcher";
+    pass.value = "launcher";
     var remember = document.getElementById("rememberMe");
     if (remember) { remember.checked = true; }
     button.click();

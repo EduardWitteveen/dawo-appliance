@@ -25,7 +25,7 @@
 
 1. **Download** het schijfbestand `dawo-appliance-live.img`. De eerste downloadbare versie komt binnenkort ([v0.1.0-rc.1, #175](https://github.com/EduardWitteveen/dawo-appliance/issues/175)); tot die tijd kun je het [zelf bouwen](docs/live-usb.md).
 2. **Zet het op een USB-SSD** met [Rufus](https://rufus.ie) of [balenaEtcher](https://etcher.balena.io), zoals je dat met een Ubuntu-stick doet.
-3. **Start de laptop van de USB-schijf** (bij een Dell met F12). Na het inloggen opent de Launcher en start **Mijn Bureau vanzelf** na één minuut. De eerste keer duurt dat een half uur tot een uur (alles wordt gedownload), daarna gaat het veel sneller. Is hij klaar, klik dan op **Openen** en log in met `dawo` / `dawo`.
+3. **Start de laptop van de USB-schijf** (bij een Dell met F12). Na het inloggen opent de Launcher en start **Mijn Bureau vanzelf** na één minuut. De eerste keer duurt dat een half uur tot een uur (alles wordt gedownload), daarna gaat het veel sneller. Is hij klaar, klik dan op **Openen** en log in met `launcher` / `launcher`.
 
 **Wat heb je nodig?** Een laptop met 32 GB geheugen, een USB-SSD van 64 GB of meer, en internet bij de eerste start. Meer in [hardware-vereisten](docs/demo-hardware.md).
 
@@ -54,7 +54,7 @@ Op de USB-schijf staat alles:
 | Inloggen, één keer | Het dashboard Mijn Bureaublad |
 | --- | --- |
 | [![Het inlogscherm van Mijn Bureau met gebruikersnaam dawo](docs/screenshots/live-login-dell.png)](docs/screenshots/live-login-dell.png) | [![Het dashboard Mijn Bureaublad na het inloggen, met tabbladen voor Element en Nextcloud](docs/screenshots/live-bureaublad-dell.png)](docs/screenshots/live-bureaublad-dell.png) |
-| Inloggen met `dawo` / `dawo`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
+| Inloggen met `launcher` / `launcher`. Deze ene inlog geldt voor alle apps. | Het startpunt: van hieruit open je bestanden en chat. |
 | **Bestanden (Nextcloud)** | **Chat (Element)** |
 | [![Nextcloud Bestanden, nog leeg, na het inloggen via Mijn Bureau](docs/screenshots/live-nextcloud-dell.png)](docs/screenshots/live-nextcloud-dell.png) | [![Element chat met het welkomstscherm voor DAWO Demo en de ruimte welkom](docs/screenshots/live-element-dell.png)](docs/screenshots/live-element-dell.png) |
 | Het alternatief voor OneDrive. | Het alternatief voor Teams-chat, op de open standaard Matrix. |

@@ -15,7 +15,7 @@ title = "Valtimo"
 summary = "Zaakgericht werken: een aanvraag evenementenvergunning behandelen, stap voor stap, zoals een gemeente dat doet."
 version = "GZAC 13.4.1 (demo)"
 url = "http://localhost/"
-login = "dawo / dawo (of admin / admin)"
+login = "launcher / launcher (of admin / admin)"
 license = "EUPL-1.2"
 standards = ["Zaakgericht werken (GZAC)", "BPMN 2.0", "DMN", "OpenID Connect"]
 
@@ -52,29 +52,29 @@ login = "inloggen als burger met DigiD-simulatie"
 [[links]]
 title = "Open Formulieren beheer"
 url = "http://localhost:8003/admin/"
-login = "via de Valtimo-login: dawo / dawo"
+login = "via de Valtimo-login: launcher / launcher"
 
 [[links]]
 title = "Open Zaak beheer"
 url = "http://localhost:8001/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"
 
 [[links]]
 title = "Objecten beheer"
 url = "http://localhost:8010/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"
 
 [[links]]
 title = "Objecttypen beheer"
 url = "http://localhost:8011/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"
 
 [[links]]
 title = "Open Notificaties beheer"
 url = "http://localhost:8002/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"
 
 [[links]]
 title = "Keycloak beheer"
 url = "http://localhost:8081/auth/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"

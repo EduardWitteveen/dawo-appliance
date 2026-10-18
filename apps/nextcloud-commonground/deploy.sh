@@ -324,9 +324,9 @@ out_of_the_box() {
   occ config:app:set pipelinq demo_dataset --value=demo >/dev/null
   occ config:app:set pipelinq demo_data_decided --value=seeded >/dev/null
   occ config:app:set pipelinq setup_dismissed_version --value=1 >/dev/null
-  # Per user (admin and dawo): no guided tour, no support dialog, no
+  # Per user (admin and launcher): no guided tour, no support dialog, no
   # first-run dashboard.
-  for user in admin dawo; do
+  for user in admin launcher; do
     occ user:setting "${user}" firstrunwizard show 0 >/dev/null 2>&1 || true
     occ user:setting "${user}" dashboard firstRun 0 >/dev/null 2>&1 || true
     for app in openregister integriq opencatalogi pipelinq; do
@@ -341,7 +341,7 @@ out_of_the_box() {
   done
   # The notifications the seeding made (one per created object).
   if [[ "${DRY_RUN}" -eq 0 ]]; then
-    for user in admin:admin dawo:dawo; do
+    for user in admin:admin launcher:launcher; do
       curl -fsS -o /dev/null --max-time 60 -u "${user}" -H 'OCS-APIRequest: true' -X DELETE \
         "http://localhost:${PORT}/ocs/v2.php/apps/notifications/api/v2/notifications" || true
     done
@@ -349,21 +349,21 @@ out_of_the_box() {
   info "setup answered, example data loaded, tours and first-run screens off"
 }
 
-# The appliance's one demo login, dawo / dawo (#258), next to upstream's
+# The appliance's one demo login, launcher / launcher (#258), next to upstream's
 # admin / admin: a Nextcloud user in the admin group. Done again on every
 # start (it is there already: only the password is set again).
 add_dawo_login() {
-  # Nextcloud's password policy refuses "dawo" (10 characters minimum, and
+  # Nextcloud's password policy refuses "launcher" (10 characters minimum, and
   # it is on the leaked-password list): relaxed for this local demo (D47).
   occ config:app:set password_policy minLength --value=4 >/dev/null
   occ config:app:set password_policy enforceHaveIBeenPwned --value=0 >/dev/null
-  if occ user:info dawo >/dev/null 2>&1; then
-    compose exec -T -u www-data -e OC_PASS=dawo nextcloud php occ user:resetpassword --password-from-env dawo >/dev/null
+  if occ user:info launcher >/dev/null 2>&1; then
+    compose exec -T -u www-data -e OC_PASS=launcher nextcloud php occ user:resetpassword --password-from-env launcher >/dev/null
   else
-    compose exec -T -u www-data -e OC_PASS=dawo nextcloud php occ user:add --password-from-env       --display-name="Dawo Demo" --group=admin dawo >/dev/null
+    compose exec -T -u www-data -e OC_PASS=launcher nextcloud php occ user:add --password-from-env       --display-name="Launcher Demo" --group=admin launcher >/dev/null
   fi
-  occ group:adduser admin dawo >/dev/null 2>&1 || true
-  info "login dawo / dawo (group admin)"
+  occ group:adduser admin launcher >/dev/null 2>&1 || true
+  info "login launcher / launcher (group admin)"
 }
 
 # The other environment starts: stop the containers (they keep their data).

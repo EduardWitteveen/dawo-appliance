@@ -14,7 +14,7 @@ summary = "Samenwerken in de browser: bestanden, documenten samen bewerken en ch
 # Mijn Bureau has no release numbers; the version is the pinned date and commit.
 version = "2026-07-27 (b2ae545)"
 url = "https://bureaublad.dawo.internal"
-login = "dawo / dawo"
+login = "launcher / launcher"
 license = "EUPL-1.2"
 standards = ["OpenID Connect (NL GOV-profiel)", "OAuth 2.0 (NL GOV-profiel)", "ODF", "TLS", "HTTPS en HSTS"]
 

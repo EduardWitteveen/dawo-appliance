@@ -523,8 +523,8 @@ if [[ "${rc}" -eq 0 ]] \
   && [[ "$(grep -n 'container collabora args' <<<"${out}" | cut -d: -f1)" -lt "$(grep -n 'rollout status deploy/collabora-online' <<<"${out}" | cut -d: -f1)" ]] \
   && ! grep -q 'resourcesPresetPerApp' <<<"${out}" \
   && grep -q 'kubectl -n mb-bureaublad patch deploy/bureaublad-backend --type strategic: .*env SSL_CERT_FILE,REQUESTS_CA_BUNDLE=' <<<"${out}" \
-  && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     username: dawo' \
-  && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     password: dawo' \
+  && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     username: launcher' \
+  && grep -A6 '^.*| user:$' <<<"${out}" | grep -q '|     password: launcher' \
   && [[ "$(grep -c '|     username: ' <<<"${out}")" -eq 1 ]] \
   && grep -q '|   grist:       { enabled: false' <<<"${out}" \
   && grep -q '|   docs:        { enabled: false' <<<"${out}" \
@@ -781,7 +781,7 @@ function page({ form = true, error = false, store }) {
 const results = [];
 const tab = {};
 const a = page({ store: tab });
-results.push(a.clicks === 1 && a.el.username.value === "dawo" && a.el.password.value === "dawo" && a.el.rememberMe.checked === true);
+results.push(a.clicks === 1 && a.el.username.value === "launcher" && a.el.password.value === "launcher" && a.el.rememberMe.checked === true);
 results.push(page({ store: tab }).clicks === 0);
 results.push(page({ error: true, store: {} }).clicks === 0);
 results.push(page({ form: false, store: {} }).clicks === 0);
@@ -791,7 +791,7 @@ EOF2
   jo=""; jrc=0
   jo="$(node "${tmp}/stubdom.js" "${js}" 2>&1)" || jrc=$?
   if [[ "${jrc}" -eq 0 ]]; then
-    ok "auto-login script: fills dawo/dawo and submits once; not again in the same tab; not after an error; nothing without the login form"
+    ok "auto-login script: fills launcher/launcher and submits once; not again in the same tab; not after an error; nothing without the login form"
   else
     bad "auto-login script against a stub DOM (${jo})"
   fi

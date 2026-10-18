@@ -232,7 +232,7 @@ alfresco() { # alfresco METHOD PATH [JSON]: Alfresco's REST API as upstream's ad
 # library (tezza-api.lib.js), through the JavaScript console the platform
 # ships (OOTBee); a step that needs ZGW fails and the next one goes on. The
 # Tezza app configuration comes from upstream's webscript contezza/config/tezza.
-# Then the login dawo / dawo (#258): a user in upstream's LDAP (Keycloak signs
+# Then the login launcher / launcher (#258): a user in upstream's LDAP (Keycloak signs
 # in against it), an Alfresco administrator, an admin of Keycloak's console.
 SETUP_STEPS=(createSites createRootGroups createServiceAccount createFolderTemplates createTezzaTemplates
              createZaaktypeSites createObjecttypeSites createAuditRole createPostintakeDummyData
@@ -248,8 +248,8 @@ beheer_site() {
 }
 
 phase_setup() {
-  log "Tezza's setup (upstream's steps) and the login dawo / dawo"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd dawo; Alfresco admin dawo; kcadm master dawo"; return 0; fi
+  log "Tezza's setup (upstream's steps) and the login launcher / launcher"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd launcher; Alfresco admin launcher; kcadm master launcher"; return 0; fi
   # Done before only counts when the app's own check agrees (an earlier run
   # marked it done while createSites had failed: the Dell, 2026-10-18).
   if [[ -f "${STATE_DIR}/setup.done" ]] && ! beheer_site; then
@@ -301,40 +301,40 @@ PY
     info "upstream's setup was done before"
   fi
   # LDAP (upstream's users.ldif shape).
-  if ! compose exec -T openldap ldapsearch -x -H ldap://localhost -b ou=Users,dc=contezza,dc=local -D cn=admin,dc=contezza,dc=local -w admin "(uid=dawo)" uid 2>/dev/null | grep -q '^uid: dawo'; then
+  if ! compose exec -T openldap ldapsearch -x -H ldap://localhost -b ou=Users,dc=contezza,dc=local -D cn=admin,dc=contezza,dc=local -w admin "(uid=launcher)" uid 2>/dev/null | grep -q '^uid: launcher'; then
     # 68: the entry is there already (the check above may not see it).
     compose exec -T openldap ldapadd -x -H ldap://localhost -D cn=admin,dc=contezza,dc=local -w admin >/dev/null <<'EOF' || [[ $? -eq 68 ]]
-dn: cn=dawo,ou=Users,dc=contezza,dc=local
+dn: cn=launcher,ou=Users,dc=contezza,dc=local
 objectClass: person
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: top
-cn: dawo
-userpassword: dawo
-givenname: Dawo
+cn: launcher
+userpassword: launcher
+givenname: Launcher
 sn: Demo
-mail: dawo@example.com
-uid: dawo
+mail: launcher@example.com
+uid: launcher
 ou: Management
 EOF
   fi
   # Alfresco: the person (as LDAP sync would make it) and an administrator.
   local code
-  code="$(alfresco POST people '{"id":"dawo","firstName":"Dawo","lastName":"Demo","email":"dawo@example.com","password":"dawo"}')"
-  [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco person dawo: HTTP ${code}"
-  code="$(alfresco POST groups/GROUP_ALFRESCO_ADMINISTRATORS/members '{"id":"dawo","memberType":"PERSON"}')"
+  code="$(alfresco POST people '{"id":"launcher","firstName":"Launcher","lastName":"Demo","email":"launcher@example.com","password":"launcher"}')"
+  [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco person launcher: HTTP ${code}"
+  code="$(alfresco POST groups/GROUP_ALFRESCO_ADMINISTRATORS/members '{"id":"launcher","memberType":"PERSON"}')"
   [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco administrators: HTTP ${code}"
   # Keycloak's own console (master realm), next to upstream's admin / admin.
   local kc=(/opt/keycloak/bin/kcadm.sh) cfg=(--config /tmp/dawo-kcadm.config)
   if compose exec -T identity "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8181/auth \
        --realm master --user admin --password admin >/dev/null 2>&1; then
-    if ! compose exec -T identity "${kc[@]}" get users "${cfg[@]}" -r master -q username=dawo -q exact=true --fields username 2>/dev/null | grep -q '"dawo"'; then
-      compose exec -T identity "${kc[@]}" create users "${cfg[@]}" -r master -s username=dawo -s enabled=true >/dev/null
+    if ! compose exec -T identity "${kc[@]}" get users "${cfg[@]}" -r master -q username=launcher -q exact=true --fields username 2>/dev/null | grep -q '"launcher"'; then
+      compose exec -T identity "${kc[@]}" create users "${cfg[@]}" -r master -s username=launcher -s enabled=true >/dev/null
     fi
-    compose exec -T identity "${kc[@]}" set-password "${cfg[@]}" -r master --username dawo --new-password dawo >/dev/null
-    compose exec -T identity "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername dawo --rolename admin >/dev/null
+    compose exec -T identity "${kc[@]}" set-password "${cfg[@]}" -r master --username launcher --new-password launcher >/dev/null
+    compose exec -T identity "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername launcher --rolename admin >/dev/null
   fi
-  info "login dawo / dawo (Tezza, Share, Admin Tools, Keycloak console)"
+  info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console)"
 }
 
 # The other environment starts: stop the containers (they keep their data).

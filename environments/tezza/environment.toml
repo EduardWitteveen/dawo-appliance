@@ -15,7 +15,7 @@ title = "Tezza"
 summary = "Documenten en archief beheren: dossiers, documenttypen en metadata, op Alfresco."
 version = "Tezza 4.15.1 (demo)"
 url = "http://localhost:8082/"
-login = "dawo / dawo (of admin / admin)"
+login = "launcher / launcher (of admin / admin)"
 # Not demonstrably open source (#261): no license in the source repositories.
 license = "NOASSERTION"
 standards = ["Documentbeheer (Alfresco)", "OpenID Connect", "LDAP"]
@@ -56,9 +56,9 @@ url = "http://localhost:8082/"
 [[links]]
 title = "Tezza beheer (Admin Tools)"
 url = "http://localhost:8084/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"
 
 [[links]]
 title = "Keycloak beheer"
 url = "http://identity:8181/auth/admin/"
-login = "dawo / dawo of admin / admin"
+login = "launcher / launcher of admin / admin"

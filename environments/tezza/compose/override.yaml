@@ -21,7 +21,7 @@
 #
 # Nothing else differs from upstream: realm, LDAP users, ports and settings
 # are upstream's. The driver starts only the document base by name and adds
-# the login dawo / dawo after start (apps/tezza/deploy.sh phase_setup).
+# the login launcher / launcher after start (apps/tezza/deploy.sh phase_setup).
 
 services:
   platform:
