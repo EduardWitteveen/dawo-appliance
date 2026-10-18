@@ -10,7 +10,7 @@
 2. **Zet het op een USB-SSD** van 64 GB of meer, met [Rufus](https://rufus.ie) of [balenaEtcher](https://etcher.balena.io).
 3. **Start de laptop van de USB-schijf.** De Launcher start Mijn Bureau vanzelf. Klaar? Klik **Openen** en log in met `launcher` / `launcher`.
 
-Je hebt een laptop met 32 GB geheugen nodig. [Stap voor stap, met plaatjes →](docs/live-usb.md)
+Je hebt een laptop met 32 GB geheugen nodig. Overal log je in met `launcher` / `launcher`. [Stap voor stap, met plaatjes →](docs/live-usb.md)
 
 ## Wat zit erin
 
@@ -18,7 +18,7 @@ Je hebt een laptop met 32 GB geheugen nodig. [Stap voor stap, met plaatjes →](
 | --- | --- |
 | [![Inloggen, één keer voor alles](docs/screenshots/live-login-dell.png)](docs/screenshots/live-login-dell.png) **Eén keer inloggen** voor alles | [![Het dashboard Mijn Bureaublad](docs/screenshots/live-bureaublad-dell.png)](docs/screenshots/live-bureaublad-dell.png) **Mijn Bureaublad**, het startpunt |
 | [![Bestanden in Nextcloud](docs/screenshots/live-nextcloud-dell.png)](docs/screenshots/live-nextcloud-dell.png) **Bestanden** (Nextcloud) | [![Een document bewerken in Collabora](docs/screenshots/live-collabora-dell.png)](docs/screenshots/live-collabora-dell.png) **Samen documenten bewerken** (Collabora) |
-| [![Chat in Element](docs/screenshots/live-element-dell.png)](docs/screenshots/live-element-dell.png) **Chatten** (Element) | **Binnenkort in de Launcher:** Valtimo (zaakgericht werken), Nextcloud Common Ground (Conduction-apps) en Tezza |
+| [![Chat in Element](docs/screenshots/live-element-dell.png)](docs/screenshots/live-element-dell.png) **Chatten** (Element) | [![De opdracht launch in een terminal: vier omgevingen, een controle en de status](docs/screenshots/live-launch-cli.png)](docs/screenshots/live-launch-cli.png) **Vier omgevingen** in de Launcher: Mijn Bureau, Valtimo met Open Zaak, Nextcloud Common Ground en Tezza; ook met de opdracht `launch` |
 
 <sub>Echte schermafbeeldingen van een testlaptop ([herkomst](docs/screenshots/HARDWARE.md)).</sub>
 
