@@ -546,7 +546,11 @@ in
         # The console log spans resets (same QEMU process). Only the part
         # after the last reset belongs to the current boot: one crashing boot
         # often logs several Oops/BUG lines, which must count once (#184).
-        offset=0
+        # A restart started by someone else (Mijn Bureau's one-time reboot
+        # for nousershstk, #176) is watched from where its console log stood
+        # then: the runner leaves that offset here and restarts this unit.
+        offset="$(cat /run/dawo-appliance/fwwatch-offset 2>/dev/null || echo 0)"
+        rm -f /run/dawo-appliance/fwwatch-offset
         since=$SECONDS
         for _ in $(seq 1 600); do
           [ "$(virsh domstate "$name" 2>/dev/null)" = running ] || exit 0
