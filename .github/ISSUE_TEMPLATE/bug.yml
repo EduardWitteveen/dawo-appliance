@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Versie / Version
-      description: From the boot menu or the status page footer, e.g. "0.1.0-dev (87f677e)".
+      description: From the boot menu or the status page footer, e.g. "0.1.0-rc.1 (8a49174)".
     validations:
       required: true
   - type: input
@@ -19,6 +19,18 @@ body:
     attributes:
       label: Hardware
       description: Laptop model, memory, USB SSD or stick.
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Omgeving / Environment
+      options:
+        - De werkplek zelf / the workplace itself
+        - De Launcher
+        - Mijn Bureau
+        - Valtimo
+        - Nextcloud Common Ground
+        - Tezza
+        - Anders / other
   - type: textarea
     id: what
     attributes:
@@ -30,4 +42,4 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: If you have them, the session folder from DAWO_LOGS (progress.txt, mijnbureau.txt). Remove anything private first.
+      description: "If you have them, from the session folder on DAWO_LOGS (dawo-appliance/<date_time>/): progress.txt, rondgang.txt and per environment mijnbureau.txt, valtimo.txt, nextcloud-commonground.txt or tezza.txt. Remove anything private first."

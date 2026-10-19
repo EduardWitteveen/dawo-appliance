@@ -1,0 +1,62 @@
+name: Testverslag / Test report
+description: Je hebt de USB-SSD op een laptop geprobeerd. Vertel hoe het ging, ook als alles werkte.
+title: "Testverslag: <laptopmodel>"
+labels: [test-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dank je wel voor het testen! Elk verslag helpt, ook als alles werkte: zo weten we op welke laptops het draait.
+        Een fout in één omgeving? Dan mag het ook hier; een losse foutmelding kan via "Fout melden".
+        Thanks for testing! Every report helps, also when everything worked.
+  - type: input
+    id: version
+    attributes:
+      label: Versie / Version
+      description: Staat in het opstartmenu en onderaan de statuspagina, bijvoorbeeld "0.1.0-rc.1 (8a49174)".
+      placeholder: 0.1.0-rc.1
+    validations:
+      required: true
+  - type: input
+    id: laptop
+    attributes:
+      label: Laptop
+      description: Merk en model, en hoeveel geheugen (bijvoorbeeld "Dell Latitude 5550, 32 GB").
+    validations:
+      required: true
+  - type: input
+    id: usb
+    attributes:
+      label: USB-schijf / USB disk
+      description: Merk, grootte, en of het een USB-SSD of een stick is (bijvoorbeeld "SanDisk Extreme USB-SSD, 256 GB").
+  - type: dropdown
+    id: boot
+    attributes:
+      label: Startte de werkplek? / Did the workplace start?
+      options:
+        - Ja, de Launcher opende
+        - Ja, maar met problemen (zie hieronder)
+        - Nee, de laptop startte niet van de USB-schijf
+        - Nee, hij bleef hangen tijdens het opstarten
+    validations:
+      required: true
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: Welke omgevingen werden "Klaar"? / Which environments became ready?
+      options:
+        - label: Mijn Bureau
+        - label: Valtimo
+        - label: Nextcloud Common Ground
+        - label: Tezza
+  - type: textarea
+    id: notes
+    attributes:
+      label: Wat viel op? / What did you notice?
+      description: Wat werkte goed, wat niet, hoe lang het duurde, wat onduidelijk was. Screenshots zijn welkom.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logbestanden / Logs (optioneel)
+      description: |
+        Op de USB-schijf, in de partitie DAWO_LOGS, map `dawo-appliance/<datum_tijd>/`: bijvoorbeeld `progress.txt`, `rondgang.txt` en per omgeving `mijnbureau.txt`, `valtimo.txt`, `nextcloud-commonground.txt`, `tezza.txt`. Haal er eerst uit wat privé is.
