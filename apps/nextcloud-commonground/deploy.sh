@@ -353,10 +353,12 @@ out_of_the_box() {
 # admin / admin: a Nextcloud user in the admin group. Done again on every
 # start (it is there already: only the password is set again).
 add_dawo_login() {
-  # Nextcloud's password policy refuses "launcher" (10 characters minimum, and
-  # it is on the leaked-password list): relaxed for this local demo (D47).
+  # Nextcloud's password policy refuses the demo password (10 characters
+  # minimum, the leaked-password list and the list of the million most common
+  # passwords, which has "launcher"): relaxed for this local demo (D47).
   occ config:app:set password_policy minLength --value=4 >/dev/null
   occ config:app:set password_policy enforceHaveIBeenPwned --value=0 >/dev/null
+  occ config:app:set password_policy enforceNonCommonPassword --value=0 >/dev/null
   if occ user:info launcher >/dev/null 2>&1; then
     compose exec -T -u www-data -e OC_PASS=launcher nextcloud php occ user:resetpassword --password-from-env launcher >/dev/null
   else

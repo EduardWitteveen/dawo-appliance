@@ -130,6 +130,15 @@ unit() { sed -n '/# BEGIN dawo-docker.service/,/# END dawo-docker.service/p' "$1
 u1="$(unit "${DRIVER}")"; u2="$(unit apps/valtimo/deploy.sh)"
 if [[ -n "${u1}" && "${u1}" == "${u2}" ]]; then ok "the dawo-docker unit is the same in both drivers"; else bad "the dawo-docker unit differs between the drivers"; fi
 
+echo "-- the demo login passes Nextcloud's password policy --"
+# On the Dell (2026-10-19) "launcher" was refused as one of the million most
+# common passwords: every rule that refuses the demo password is relaxed.
+missing=""
+for rule in "minLength --value=4" "enforceHaveIBeenPwned --value=0" "enforceNonCommonPassword --value=0"; do
+  grep -q "occ config:app:set password_policy ${rule}" apps/nextcloud-commonground/deploy.sh || missing="${missing} ${rule%% *}"
+done
+if [[ -z "${missing}" ]]; then ok "password policy relaxed for the demo login (length, leaked, common)"; else bad "password policy not relaxed:${missing}"; fi
+
 echo
 echo "test-nextcloud-commonground-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]
