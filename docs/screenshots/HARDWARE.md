@@ -16,3 +16,8 @@ nothing else. Rules: [`README.md`](README.md).
 | `live-collabora-dell.png` | Dell Inc. Latitude 5550 | `20260930T185043Z_63d69852` | 2026-09-30 21:02:29 | `12e94bfc95ed2eda…` | Collabora Online editing Document.docx inside Nextcloud after automatic sign-in (branch test/iso-173-176-177) |
 | `live-nextcloud-dell.png` | Dell Inc. Latitude 5550 | `20261012T221250Z_17c36c7a` | 2026-10-13 00:32:41 | `6615b0a1d93d1c8a…` | Nextcloud Bestanden in het Nederlands, ingelogd via Keycloak, met het menu Nieuw (document, diagram) en Teammappen |
 | `live-launcher-progress.png` | Dell Inc. Latitude 5550 | `20261015T151058Z_f24fcfd7` | 2026-10-15 17:15:11 | `9ef69b4884c37ba2…` | De Launcher start Mijn Bureau vanzelf: stap 10 van 17, nog ongeveer 11 minuten, klaar rond 17:26 |
+| `live-launcher-four.png` | Dell Inc. Latitude 5550 | `20261019T145339Z_bde572ad` | 2026-10-19 16:59:19 | `8db14068c653ce70…` | De Launcher met vier omgevingen; Mijn Bureau wordt gestart, stap 5 van 17 |
+| `live-valtimo-card.png` | Dell Inc. Latitude 5550 | `20261019T145339Z_bde572ad` | 2026-10-19 17:48:25 | `315e5911fed1e59f…` | Valtimo klaar, met de onderdelen eronder en hun logins op de kaart |
+| `live-burgerformulier.png` | Dell Inc. Latitude 5550 | `20261019T145339Z_bde572ad` | 2026-10-19 17:49:56 | `2b8996f6d89808f8…` | Het burgerformulier van Open Formulieren (leningaanvraag), naast Valtimo |
+| `live-dossiq.png` | Dell Inc. Latitude 5550 | `20261019T145339Z_bde572ad` | 2026-10-19 18:02:35 | `037ce93b2bec5caa…` | Nextcloud Common Ground: het dashboard van Dossiq met demozaken |
+| `live-tezza-beheer.png` | Dell Inc. Latitude 5550 | `20261018T071112Z_e57bc6f7` | 2026-10-18 11:04:11 | `0f014fe348a5d0f7…` | Tezza Beheer, ingelogd met de demo-login |
