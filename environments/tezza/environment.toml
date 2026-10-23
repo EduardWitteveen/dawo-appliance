@@ -227,5 +227,5 @@ evidence = "LICENSE (default branch); v5.6.0, manifest valtimo.tooling"
 [[components]]
 name = "Ubuntu 24.04 LTS (guest VM)"
 repo = "https://cloud-images.ubuntu.com/releases/noble/release-20260911/"
-license = "NOASSERTION"
-evidence = "a distribution of many packages, each under its own licence; no single licence"
+license = "LicenseRef-Ubuntu-main"
+evidence = "a distribution: every package has its own licence (/usr/share/doc/*/copyright); Ubuntu's licence policy requires application software in main to be free software with full source code that may be modified and redistributed (exceptions: some firmware and fonts); the cloud image is built from main. Canonical's IP policy only limits the Ubuntu trademarks on modified copies (canonical.com/legal/intellectual-property-policy)"
