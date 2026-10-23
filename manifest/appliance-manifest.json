@@ -571,6 +571,22 @@
       "authorization-profiles-db": {
         "image": "docker.io/library/postgres:17.6",
         "digest": "sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"
+      },
+      "openzaak": {
+        "image": "docker.io/openzaak/open-zaak:1.28.0",
+        "digest": "sha256:2c023fa44aa4e77c37f7e9ae3941f82630d0805cf7fda79bdc06294cf002beb5"
+      },
+      "openzaak-celery": {
+        "image": "docker.io/openzaak/open-zaak:1.28.0",
+        "digest": "sha256:2c023fa44aa4e77c37f7e9ae3941f82630d0805cf7fda79bdc06294cf002beb5"
+      },
+      "openzaak-db": {
+        "image": "docker.io/postgis/postgis:17-3.5",
+        "digest": "sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6"
+      },
+      "openzaak-redis": {
+        "image": "docker.io/library/redis:8.2.2",
+        "digest": "sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
       }
     }
   }

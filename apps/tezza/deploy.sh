@@ -39,13 +39,15 @@ DOWNLOADS="${STATE_DIR}/downloads"
 DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
 # The document base of upstream's compose (its README: Tezza at :8082, the
 # Admin Tools at :8084, Share at :8081). Upstream has no profiles: the
-# services are named. Left out: the ZGW part (gzac, openzaak, notificaties,
-# objecten, objecttypen, personen-mock; about 5 GB more) and the apps that
+# services are named. Open Zaak is in (#268: Tezza's case views ask it; about
+# 1 GB). Left out: the rest of the ZGW part (gzac, notificaties, objecten,
+# objecttypen, personen-mock; about 4 GB more) and the apps that
 # Contezza's price list marks as Enterprise-only (tezza-rm, tezza-reports,
 # tezza-akten).
 SERVICES=(platform platform-ass platform-db platform-activemq platform-transform-core-aio
           identity identity-db openldap share app-tezza app-tezza-admin
-          authorization-profiles authorization-profiles-db)
+          authorization-profiles authorization-profiles-db
+          openzaak openzaak-celery openzaak-db openzaak-redis)
 # The compose project (the directory name).
 PROJECT="tezza-packaging"
 DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
@@ -211,7 +213,7 @@ phase_ready() {
   local waited=0 url
   for url in http://localhost:8181/auth/realms/tezza \
              http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready- \
-             http://localhost:8082/; do
+             http://localhost:8082/              http://localhost:8000/admin/; do
     until curl -fsS -o /dev/null --max-time 5 "${url}"; do
       [[ "${waited}" -ge 1800 ]] && die "${url} does not answer after ${waited}s"
       sleep 5; waited=$((waited + 5))
@@ -334,7 +336,15 @@ EOF
     compose exec -T identity "${kc[@]}" set-password "${cfg[@]}" -r master --username launcher --new-password launcher >/dev/null
     compose exec -T identity "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername launcher --rolename admin >/dev/null
   fi
-  info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console)"
+  # Open Zaak's admin (#268): a superuser next to upstream's admin / admin.
+  compose exec -T openzaak python src/manage.py shell -c "
+from django.contrib.auth import get_user_model
+U = get_user_model()
+u = U.objects.filter(username='launcher').first() or U(username='launcher', email='launcher@example.com')
+u.is_active = u.is_staff = u.is_superuser = True
+u.set_password('launcher')
+u.save()" >/dev/null 2>&1 || info "Open Zaak: no launcher login (its admin keeps admin / admin)"
+  info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console, Open Zaak)"
 }
 
 # The other environment starts: stop the containers (they keep their data).

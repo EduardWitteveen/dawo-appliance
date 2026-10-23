@@ -59,6 +59,11 @@ url = "http://localhost:8084/"
 login = "launcher / launcher of admin / admin"
 
 [[links]]
+title = "Open Zaak beheer"
+url = "http://localhost:8000/admin/"
+login = "launcher / launcher of admin / admin"
+
+[[links]]
 title = "Keycloak beheer"
 url = "http://identity:8181/auth/admin/"
 login = "launcher / launcher of admin / admin"

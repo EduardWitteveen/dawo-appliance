@@ -30,9 +30,11 @@ in
       { name = "ready"; label = "Wachten tot Tezza klaar is (de eerste keer wordt alles ingericht)"; typical = 420; }
       { name = "setup"; label = "Tezza inrichten (sites, groepen, sjablonen) en de login dawo"; typical = 120; }
     ];
-    ports = [ 8082 8084 8181 ];
+    # Tezza, its Admin Tools, Keycloak and Open Zaak (#268).
+    ports = [ 8082 8084 8181 8000 ];
     # Upstream's README: "127.0.0.1 identity" (the realm's issuer).
-    hostNames = [ "identity" ];
+    # Tezza's case views ask Open Zaak by its compose alias (#268).
+    hostNames = [ "identity" "openzaak.local" ];
     readyUrl = "http://localhost:8082/";
   };
 }
