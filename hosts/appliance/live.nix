@@ -242,6 +242,16 @@ in
     "${pkgs.bash}/bin/bash -c 'umask 0077 && mkdir -p /var/lib/libvirt/secrets && (${pkgs.coreutils}/bin/dd if=/dev/random status=none bs=32 count=1 | ${config.systemd.package}/bin/systemd-creds encrypt --with-key=host --name=secrets-encryption-key - /var/lib/libvirt/secrets/secrets-encryption-key)'"
   ];
 
+  # With a dock and two external screens (Dell, 21 October) plymouthd stopped
+  # answering and "Tell Plymouth To Write Out Runtime Data" held the boot
+  # until someone pressed Ctrl-C (#271). That unit only tells the splash that
+  # /var is writable: give it 10 s and go on (the leading "-" keeps a timeout
+  # from counting as a failed unit, like upstream's own ExecStart).
+  systemd.services.plymouth-read-write.serviceConfig.ExecStart = lib.mkForce [
+    ""
+    "-${pkgs.coreutils}/bin/timeout 10 ${config.boot.plymouth.package}/bin/plymouth update-root-fs --read-write"
+  ];
+
   # Debug is the DEFAULT for now (maintainer, 2026-09-27: not stable enough
   # yet): desktop screenshots every 30 s plus the logs go to a DAWO_LOGS
   # stick (live-logs.nix), announced by a dialog at login. The second boot

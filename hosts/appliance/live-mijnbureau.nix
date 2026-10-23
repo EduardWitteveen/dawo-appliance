@@ -72,7 +72,7 @@ let
       last_secs() { awk -v k="$1" '$1 == k { s = $2 } END { if (s != "") print s }' "$durations" 2>/dev/null || true; }
       typical() { # the status page's typical durations (Dell Latitude 5550)
         case "$1" in
-          vm) echo 180 ;; reboot) echo 90 ;; net) echo 10 ;; apps) echo 180 ;;
+          vm) echo 180 ;; reboot) echo 90 ;; net) echo 10 ;; apps) echo 540 ;;
           8) echo 360 ;; 10) echo 90 ;; 11) echo 420 ;; 13) echo 120 ;; *) echo 45 ;;
         esac
       }
@@ -273,10 +273,10 @@ let
       # need minutes to start again (#177). Say "klaar" only once they answer
       # over HTTPS (2xx/3xx through Traefik; 404/502/503 means not yet; -k:
       # this is a liveness probe, trust is checked elsewhere).
-      state "Mijn Bureau start op: wacht tot de apps reageren (na een herstart een paar minuten)"
+      state "Mijn Bureau start op: wacht tot de apps reageren (na een herstart meestal 5 tot 10 minuten)"
       progress "$steps" "Mijn Bureau start op (de apps gaan reageren)" apps
-      waited=0
-      for h in id bureaublad nextcloud element; do
+      waited=0; answered=0; apps=(id bureaublad nextcloud element); last=""
+      for h in "''${apps[@]}"; do
         until code="$(g curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "https://$h.${domain}/" 2>/dev/null)" \
               && [ "''${code:-000}" -ge 200 ] && [ "''${code:-000}" -lt 400 ]; do
           if [ "$waited" -ge 1200 ]; then
@@ -285,9 +285,18 @@ let
             notify "Mijn Bureau reageert niet" "$h.${domain} gaf na 20 minuten nog geen antwoord."
             exit 1
           fi
+          # A line on every change and every 30 s, so the Launcher's "laatste
+          # activiteit" moves while the apps start (#272: it looked stuck for
+          # minutes on the Dell and the presenter switched the laptop off).
+          now="$h ''${code:-000}"
+          if [ "$now" != "$last" ] || [ $((waited % 30)) -eq 0 ]; then
+            log "Wacht tot $h antwoordt ($answered van ''${#apps[@]} apps antwoorden, nu HTTP ''${code:-000}, ''${waited} s)"
+            last="$now"
+          fi
           sleep 10; waited=$((waited + 10))
         done
-        log "app $h.${domain}: HTTP $code after ''${waited}s"
+        answered=$((answered + 1))
+        log "app $h.${domain}: HTTP $code after ''${waited}s ($answered van ''${#apps[@]} apps antwoorden)"
       done
       echo "apps $waited" >> "$durations" || true
       echo "${driverSum}" > /var/lib/dawo-appliance/mb-deployed-driver || true
