@@ -55,7 +55,7 @@ test:
 	bash tests/test-health-check.sh
 	bash tests/test-mijnbureau-driver.sh
 	bash tests/test-valtimo-driver.sh
-	bash tests/test-tezza-driver.sh tests/test-launcher-licences.sh
+	bash tests/test-tezza-driver.sh
 	bash tests/test-launcher-licences.sh
 	bash tests/test-nextcloud-commonground-driver.sh
 	bash tests/test-check-upstream.sh
