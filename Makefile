@@ -8,7 +8,7 @@ SHELL := bash
 BOOTSTRAP := installer/bootstrap/dawo-appliance-bootstrap
 MANIFEST  := manifest/appliance-manifest.json
 SHA_FILE  := manifest/appliance-manifest.json.sha256
-SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh tests/test-k3s-install.sh tests/test-image-digests.sh tests/test-health-check.sh tests/test-mijnbureau-driver.sh tests/test-check-upstream.sh k8s/bootstrap/install-k3s.sh scripts/status.sh scripts/verify.sh scripts/screenshots.sh scripts/speed-check.sh scripts/check-upstream.sh scripts/resolve-image-digests.sh health/dawo-appliance-health.sh health/dawo-appliance-open-dashboard.sh apps/mijn-bureau/deploy.sh scripts/write-live-stick.sh scripts/make-dawo-logs-head.sh tests/test-live-stick-tool.sh scripts/release.sh tests/test-release.sh tests/test-exfat-read.sh apps/valtimo/deploy.sh tests/test-valtimo-driver.sh apps/nextcloud-commonground/deploy.sh tests/test-nextcloud-commonground-driver.sh apps/tezza/deploy.sh tests/test-tezza-driver.sh
+SHELL_SCRIPTS := $(BOOTSTRAP) tests/test-bootstrap-dryrun.sh tests/test-k3s-install.sh tests/test-image-digests.sh tests/test-health-check.sh tests/test-mijnbureau-driver.sh tests/test-check-upstream.sh k8s/bootstrap/install-k3s.sh scripts/status.sh scripts/verify.sh scripts/screenshots.sh scripts/speed-check.sh scripts/check-upstream.sh scripts/resolve-image-digests.sh health/dawo-appliance-health.sh health/dawo-appliance-open-dashboard.sh apps/mijn-bureau/deploy.sh scripts/write-live-stick.sh scripts/make-dawo-logs-head.sh tests/test-live-stick-tool.sh scripts/release.sh tests/test-release.sh tests/test-exfat-read.sh apps/valtimo/deploy.sh tests/test-valtimo-driver.sh apps/nextcloud-commonground/deploy.sh tests/test-nextcloud-commonground-driver.sh apps/tezza/deploy.sh tests/test-tezza-driver.sh tests/test-launcher-licences.sh
 
 .DEFAULT_GOAL := check
 
@@ -55,7 +55,8 @@ test:
 	bash tests/test-health-check.sh
 	bash tests/test-mijnbureau-driver.sh
 	bash tests/test-valtimo-driver.sh
-	bash tests/test-tezza-driver.sh
+	bash tests/test-tezza-driver.sh tests/test-launcher-licences.sh
+	bash tests/test-launcher-licences.sh
 	bash tests/test-nextcloud-commonground-driver.sh
 	bash tests/test-check-upstream.sh
 	bash tests/test-release.sh
