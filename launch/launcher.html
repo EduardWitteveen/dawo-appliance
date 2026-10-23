@@ -82,6 +82,14 @@
   .links summary { cursor: pointer; color: var(--accent); }
   .links ul { margin: 6px 0 0; padding-left: 18px; }
   .linklogin { color: var(--muted); }
+  .licences { font-size: .85rem; margin: 4px 0; }
+  .licences summary { cursor: pointer; }
+  .licences ul { margin: 6px 0 0; padding-left: 18px; }
+  .lic-green summary::before, .lic-yellow summary::before, .lic-red summary::before { content: "● "; }
+  .lic-green summary::before { color: #2e7d32; }
+  .lic-yellow summary::before { color: #b58900; }
+  .lic-red summary::before { color: #c62828; }
+  .lic-none { color: var(--muted); }
   .cycle-last { margin: 0; padding-left: 18px; color: var(--muted); font-size: .85rem; }
   .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
@@ -162,6 +170,24 @@ function noticeBlock(env) {
       el("button", { onclick: () => act("cancel", env) }, "Niet starten")));
 }
 
+// Licences per repository (#273): one line, the components under it.
+const LIC_NAME = { "NOASSERTION": "geen licentiebestand", "LicenseRef-proprietary": "niet open source" };
+function licencesBlock(env) {
+  const l = env.licences;
+  if (!l || !l.total) return null;
+  const parts = Object.entries(l.counts || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`);
+  let line = `Licenties: ${l.open} van ${l.total} onderdelen open source`;
+  if (parts.length) line += ` (${parts.join(", ")})`;
+  if (l.unknown) line += `; ${l.unknown} zonder licentiebestand`;
+  if (l.proprietary && l.proprietary.length) line += `; ${l.proprietary.length} niet open source`;
+  return el("details", { class: "licences lic-" + l.level },
+    el("summary", {}, line),
+    el("ul", {}, ...(env.components || []).map(c => el("li", {},
+      el("a", { href: c.repo, target: "_blank", rel: "noopener" }, c.name),
+      el("span", { class: c.license === "NOASSERTION" ? "lic-none" : "" },
+        " · " + (LIC_NAME[c.license] || (c.license.startsWith("LicenseRef-proprietary") ? "niet open source" : c.license)))))));
+}
+
 function card(env) {
   const actions = el("div", { class: "actions" });
   if (env.pending) {
@@ -182,6 +208,7 @@ function card(env) {
       el("div", { class: "logo", "aria-hidden": "true" }, env.title.charAt(0)),
       el("div", {}, el("p", { class: "title" }, env.title), el("span", { class: "version" }, env.version))),
     el("p", { class: "summary" }, env.summary),
+    licencesBlock(env),
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
     env.state === "starting" ? progressBlock(env) : null,
     env.state === "stopped" && env.autostart ? autoBlock(env) : null,
@@ -284,7 +311,12 @@ setInterval(tick, 1000);
 let lastData = [];
 function render(data) {
   const grid = document.getElementById("grid");
+  // Keep opened lists (links, licences) open across a redraw.
+  const opened = new Set([...grid.querySelectorAll("details[open]")].map(d => d.closest(".card").getAttribute("aria-label") + "|" + d.className));
   grid.replaceChildren(...(data.length ? data.map(card) : [el("p", {}, "Er zijn geen omgevingen.")]));
+  for (const d of grid.querySelectorAll("details")) {
+    if (opened.has(d.closest(".card").getAttribute("aria-label") + "|" + d.className)) d.open = true;
+  }
   tick();
 }
 

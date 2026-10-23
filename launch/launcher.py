@@ -354,6 +354,10 @@ def environments():
                           if AUTO["pending"] and AUTO["pending"]["id"] == eid else None),
             # Shown before it starts (#261), and when that start comes.
             "notice": env.get("notice") if isinstance(env.get("notice"), dict) else None,
+            # Licences per repository (#273): the summary and the components.
+            "licences": env.get("licences") if isinstance(env.get("licences"), dict) else None,
+            "components": [{"name": c.get("name", ""), "repo": c.get("repo", ""), "license": c.get("license", "")}
+                           for c in env.get("components", []) if isinstance(c, dict)],
             "pending": {"at": PENDING[eid]} if eid in PENDING else None,
             "problems": check.get("problems", []),
         })
