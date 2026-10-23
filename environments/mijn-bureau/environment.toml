@@ -41,3 +41,161 @@ profile = "laptop-demo"
 
 [health]
 url = "https://bureaublad.dawo.internal"
+
+# What runs, per source repository, and its licence (#273), as found in each
+# repository at the pinned revision; researched 2026-10-23.
+[[components]]
+name = "Mijn Bureau (mijn-bureau-infra)"
+repo = "https://code.overheid.nl/MinBZK/mijn-bureau-infra"
+license = "EUPL-1.2"
+evidence = "LICENSE (EUPL v1.2) and publiccode.yml at b2ae545 (GitHub mirror MinBZK/mijn-bureau-infra)"
+
+[[components]]
+name = "Ubuntu 24.04 LTS (guest VM)"
+repo = "https://cloud-images.ubuntu.com/releases/noble/release-20260911/"
+license = "NOASSERTION"
+evidence = "a distribution of many packages, each under its own licence (per-package /usr/share/doc/*/copyright); no single licence"
+
+[[components]]
+name = "K3s"
+repo = "https://github.com/k3s-io/k3s"
+license = "Apache-2.0"
+evidence = "LICENSE at tag v1.36.4+k3s1"
+
+[[components]]
+name = "Traefik (bundled with K3s)"
+repo = "https://github.com/traefik/traefik"
+license = "MIT"
+evidence = "LICENSE.md (default branch; version is whatever K3s v1.36.4+k3s1 bundles)"
+
+[[components]]
+name = "cert-manager"
+repo = "https://github.com/cert-manager/cert-manager"
+license = "Apache-2.0"
+evidence = "LICENSE at tag v1.16.2"
+
+[[components]]
+name = "Helm"
+repo = "https://github.com/helm/helm"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch)"
+
+[[components]]
+name = "Helmfile"
+repo = "https://github.com/helmfile/helmfile"
+license = "MIT"
+evidence = "LICENSE (default branch); v1.1.7 pinned"
+
+[[components]]
+name = "helm-diff"
+repo = "https://github.com/databus23/helm-diff"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch)"
+
+[[components]]
+name = "Keycloak"
+repo = "https://github.com/keycloak/keycloak"
+license = "Apache-2.0"
+evidence = "LICENSE.txt at tag 26.3.3 (image bitnamilegacy/keycloak:26.3.3)"
+
+[[components]]
+name = "keycloak-config-cli"
+repo = "https://github.com/adorsys/keycloak-config-cli"
+license = "Apache-2.0"
+evidence = "LICENSE.txt (default branch); keycloakConfigCli.enabled: true in upstream keycloak values, image 6.4.0"
+
+[[components]]
+name = "Bureaublad"
+repo = "https://github.com/MinBZK/bureaublad"
+license = "EUPL-1.2"
+evidence = "LICENSE at tag v0.9.3 (api; frontend v0.6.1 from the same repo)"
+
+[[components]]
+name = "Nextcloud Server"
+repo = "https://github.com/nextcloud/server"
+license = "AGPL-3.0-only"
+evidence = "COPYING (AGPLv3) at tag v34.0.1; file headers mix AGPL-3.0-only and AGPL-3.0-or-later"
+
+[[components]]
+name = "Collabora Online (CODE)"
+repo = "https://github.com/CollaboraOnline/online"
+license = "MPL-2.0"
+evidence = "COPYING (default branch; no public tag for 26.04.2.2.1)"
+
+[[components]]
+name = "Element Web"
+repo = "https://github.com/element-hq/element-web"
+license = "AGPL-3.0-or-later OR GPL-3.0-or-later OR LicenseRef-Element-Commercial"
+evidence = "README 'Copyright & License' + LICENSE-AGPL-3.0/LICENSE-GPL-3.0/LICENSE-COMMERCIAL at tag v1.12.23"
+
+[[components]]
+name = "Synapse"
+repo = "https://github.com/element-hq/synapse"
+license = "AGPL-3.0-or-later OR LicenseRef-Element-Commercial"
+evidence = "pyproject.toml license field + LICENSE-AGPL-3.0 at tag v1.156.0"
+
+[[components]]
+name = "PostgreSQL"
+repo = "https://github.com/postgres/postgres"
+license = "PostgreSQL"
+evidence = "COPYRIGHT (PostgreSQL Licence) at tag REL_17_6 (image bitnamilegacy/postgresql:17.6.0)"
+
+[[components]]
+name = "Redis"
+repo = "https://github.com/redis/redis"
+license = "AGPL-3.0-only OR SSPL-1.0 OR LicenseRef-RSALv2"
+evidence = "LICENSE.txt at tag 8.2.1 (tri-licence since Redis 8; image bitnamilegacy/redis:8.2.1)"
+
+[[components]]
+name = "MinIO"
+repo = "https://github.com/minio/minio"
+license = "AGPL-3.0-or-later"
+evidence = "LICENSE + source headers at tag RELEASE.2025-07-23T15-54-02Z (image bitnamilegacy/minio:2025.7.23)"
+
+[[components]]
+name = "Nextcloud app: OpenID Connect user backend (user_oidc)"
+repo = "https://github.com/nextcloud/user_oidc"
+license = "AGPL-3.0-or-later"
+evidence = "COPYING + appinfo/info.xml SPDX header at tag v8.11.0"
+
+[[components]]
+name = "Nextcloud app: Nextcloud Office (richdocuments)"
+repo = "https://github.com/nextcloud/richdocuments"
+license = "AGPL-3.0-or-later"
+evidence = "appinfo/info.xml (<licence>agpl, SPDX header) at tag v11.1.2"
+
+[[components]]
+name = "Nextcloud app: draw.io"
+repo = "https://github.com/arnowelzel/drawio-nextcloud"
+license = "AGPL-3.0-only"
+evidence = "LICENSE (AGPLv3 text, no or-later statement) at tag v4.3.9; info.xml says agpl"
+
+[[components]]
+name = "Nextcloud app: Deck"
+repo = "https://github.com/nextcloud/deck"
+license = "AGPL-3.0-or-later"
+evidence = "LICENSE + appinfo/info.xml SPDX header at tag v1.18.5"
+
+[[components]]
+name = "Nextcloud app: Team folders (groupfolders)"
+repo = "https://github.com/nextcloud/groupfolders"
+license = "AGPL-3.0-or-later"
+evidence = "appinfo/info.xml <licence>AGPL-3.0-or-later at tag v22.0.6"
+
+[[components]]
+name = "Nextcloud app: Contacts"
+repo = "https://github.com/nextcloud/contacts"
+license = "AGPL-3.0-or-later"
+evidence = "COPYING + appinfo/info.xml SPDX header at tag v8.9.1"
+
+[[components]]
+name = "Nextcloud app: File access control (files_accesscontrol)"
+repo = "https://github.com/nextcloud/files_accesscontrol"
+license = "AGPL-3.0-or-later"
+evidence = "appinfo/info.xml (<licence>agpl, SPDX header) at tag v5.0.0"
+
+[[components]]
+name = "Nextcloud app: Thematiq"
+repo = "https://github.com/ConductionNL/thematiq"
+license = "EUPL-1.2"
+evidence = "LICENSE at tag v1.2.10"

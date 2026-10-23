@@ -175,7 +175,14 @@ const LIC_NAME = { "NOASSERTION": "geen licentiebestand", "LicenseRef-proprietar
 function licencesBlock(env) {
   const l = env.licences;
   if (!l || !l.total) return null;
-  const parts = Object.entries(l.counts || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`);
+  // One line: a choice of licences counts as its first, "-only" and
+  // "-or-later" together (the list below has the full expression).
+  const short = {};
+  for (const [k, n] of Object.entries(l.counts || {})) {
+    const s = k.split(" OR ")[0].replace(/-(only|or-later)$/, "");
+    short[s] = (short[s] || 0) + n;
+  }
+  const parts = Object.entries(short).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`);
   let line = `Licenties: ${l.open} van ${l.total} onderdelen open source`;
   if (parts.length) line += ` (${parts.join(", ")})`;
   if (l.unknown) line += `; ${l.unknown} zonder licentiebestand`;

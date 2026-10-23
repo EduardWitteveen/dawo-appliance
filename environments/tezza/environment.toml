@@ -5,7 +5,8 @@
 # started in the guest with one override file of ours (compose/override.yaml:
 # digests, memory limits, the app's dependency on the ZGW part we leave out).
 # Nothing of Tezza is in the image or this repository: it is downloaded from
-# Contezza when the user starts it, after the notice below.
+# Contezza when the user starts it; the licences of its parts are listed at
+# the end (#273).
 
 schema = 1
 id = "tezza"
@@ -16,19 +17,10 @@ summary = "Documenten en archief beheren: dossiers, documenttypen en metadata, o
 version = "Tezza 4.15.1 (demo)"
 url = "http://localhost:8082/"
 login = "launcher / launcher (of admin / admin)"
-# Not demonstrably open source (#261): no license in the source repositories.
+# Not demonstrably open source (#261, U8): no license in the source repositories;
+# the parts are listed per repository below (#273).
 license = "NOASSERTION"
 standards = ["Documentbeheer (Alfresco)", "OpenID Connect", "LDAP"]
-
-# Shown before the download (#261, the maintainer's wording).
-[notice]
-title = "Licentie onduidelijk"
-level = "danger"
-seconds = 60
-text = """
-Tezza wordt gepresenteerd als Common Ground-oplossing, maar we hebben geen openbare licentie gevonden waaruit blijkt dat het echt open source is, bijvoorbeeld onder de EUPL. Zonder die licentie is niet vast te stellen of je de software vrij mag gebruiken, aanpassen en delen.
-
-De software wordt pas nu gedownload, rechtstreeks bij Contezza; in deze werkplek zit er niets van. Door te starten gebruik je het onder de voorwaarden van Contezza (https://tezza.eu/tezza-pricing/)."""
 
 [source]
 repo = "https://git.contezza.nl/community/tezza-packaging"
@@ -62,3 +54,173 @@ login = "launcher / launcher of admin / admin"
 title = "Keycloak beheer"
 url = "http://identity:8181/auth/admin/"
 login = "launcher / launcher of admin / admin"
+
+# What runs, per source repository, and its licence (#273), as found in each
+# repository at the pinned revision; researched 2026-10-23.
+[[components]]
+name = "tezza-packaging"
+repo = "https://git.contezza.nl/community/tezza-packaging"
+license = "NOASSERTION"
+evidence = "no LICENSE/COPYING/publiccode.yml at 53ad698 (GitLab API tree; no licence in pom.xml); README.adoc links https://tezza.eu/tezza-pricing/"
+
+[[components]]
+name = "Tezza (GUI and Tezza Admin)"
+repo = "https://git.contezza.nl/community/tezza"
+license = "NOASSERTION"
+evidence = "no LICENSE/COPYING/publiccode.yml on main (no tags); package.json has \"private\": true and no license field; github.com/Contezza/Tezza holds only an EUPL-1.2 LICENSE.md and no code"
+
+[[components]]
+name = "Contezza authorization profiles"
+repo = "https://git.contezza.nl/community/contezza-authorization-profiles"
+license = "NOASSERTION"
+evidence = "no LICENSE/COPYING/publiccode.yml at tag contezza-authorization-profiles-1.1.0; no licence in pom.xml"
+
+[[components]]
+name = "Alfresco Documenten API (DRC)"
+repo = "https://git.contezza.nl/community/alfresco-documenten-api"
+license = "NOASSERTION"
+evidence = "no LICENSE/COPYING/publiccode.yml at tag alfresco-documenten-api-2.4.14; shipped as alfresco-documenten-api-platform-2.4.14.jar inside the tezza-packaging-platform AMP"
+
+[[components]]
+name = "Contezza Alfresco add-ons (tezza-services, tezza-rm, tezza-akten, contezza-* modules)"
+repo = "https://git.contezza.nl/community/tezza-packaging/-/blob/53ad698ca69eb961c89d2ce28c11073166759485/platform/pom.xml"
+license = "NOASSERTION"
+evidence = "no public source repository; AMPs/jars in tezza-platform and tezza-share (tezza-services 3.16.1, tezza-rm 2.4.0, tezza-akten 3.1.2, contezza-extensions/reports/teams/secure-share/msgraph/validsign/keycloak/migration/audit/bulkimport, contezza-utils/jwt/zgw-api-client/...) carry no licence file"
+
+[[components]]
+name = "Alfresco Community Repository (incl. Governance Services Community)"
+repo = "https://github.com/Alfresco/alfresco-community-repo"
+license = "LGPL-3.0-or-later"
+evidence = "LICENSE.txt (LGPLv3) at tag 23.4.1.1; base image alfresco-community/23:23.4.1-c, AGS community AMP 23.4.1.1"
+
+[[components]]
+name = "Alfresco Share"
+repo = "https://github.com/Alfresco/share"
+license = "LGPL-3.0-or-later"
+evidence = "LICENSE (LGPLv3), default branch (no public tag for 23.4.0.46)"
+
+[[components]]
+name = "Alfresco Search Services"
+repo = "https://github.com/Alfresco/SearchServices"
+license = "LGPL-3.0-or-later"
+evidence = "LICENSE (LGPLv3) at tag 2.0.8 (image 2.0.8.2)"
+
+[[components]]
+name = "Alfresco Transform Core (AIO)"
+repo = "https://github.com/Alfresco/alfresco-transform-core"
+license = "LGPL-3.0-or-later"
+evidence = "LICENSE.txt (LGPLv3) at tag 3.1.1"
+
+[[components]]
+name = "Apache ActiveMQ (Alfresco image)"
+repo = "https://github.com/apache/activemq"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); image alfresco/alfresco-activemq:5.15.8 (packaging repo Alfresco/alfresco-docker-activemq is Apache-2.0 too)"
+
+[[components]]
+name = "Alfresco Content App (base of the Tezza GUI)"
+repo = "https://github.com/Alfresco/alfresco-content-app"
+license = "LGPL-3.0-or-later"
+evidence = "GitHub licence LGPL-3.0, package.json \"LGPL-3.0\" (default branch); tezza package.json depends on @alfresco/aca-content 4.3.0"
+
+[[components]]
+name = "Alfresco Application Development Framework (ADF)"
+repo = "https://github.com/Alfresco/alfresco-ng2-components"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); tezza package.json depends on @alfresco/adf-* 6.4.0"
+
+[[components]]
+name = "Order of the Bee Support Tools"
+repo = "https://github.com/OrderOfTheBee/ootbee-support-tools"
+license = "LGPL-3.0-or-later"
+evidence = "LICENSE.md (LGPLv3), default branch; source headers 'any later version'; AMPs support-tools-repo/share 1.2.3.4 in tezza-platform/tezza-share"
+
+[[components]]
+name = "Alfresco Office Services module"
+repo = "https://artifacts.alfresco.com/nexus/content/groups/public/org/alfresco/aos-module/alfresco-aos-module/"
+license = "LicenseRef-proprietary"
+evidence = "alfresco-aos-module-3.2.0.amp in tezza-platform (/usr/local/tomcat/amps): module.properties 'part of a proprietary Alfresco module', licenses/aos-module-license.txt = Alfresco Component License (object code only)"
+
+[[components]]
+name = "Stackify Java APM agent"
+repo = "https://download.stackify.com/stackify-java-apm/stackify-java-apm-latest.tar.gz"
+license = "LicenseRef-proprietary"
+evidence = "tezza-platform image history runs wget of stackify-java-apm-latest.tar.gz + install.sh; tarball (today 1.33.28) has no licence; closed-source commercial product of Stackify LLC, no public source repo"
+
+[[components]]
+name = "Keycloak (tezza-identity)"
+repo = "https://github.com/keycloak/keycloak"
+license = "Apache-2.0"
+evidence = "LICENSE.txt at tag 26.5.6 (KEYCLOAK_VERSION in the tezza-identity image)"
+
+[[components]]
+name = "Alfresco Keycloak theme"
+repo = "https://github.com/Alfresco/alfresco-keycloak-theme"
+license = "Apache-2.0"
+evidence = "LICENSE at tag 0.3.5 (downloaded into tezza-identity)"
+
+[[components]]
+name = "OpenLDAP"
+repo = "https://git.openldap.org/openldap/openldap"
+license = "OLDAP-2.8"
+evidence = "LICENSE (OpenLDAP Public License 2.8), GitHub mirror openldap/openldap; image osixia/openldap:1.5.0 (packaging MIT)"
+
+[[components]]
+name = "PostgreSQL"
+repo = "https://github.com/postgres/postgres"
+license = "PostgreSQL"
+evidence = "COPYRIGHT (PostgreSQL Licence); image postgres:17.6"
+
+[[components]]
+name = "Open Zaak"
+repo = "https://github.com/open-zaak/open-zaak"
+license = "EUPL-1.2"
+evidence = "LICENSE.md (EUPL v. 1.2) at tag 1.28.0"
+
+[[components]]
+name = "PostGIS"
+repo = "https://github.com/postgis/postgis"
+license = "GPL-2.0-or-later"
+evidence = "COPYING (GPLv2) at tag 3.5.0; project states GPLv2 or later (known); image postgis/postgis:17-3.5"
+
+[[components]]
+name = "Redis"
+repo = "https://github.com/redis/redis"
+license = "AGPL-3.0-only OR SSPL-1.0 OR LicenseRef-RSALv2"
+evidence = "LICENSE.txt at tag 8.2.2; our override pins redis:8.2.2 instead of upstream's redis:7 (7.4.11: RSALv2 or SSPLv1 only)"
+
+[[components]]
+name = "Docker Engine (dockerd)"
+repo = "https://github.com/moby/moby"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); static bundle docker-29.9.1.tgz, manifest valtimo.tooling"
+
+[[components]]
+name = "Docker CLI"
+repo = "https://github.com/docker/cli"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "containerd"
+repo = "https://github.com/containerd/containerd"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "runc"
+repo = "https://github.com/opencontainers/runc"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "Docker Compose"
+repo = "https://github.com/docker/compose"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); v5.6.0, manifest valtimo.tooling"
+
+[[components]]
+name = "Ubuntu 24.04 LTS (guest VM)"
+repo = "https://cloud-images.ubuntu.com/releases/noble/release-20260911/"
+license = "NOASSERTION"
+evidence = "a distribution of many packages, each under its own licence; no single licence"
