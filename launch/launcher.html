@@ -302,6 +302,25 @@ function clock(t) {
   return new Date(t * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 }
 
+// BEGIN progress texts
+// The step's time and the estimate. When it will be ready (#235): what is
+// left of this step plus the steps after it, as they went last time on this
+// machine. Once the step takes longer than last time there is no estimate:
+// it said "nog ongeveer 2 min" for 50 minutes on the Dell (#279). Whether
+// something still happens, "laatste activiteit" tells.
+function progressTexts(elapsed, exp, rest, now) {
+  if (!exp) return { time: `${dur(elapsed)} bezig`, eta: null };
+  if (elapsed <= exp * 1.15) {
+    const time = `${dur(elapsed)} van ongeveer ${dur(exp)}`;
+    if (rest === "" || rest == null) return { time, eta: null };
+    const left = Math.max(exp - elapsed, 30) + +rest;
+    return { time, eta: `nog ongeveer ${dur(left)} · klaar rond ${clock(now + left)}` };
+  }
+  return { time: `${dur(elapsed)} bezig; vorige keer duurde deze stap ${dur(exp)}.`,
+           eta: rest === "" || rest == null ? null : "duurt langer dan vorige keer; geen schatting" };
+}
+// END progress texts
+
 function tick() {
   const now = Date.now() / 1000;
   for (const box of document.querySelectorAll(".auto[data-auto-at]")) {
@@ -320,20 +339,13 @@ function tick() {
     ob.firstChild.style.width = (overall * 100).toFixed(1) + "%";
     ob.setAttribute("aria-valuenow", Math.round(overall * 100));
     if (exp) sb.firstChild.style.width = (frac * 100).toFixed(1) + "%";
-    let t;
-    if (!exp) t = `${dur(elapsed)} bezig`;
-    else if (elapsed <= exp * 1.15) t = `${dur(elapsed)} van ongeveer ${dur(exp)}`;
-    else t = `${dur(elapsed)} bezig; vorige keer duurde deze stap ${dur(exp)}. Nog even geduld, het loopt nog.`;
+    const pt = progressTexts(elapsed, exp, box.dataset.rest, now);
+    let t = pt.time;
     const act = +box.dataset.activity, started = +box.dataset.started;
     if (act && act >= started - 5) t += ` · laatste activiteit ${dur(now - act)} geleden`;
     box.querySelector(".ptime").textContent = t;
     if (box.dataset.since) box.querySelector(".psince").textContent = "bezig sinds " + dur(now - +box.dataset.since);
-    // When it will be ready (#235): what is left of this step plus the
-    // steps after it, as they went last time on this machine.
-    if (box.dataset.rest !== "" && exp) {
-      const left = Math.max(exp - elapsed, 30) + +box.dataset.rest;
-      box.querySelector(".peta").textContent = `nog ongeveer ${dur(left)} · klaar rond ${clock(now + left)}`;
-    }
+    if (pt.eta !== null) box.querySelector(".peta").textContent = pt.eta;
   }
 }
 setInterval(tick, 1000);
