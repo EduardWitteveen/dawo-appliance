@@ -55,6 +55,25 @@ let
     done
   '';
 
+  # The Docker environments (Valtimo, Tezza, Nextcloud Common Ground) on the
+  # guest's shared engine (#274): every container with its state, and the log
+  # of each one that exited, restarts or is unhealthy (Open Zaak in Tezza
+  # never answered on the Dell run of 23 October, and nothing said why).
+  dockerLogs = pkgs.writeText "dawo-docker-logs.sh" ''
+    d=/opt/dawo-docker/bin/docker; sock=unix:///run/dawo-docker.sock
+    [ -x "$d" ] || { echo "(no dawo-docker in the guest)"; exit 0; }
+    "$d" -H "$sock" info >/dev/null 2>&1 || { echo "(Docker Engine is not running)"; exit 0; }
+    "$d" -H "$sock" ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>&1
+    # Only the environment that runs: the parked ones are Exited too.
+    running="$("$d" -H "$sock" ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | sort -u | tr '\n' ' ')"
+    "$d" -H "$sock" ps -a --format '{{.Label "com.docker.compose.project"}} {{.Names}} {{.Status}}' 2>/dev/null \
+      | grep -E ' (Exited|Restarting|Created|Dead)|unhealthy' | while read -r project name _; do
+      case " $running " in *" $project "*) ;; *) continue ;; esac
+      echo "-- $name (log, last 40 lines)"
+      "$d" -H "$sock" logs --tail 40 "$name" 2>&1 | tail -n 40
+    done
+  '';
+
   collect = pkgs.writeShellApplication {
     name = "dawo-appliance-logs-collect";
     runtimeInputs = with pkgs; [ util-linux coreutils gnugrep gawk procps systemd openssh dmidecode pciutils networkmanager iproute2 curl ];
@@ -180,6 +199,11 @@ let
           echo "== nextcloud log (errors and fatals, latest 20)"
           timeout 60 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
             -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 sudo bash -s < ${nextcloudLog} 2>&1 || true
+          echo "== docker containers (Valtimo, Tezza, Nextcloud Common Ground)"
+          timeout 60 ssh -i "$key" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+            -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR ops@192.168.150.10 sudo bash -s < ${dockerLogs} 2>&1 || true
+          # This guest boot as well, not only the previous one (#274).
+          echo "== guest this boot (tail)"; g sudo journalctl -b 0 -n 150 --no-pager 2>&1 || true
           echo "== cloud-init-output.log (tail)"; g sudo tail -n 300 /var/log/cloud-init-output.log 2>&1 || true
           # If the guest rebooted on its own, its previous boot says why (#119).
           echo "== guest boots"; g sudo journalctl --list-boots --no-pager 2>&1 | tail -n 5 || true
