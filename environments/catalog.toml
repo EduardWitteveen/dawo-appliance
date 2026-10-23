@@ -1,11 +1,11 @@
 # The catalogue of environments that Launch can start (ADR 0008,
 # docs/adr/0008-launch-environments.md).
 #
-# One [[environment]] entry per environment (Mijn Bureau, Valtimo, Open Zaak,
-# ...). Each is described in <path>/environment.toml (format:
-# environments/README.md). Ids are the product's own name, lowercase, words
-# joined by hyphens, and never change. A release freezes this file and every
-# environment.toml it points to.
+# One [[environment]] entry per environment, in the order the Launcher shows
+# them and the round starts them (#270). Each is described in
+# <path>/environment.toml (format: environments/README.md). Ids are the
+# product's own name, lowercase, words joined by hyphens, and never change. A
+# release freezes this file and every environment.toml it points to.
 
 schema = 1
 
@@ -14,13 +14,13 @@ id = "mijn-bureau"
 path = "mijn-bureau"
 
 [[environment]]
-id = "valtimo"
-path = "valtimo"
+id = "tezza"
+path = "tezza"
 
 [[environment]]
 id = "nextcloud-commonground"
 path = "nextcloud-commonground"
 
 [[environment]]
-id = "tezza"
-path = "tezza"
+id = "valtimo"
+path = "valtimo"
