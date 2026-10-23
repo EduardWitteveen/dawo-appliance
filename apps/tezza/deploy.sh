@@ -209,13 +209,24 @@ phase_up() {
 # answer. Bounded: 30 minutes (the first start creates the repository).
 phase_ready() {
   log "wait until Tezza is ready"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: wait for :8181 realm tezza, :8080 Alfresco readiness, :8082"; return 0; fi
-  local waited=0 url
-  for url in http://localhost:8181/auth/realms/tezza \
-             http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready- \
-             http://localhost:8082/              http://localhost:8000/admin/; do
-    until curl -fsS -o /dev/null --max-time 5 "${url}"; do
-      [[ "${waited}" -ge 1800 ]] && die "${url} does not answer after ${waited}s"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: wait for :8181 realm tezza, :8080 Alfresco readiness, :8082, :8000 Open Zaak"; return 0; fi
+  # One line a minute instead of curl's error every 5 s: the launcher shows
+  # the last line, and "curl: (7) ..." told the user nothing (#268). When a
+  # service does not answer in time, the log gets the containers and that
+  # service's log, so the cause is on the stick.
+  local timeout="${TZ_READY_TIMEOUT:-1800}" waited=0 entry url svc name
+  for entry in "identity Keycloak http://localhost:8181/auth/realms/tezza" \
+               "platform Alfresco http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-" \
+               "app-tezza Tezza http://localhost:8082/" \
+               "openzaak Open-Zaak http://localhost:8000/admin/"; do
+    read -r svc name url <<<"${entry}"
+    until curl -fs -o /dev/null --max-time 5 "${url}"; do
+      if [[ "${waited}" -ge "${timeout}" ]]; then
+        echo "== containers"; compose ps -a 2>&1 || true
+        echo "== ${svc} (log, last 60 lines)"; compose logs --no-color --tail 60 "${svc}" 2>&1 || true
+        die "${url} does not answer after ${waited}s"
+      fi
+      [[ "${waited}" -gt 0 && $((waited % 60)) -eq 0 ]] && info "waiting for ${name//-/ } (${url}), ${waited}s"
       sleep 5; waited=$((waited + 5))
     done
     info "${url} answers (${waited}s)"
