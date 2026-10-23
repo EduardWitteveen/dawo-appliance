@@ -69,18 +69,76 @@ let
         (p "links: each needs a title and a url")
       ++ lib.optional (env ? notice && (!(isStr (env.notice.title or null)) || !(isStr (env.notice.text or null))
            || !(builtins.isInt (env.notice.seconds or 60)) || !(builtins.elem (env.notice.level or "info") [ "info" "danger" ])))
-        (p "notice: needs a title and a text; seconds an integer; level info or danger");
+        (p "notice: needs a title and a text; seconds an integer; level info or danger")
+      ++ lib.optional (!(builtins.isList (env.components or [ ]))
+           || lib.any (c: !(isStr (c.name or null)) || !(isStr (c.repo or null)) || !(isStr (c.license or null))) (env.components or [ ]))
+        (p "components: each needs a name, a repo and a license");
+
+  # The licences of an environment's components, per repository (#273):
+  # how many are open source and under which licence, how many have no
+  # licence file (NOASSERTION), and which are explicitly not open source
+  # (LicenseRef-proprietary). green / yellow / red for the card.
+  licences = comps:
+    let
+      proprietary = lib.filter (c: lib.hasPrefix "LicenseRef-proprietary" c.license) comps;
+      unknown = lib.filter (c: c.license == "NOASSERTION") comps;
+      open = lib.filter (c: c.license != "NOASSERTION" && !(lib.hasPrefix "LicenseRef-proprietary" c.license)) comps;
+      counts = lib.foldl' (acc: c: acc // { ${c.license} = (acc.${c.license} or 0) + 1; }) { } open;
+    in
+    {
+      total = lib.length comps;
+      open = lib.length open;
+      unknown = lib.length unknown;
+      proprietary = map (c: c.name) proprietary;
+      inherit counts;
+      level = if proprietary != [ ] then "red" else if unknown != [ ] then "yellow" else "green";
+    };
+  # Red only when something is explicitly not open source (#273): then the
+  # environment shows a notice before it starts, unless it has its own.
+  proprietaryNotice = l: {
+    title = "Niet alles is open source";
+    level = "danger";
+    seconds = 30;
+    text = "Deze omgeving bevat onderdelen die uitdrukkelijk niet open source zijn: "
+      + lib.concatStringsSep ", " l.proprietary + ". "
+      + "Van de ${toString l.total} onderdelen (per broncode-repository) zijn er ${toString l.open} open source"
+      + lib.optionalString (l.unknown > 0) " en hebben er ${toString l.unknown} geen licentiebestand"
+      + ". De software wordt pas bij het starten gedownload, rechtstreeks bij de leverancier.";
+  };
+  withLicences = env:
+    if !(env ? components) then env
+    else
+      let l = licences env.components; in
+      env // { licences = l; }
+      // lib.optionalAttrs (l.level == "red" && !(env ? notice)) { notice = proprietaryNotice l; };
 
   ids = map (e: e.id or "") entries;
   problems =
     lib.optional ((catalogToml.schema or null) != 1) "environments/catalog.toml: schema must be 1"
     ++ lib.optional (entries == [ ]) "environments/catalog.toml: no [[environment]] entries"
     ++ lib.optional (lib.length (lib.unique ids) != lib.length ids) "environments/catalog.toml: duplicate ids"
-    ++ lib.concatMap envProblems envs;
+    ++ lib.concatMap envProblems envs
+    ++ licenceSelfTest;
+
+  # The colour rule of #273 on made-up components.
+  licenceSelfTest =
+    let
+      c = license: { name = license; repo = "r"; inherit license; };
+      green = licences [ (c "EUPL-1.2") (c "Apache-2.0") (c "EUPL-1.2") ];
+      yellow = licences [ (c "EUPL-1.2") (c "NOASSERTION") ];
+      red = withLicences { components = [ (c "EUPL-1.2") (c "NOASSERTION") (c "LicenseRef-proprietary-x") ]; };
+      own = withLicences { components = [ (c "LicenseRef-proprietary") ]; notice = { title = "eigen"; }; };
+    in
+    lib.optional (green.level != "green" || green.counts != { "EUPL-1.2" = 2; "Apache-2.0" = 1; } || green.open != 3)
+      "launch.nix self-test: all open source must be green with counts per licence"
+    ++ lib.optional (yellow.level != "yellow" || yellow.unknown != 1) "launch.nix self-test: no licence file must be yellow"
+    ++ lib.optional (red.licences.level != "red" || red.notice.level != "danger" || red.licences.proprietary != [ "LicenseRef-proprietary-x" ])
+      "launch.nix self-test: a proprietary component must be red and get a danger notice"
+    ++ lib.optional (own.notice.title != "eigen") "launch.nix self-test: an environment's own notice wins";
 
   catalog = {
     schema = 1;
-    environments = map ({ e, env, ... }: env // { path = "environments/${e.path}"; }) envs;
+    environments = map ({ e, env, ... }: withLicences env // { path = "environments/${e.path}"; }) envs;
   };
   json = pkgs.writeText "launch-catalog.json" (builtins.toJSON catalog);
 

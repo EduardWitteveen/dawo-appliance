@@ -79,6 +79,7 @@ pinned by revision and SHA-256 (a supplier publishing its own environment).
 | `notice.title`, `notice.text` | string | Optional: shown before the environment starts (Launcher card and `launch`), for example its terms when its license is not known (#261) |
 | `notice.seconds` | integer | Optional: how long the Launcher shows it before starting (default 60); "Nu starten" and "Niet starten" end it |
 | `notice.level` | `info` or `danger` | Optional: `danger` shows it in red |
+| `components` | list of tables | Optional (#273): what runs, one entry per source repository, each `name`, `repo`, `license` (SPDX identifier; `NOASSERTION` when the repository has no licence file; `LicenseRef-proprietary` when it is explicitly not open source) and `evidence` (where that was found). The Launcher card shows the share per licence: green when all are open source, yellow when some have no licence file, red when something is explicitly not open source; red also shows a notice before the start, unless the environment has its own |
 | `links` | list of tables | Optional: what runs next to it, each `title`, `url` and an optional `login`; the Launcher lists them on the card once the environment is ready |
 
 **Versions:** one version per environment at a time. Updating is a pull
