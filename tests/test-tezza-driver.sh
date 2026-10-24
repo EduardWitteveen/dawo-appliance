@@ -108,12 +108,13 @@ bad = []
 for svc in ("openzaak", "openzaak-celery"):
     b = block(svc)
     if "restart: on-failure" not in b: bad.append(f"{svc}: no restart: on-failure")
-    if "condition: service_healthy" not in b: bad.append(f"{svc}: does not wait for a healthy openzaak-db")
-if "pg_isready" not in block("openzaak-db"): bad.append("openzaak-db: no pg_isready healthcheck")
+    # No blocking condition: it held up `compose up` and then failed it
+    # (Dell run of 24 October).
+    if "condition: service_healthy" in b: bad.append(f"{svc}: compose up waits for a healthy database")
 print("OK" if not bad else "; ".join(bad))
 EOF
 )"
-if [[ "${res}" == OK ]]; then ok "Open Zaak waits for a healthy database and restarts after a failure"; else bad "${res}"; fi
+if [[ "${res}" == OK ]]; then ok "Open Zaak restarts after a failure and does not hold up compose up"; else bad "${res}"; fi
 
 echo
 echo "test-tezza-driver: ${pass} passed, ${fail} failed"
