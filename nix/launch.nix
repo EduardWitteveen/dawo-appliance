@@ -137,21 +137,12 @@ let
           "Alles is open source: je kunt het zelf blijven draaien en verder ontwikkelen, ook zonder de leverancier.";
       classes = map (c: { inherit (c) name; class = classOf c; }) comps;
     };
-  # Red (something is closed): a notice before the start, unless the
-  # environment has its own.
-  proprietaryNotice = l: {
-    title = "Niet alles is open source";
-    level = "danger";
-    seconds = 30;
-    text = l.reason + "\n\nVan de ${toString l.total} onderdelen (per broncode-repository) zijn er ${toString l.open} open source. "
-      + "De software wordt pas bij het starten gedownload, rechtstreeks bij de leverancier.";
-  };
+  # The licences go on the card only: red starts like every other
+  # environment, without a notice to click away (the maintainer, 24 October:
+  # the card already says it is red, and opens for the details).
   withLicences = env:
     if !(env ? components) then env
-    else
-      let l = licences env.components; in
-      env // { licences = l; }
-      // lib.optionalAttrs (l.level == "red" && !(env ? notice)) { notice = proprietaryNotice l; };
+    else env // { licences = licences env.components; };
 
   ids = map (e: e.id or "") entries;
   problems =
@@ -176,8 +167,8 @@ let
     ++ lib.optional (yellow.level != "yellow" || yellow.unknown != [ "NOASSERTION" ]) "launch.nix self-test: no licence must be yellow"
     ++ lib.optional (restricted.level != "yellow" || restricted.restricted != [ "LicenseRef-RSALv2 OR SSPL-1.0" "MIT AND SSPL-1.0" ])
       "launch.nix self-test: source-available only must be restricted (yellow)"
-    ++ lib.optional (red.licences.level != "red" || red.notice.level != "danger" || red.licences.closed != [ "LicenseRef-proprietary-x" ])
-      "launch.nix self-test: a proprietary component must be red and get a danger notice"
+    ++ lib.optional (red.licences.level != "red" || red ? notice || red.licences.closed != [ "LicenseRef-proprietary-x" ])
+      "launch.nix self-test: a proprietary component must be red, without a notice before the start"
     ++ lib.optional (own.notice.title != "eigen") "launch.nix self-test: an environment's own notice wins";
 
   catalog = {
