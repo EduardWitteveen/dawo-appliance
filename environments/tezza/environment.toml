@@ -1,9 +1,9 @@
 # The Tezza environment (ADR 0008, #261). Format: environments/README.md.
 #
-# Contezza's own demo setup: tezza-packaging (pinned by commit), the document
-# base of its docker-compose.yml (Alfresco with Tezza, Share, Keycloak, LDAP),
-# started in the guest with one override file of ours (compose/override.yaml:
-# digests, memory limits, the app's dependency on the ZGW part we leave out).
+# Contezza's own demo setup: tezza-packaging (pinned by commit), the complete
+# product of its docker-compose.yml (Alfresco with Tezza, Share, Keycloak,
+# LDAP, GZAC, Open Zaak, Notificaties, Objecten), started in the guest with one
+# override file of ours (compose/override.yaml: digests and a few fixes).
 # Nothing of Tezza is in the image or this repository: it is downloaded from
 # Contezza when the user starts it, after the notice below.
 
@@ -13,7 +13,7 @@ id = "tezza"
 # What the user sees on the card (Dutch, for the target audience).
 title = "Tezza"
 summary = "Documenten en archief beheren: dossiers, documenttypen en metadata, op Alfresco."
-version = "Tezza 4.15.1 (demo)"
+version = "Tezza 4.15.2 (demo)"
 url = "http://localhost:8082/"
 login = "launcher / launcher (of admin / admin)"
 # Not demonstrably open source (#261): no license in the source repositories.
@@ -32,12 +32,12 @@ De software wordt pas nu gedownload, rechtstreeks bij Contezza; in deze werkplek
 
 [source]
 repo = "https://git.contezza.nl/community/tezza-packaging"
-rev = "53ad698ca69eb961c89d2ce28c11073166759485"
+rev = "fee347967f7f412289ef27a91653e0baa6b5246a"
 # The same pin as manifest/appliance-manifest.json upstream.tezza_packaging.
 manifest = "tezza_packaging"
 
 [needs]
-memory_gib = 16 # the document base takes about 9-11 GiB in the guest
+memory_gib = 16 # the complete product took about 12 GiB in a local test (24 October)
 cpus = 4
 disk_gib = 20 # images (about 6 GB) and the repository on DAWO_LOGS
 kvm = true
@@ -56,6 +56,11 @@ url = "http://localhost:8082/"
 [[links]]
 title = "Tezza beheer (Admin Tools)"
 url = "http://localhost:8084/"
+login = "launcher / launcher of admin / admin"
+
+[[links]]
+title = "Open Zaak beheer"
+url = "http://localhost:8000/admin/"
 login = "launcher / launcher of admin / admin"
 
 [[links]]
