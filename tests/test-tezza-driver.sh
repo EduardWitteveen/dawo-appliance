@@ -124,6 +124,16 @@ if grep -q 'SPRING_PROFILES_ACTIVE: "localhost,dev"' <<<"${gz}" && grep -q 'SERV
 else
   bad "gzac-backend: dev profile without SERVER_PORT 8080 (its port moves to 9092): ${gz}"
 fi
+# The roles in GZAC (ROLE_USER, ...) come from the authorization profiles,
+# which upstream's README says to publish after the setup; unpublished, and
+# without launcher in them, 'Mijn taken' and 'Processen' answered 403 (local
+# test of 24 October).
+ap="$(awk '/^  authorization-profiles:/{f=1; print; next} f && /^  [a-z]/{exit} f' environments/tezza/compose/override.yaml)"
+if grep -q 'dawo.users.json:/app/default.users.json' <<<"${ap}"    && grep -q '/publish?preview=false' apps/tezza/deploy.sh    && grep -q '"launcher"' <(sed -n '/^ap_users()/,/^}/p' apps/tezza/deploy.sh); then
+  ok "the authorization profiles are published, with launcher wherever admin is"
+else
+  bad "authorization profiles: not published, or launcher not in them"
+fi
 
 echo
 echo "test-tezza-driver: ${pass} passed, ${fail} failed"
