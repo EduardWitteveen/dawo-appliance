@@ -27,6 +27,8 @@
   .lead { color: var(--muted); margin: 0 0 28px; }
   .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card.blocked, .cycle.blocked { opacity: .5; }
+  .offline { max-width: 1060px; margin: 12px auto 0; padding: 8px 12px; border-radius: 8px; background: #fff3cd; color: #5c4400; }
+  .round-note { font-size: .9rem; color: var(--muted); margin: 6px 0; }
   .blocked-note { font-size: .9rem; color: var(--muted); margin: 6px 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
           padding: 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -96,6 +98,7 @@
 </style>
 </head>
 <body>
+<p id="offline" class="offline" hidden>De Launcher reageert even niet; we proberen het opnieuw.</p>
 <main>
   <h1>Launcher</h1>
   <p class="lead">Kies een omgeving om te proberen. De eerste keer duurt starten lang (alles wordt gedownload: reken op een half uur tot een uur); daarna gaat het veel sneller. Hieronder zie je steeds bij welke stap het is.</p>
@@ -109,6 +112,11 @@ const TOKEN = "__LAUNCHER_TOKEN__";
 const STATE = { ready: "Klaar", starting: "Wordt gestart…", stopped: "Niet actief", failed: "Starten mislukt" };
 const busy = {};
 let acting = false;
+// What was just pressed (#284), shown at once until the server agrees, so
+// there is no state in between: {id, verb, from, at} for a card, and
+// {active, at} for the round.
+let INTENT = null, ROUND_INTENT = null;
+let lastAnswer = Date.now() / 1000;  // the last time the Launcher answered
 
 function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
@@ -124,14 +132,17 @@ async function act(verb, env) {
       !confirm("Let op:\n\n" + env.problems.join("\n\n") + "\n\nToch starten?")) return;
   if (acting) return;
   acting = true;  // one start or stop at a time (#257)
-  busy[env.id] = { start: "Wordt gestart…", "start-now": "Wordt gestart…", stop: "Wordt gestopt…", cancel: "" }[verb];
+  if (verb !== "cancel") INTENT = { id: env.id, verb, from: env.state, at: Date.now() / 1000 };
+  busy[env.id] = "";
   render(lastData);
   try {
     const r = await fetch(`/api/${verb}/${env.id}`, { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
     const j = await r.json();
-    busy[env.id] = j.ok ? "" : j.busy ? j.output : ("Dat lukte niet: " + (j.output || j.code));
+    // What launch says, in its own (Dutch) words; never a program's error.
+    if (!j.ok) { INTENT = null; busy[env.id] = j.busy ? j.output : (j.output || "Dat lukte niet."); }
   } catch (e) {
-    busy[env.id] = "Dat lukte niet: " + e;
+    // No answer while it starts (the Launcher is busy): the state shows what
+    // happens; refresh() asks again and says so when it takes too long.
   }
   acting = false;
   render(lastData);
@@ -166,6 +177,23 @@ function noticeBlock(env) {
       el("button", { onclick: () => act("cancel", env) }, "Niet starten")));
 }
 
+// The data as the page shows it: what was just pressed applied, until the
+// server agrees (or after two minutes).
+function view(data) {
+  const now = Date.now() / 1000;
+  if (INTENT && now - INTENT.at > 120) INTENT = null;
+  return data.map(e => {
+    if (!INTENT || INTENT.id !== e.id) return e;
+    if (INTENT.verb === "stop") {
+      if (e.state !== "stopped") return { ...e, stopping: true };
+    } else if (e.state === INTENT.from && !e.pending) {
+      return { ...e, state: "starting", progress: null };
+    }
+    INTENT = null;
+    return e;
+  });
+}
+
 // BEGIN active environment
 // One environment at a time (ADR 0008, #284): the one that is not stopped,
 // or waits for its notice. While it is there the other cards are greyed out
@@ -187,7 +215,9 @@ function card(env, active) {
   // Greyed out: every card but the active one. Openen is no control, so the
   // active environment opens when it is ready, also while the round runs.
   const blocked = !!active ? !isActive : round;
-  if (round) {
+  if (env.stopping) {
+    // being stopped: nothing to press until it is
+  } else if (round) {
     // the round's own button stops it; only Openen
     if (env.state === "ready") actions.append(el("a", { class: "button primary", href: env.url, target: "_blank", rel: "noopener" }, "Openen"));
   } else if (env.pending) {
@@ -208,13 +238,14 @@ function card(env, active) {
   const warn = env.state === "stopped" && env.problems.length
     ? el("div", { class: "warn" }, "Let op:", el("ul", {}, ...env.problems.map(p => el("li", {}, p))))
     : null;
-  return el("section", { class: blocked ? "card blocked" : "card", "aria-label": env.title },
+  const section = el("section", { class: blocked ? "card blocked" : "card", "aria-label": env.title },
     el("div", { class: "head" },
       el("div", { class: "logo", "aria-hidden": "true" }, env.title.charAt(0)),
       el("div", {}, el("p", { class: "title" }, env.title), el("span", { class: "version" }, env.version))),
     el("p", { class: "summary" }, env.summary),
-    el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
-    env.state === "starting" ? progressBlock(env) : null,
+    el("div", { class: "state " + (env.stopping ? "starting" : env.state) }, el("span", { class: "dot" }),
+       env.stopping ? "Wordt gestopt…" : (STATE[env.state] || env.state)),
+    env.state === "starting" && !env.stopping ? progressBlock(env) : null,
     env.state === "failed" && !env.pending
       ? el("p", { class: "failed-text" }, ((env.progress || {}).error || "Het starten is niet gelukt.") + " ",
           env.answers ? el("a", { href: env.url, target: "_blank", rel: "noopener" }, "Openen wat wel werkt") : null) : null,
@@ -230,12 +261,26 @@ function card(env, active) {
             el("a", { href: l.url, target: "_blank", rel: "noopener" }, l.title),
             l.login ? el("span", { class: "linklogin" }, " · " + l.login) : null))))
       : null,
-    round && isActive ? el("p", { class: "blocked-note" }, "Gestart door de rondgang; stoppen gaat met 'Rondgang stoppen'.")
-      : round ? el("p", { class: "blocked-note" }, "De rondgang loopt: stop eerst de rondgang.")
-      : blocked && env.state === "stopped"
-        ? el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${active.title}.`) : null,
+    round && isActive ? el("p", { class: "round-note" }, "Gestart door de rondgang.") : null,
     el("div", { class: "message" }, busy[env.id] || ""),
     actions);
+  return blocked ? inert(section, env, round) : section;
+}
+
+// Grey means inert (#284): what the card is, nothing to do with it. Lists
+// that unfold become a plain line, links plain text, buttons go; one
+// exception: a second environment that runs anyway keeps its Stoppen.
+function inert(section, env, round) {
+  for (const d of [...section.querySelectorAll("details")]) {
+    const s = d.querySelector("summary");
+    d.replaceWith(el("p", { class: d.className + " folded" }, s ? s.textContent : ""));
+  }
+  for (const a of [...section.querySelectorAll("a")]) a.replaceWith(a.textContent);
+  const keepStop = !round && env.state !== "stopped";
+  for (const b of [...section.querySelectorAll("button")]) {
+    if (!(keepStop && b.textContent === "Stoppen")) b.remove();
+  }
+  return section;
 }
 
 // "1 min 20 s", "7 min", "45 s"
@@ -285,6 +330,8 @@ function clock(t) {
 
 function tick() {
   const now = Date.now() / 1000;
+  const off = document.getElementById("offline");
+  if (off) off.hidden = now - lastAnswer < 30;
   for (const box of document.querySelectorAll(".auto[data-auto-at]")) {
     const left = Math.max(0, Math.ceil(+box.dataset.autoAt - now));
     const t = box.querySelector(".auto-text"), what = t.dataset.what;
@@ -322,6 +369,7 @@ setInterval(tick, 1000);
 let lastData = [];
 function render(data) {
   const grid = document.getElementById("grid");
+  data = view(data);
   const active = activeEnv(data);
   const changed = (ACTIVE_ENV && ACTIVE_ENV.id) !== (active && active.id);
   ACTIVE_ENV = active;
@@ -340,6 +388,7 @@ async function refresh() {
     // often: it is updated in place (#235).
     const stable = JSON.stringify(data, (k, v) => (k === "detail" || k === "activity" ? undefined : v));
     lastData = data;
+    lastAnswer = Date.now() / 1000;
     if (stable === lastJson) {
       for (const env of data) {
         const box = env.progress && document.querySelector(`.progress[data-id="${env.id}"]`);
@@ -357,6 +406,13 @@ setInterval(refresh, 5000);
 // The round (#251): every environment in turn, as a test that runs by itself.
 const title = id => (lastData.find(e => e.id === id) || {}).title || id || "";
 async function cycleAct(verb) {
+  if (verb === "start" || verb === "stop") {
+    const on = verb === "start";
+    ROUND_INTENT = { active: on, at: Date.now() / 1000 };
+    ROUND_ACTIVE = on;
+    renderCycle({ ...(lastCycleData || {}), available: true, active: on, round: (lastCycleData || {}).round || 1, phase: on ? "pause" : "", until: 0 });
+    render(lastData);
+  }
   try {
     await fetch(`/api/cycle/${verb}`, { method: "POST", headers: { "X-Launcher-Token": TOKEN } });
   } catch (e) { /* the next refresh shows the state */ }
@@ -383,10 +439,9 @@ function renderCycle(c) {
         el("span", { class: "auto-text", "data-what": "De rondgang" }, "Start automatisch…"),
         el("button", { onclick: cancelAuto }, "Niet automatisch starten")));
     }
-    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start"), ...(ACTIVE_ENV ? { disabled: "" } : {}) }, "Rondgang nu starten")));
-    if (ACTIVE_ENV) kids.push(el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${ACTIVE_ENV.title}.`));
+    kids.push(el("div", { class: "actions" }, ACTIVE_ENV ? null : el("button", { onclick: () => cycleAct("start") }, "Rondgang nu starten")));
   }
-  if (c.can_persist) {
+  if (c.can_persist && !(ACTIVE_ENV && !c.active)) {
     // A marker on the stick: the round begins at once at the next start-up too.
     kids[kids.length - 1].append(el("button", { onclick: () => cycleAct(c.persisted ? "persist-off" : "persist-on") },
       c.persisted ? "Na herstart meteen verder: aan (uitzetten)" : "Na herstart meteen verder: uit (aanzetten)"));
@@ -419,6 +474,9 @@ async function refreshCycle() {
     if (text === lastCycle) return;
     lastCycle = text;
     const c = JSON.parse(text);
+    // Until the server agrees with what was just pressed (or a minute on).
+    if (ROUND_INTENT && Date.now() / 1000 - ROUND_INTENT.at < 60 && !!c.active !== ROUND_INTENT.active) { lastCycle = ""; return; }
+    ROUND_INTENT = null;
     const was = ROUND_ACTIVE;
     ROUND_ACTIVE = !!c.active;
     renderCycle(c);
