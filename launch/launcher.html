@@ -183,9 +183,13 @@ let ACTIVE_ENV = null;      // from /api/environments
 function card(env, active) {
   const actions = el("div", { class: "actions" });
   const round = ROUND_ACTIVE;
-  const blocked = round || (!!active && active.id !== env.id);
+  const isActive = !!active && active.id === env.id;
+  // Greyed out: every card but the active one. Openen is no control, so the
+  // active environment opens when it is ready, also while the round runs.
+  const blocked = !!active ? !isActive : round;
   if (round) {
-    // the round's own button stops it
+    // the round's own button stops it; only Openen
+    if (env.state === "ready") actions.append(el("a", { class: "button primary", href: env.url, target: "_blank", rel: "noopener" }, "Openen"));
   } else if (env.pending) {
     // the notice block carries the buttons
   } else if (env.state === "stopped") {
@@ -226,7 +230,8 @@ function card(env, active) {
             el("a", { href: l.url, target: "_blank", rel: "noopener" }, l.title),
             l.login ? el("span", { class: "linklogin" }, " · " + l.login) : null))))
       : null,
-    round ? el("p", { class: "blocked-note" }, "De rondgang loopt: stop eerst de rondgang.")
+    round && isActive ? el("p", { class: "blocked-note" }, "Gestart door de rondgang; stoppen gaat met 'Rondgang stoppen'.")
+      : round ? el("p", { class: "blocked-note" }, "De rondgang loopt: stop eerst de rondgang.")
       : blocked && env.state === "stopped"
         ? el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${active.title}.`) : null,
     el("div", { class: "message" }, busy[env.id] || ""),
