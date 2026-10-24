@@ -3,7 +3,7 @@
 # Offline test for "one environment at a time" on the launcher page (#284):
 # while one environment is not stopped (or waits for its notice), it is the
 # active one and the other cards are greyed out and cannot be started.
-# Runs activeEnv() (between "BEGIN active environment" and "END active
+# The round (#284 follow-up) too. Runs activeEnv() (between "BEGIN active environment" and "END active
 # environment" in launch/launcher.html) in Node, and checks that card() uses
 # it. Skips without Node.
 #
@@ -31,6 +31,13 @@ ok((activeEnv([env("a", "stopped", true), env("b", "stopped")]) || {}).id === "a
 ok(/const blocked = !!active && active\.id !== env\.id/.test(html), "card() greys out every card but the active one");
 ok(/acting \|\| blocked \? \{ disabled: "" \}/.test(html), "a blocked card's Starten is disabled");
 ok(/stop eerst \$\{active\.title\}/.test(html), "a blocked card says which one to stop first");
+// The round: while it runs only its own Stop works; while an environment runs it cannot start.
+ok(/const blocked = round \|\| \(!!active && active\.id !== env\.id\)/.test(html), "while the round runs every card is greyed out");
+ok(/if \(round\) \{\s*\/\/ the round's own button stops it\s*\} else/.test(html), "while the round runs a card has no buttons");
+ok(/De rondgang loopt: stop eerst de rondgang\./.test(html), "a card says the round has to be stopped first");
+ok(/cycleAct\("start"\), \.\.\.\(ACTIVE_ENV \? \{ disabled: "" \} : \{\}\)/.test(html), "while an environment runs the round cannot be started");
+ok(/if \(was !== ROUND_ACTIVE\) \{ lastJson = ""; refresh\(\); \}/.test(html) && /if \(changed && lastCycleData\) renderCycle\(lastCycleData\)/.test(html),
+   "the cards and the round's box redraw each other when either changes");
 console.log(`\ntest-launcher-active: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
 EOF
