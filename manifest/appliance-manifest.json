@@ -2,7 +2,7 @@
   "schema_version": "0.1.0",
   "appliance": {
     "name": "dawo-appliance",
-    "version": "0.1.0-rc.1",
+    "version": "0.1.0-rc.2",
     "license": "EUPL-1.2",
     "official": false,
     "description": "Experimental, unofficial demo appliance for a digitally autonomous government workplace."

@@ -4,6 +4,27 @@ All notable changes to the DAWO appliance. The format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+## [0.1.0-rc.2] - 2026-10-24
+
+Second release candidate, for Willem's Tezza demo of 26 October. Built from the integration branch `integ/demo-willem`: the pull requests below are not yet merged into `main` (they wait for a green KVM run). Tested on the Dell Latitude 5550 from the USB SSD on 24 October (Tezza with Súdwest-Fryslân's case types from zero, about 1 h 45 min the first time).
+
+### Added
+- **Tezza complete, as Contezza ships it** (tezza-packaging 4.15.2): Alfresco, GZAC, Open Zaak, Open Notificaties and Objecten, so Tezza registers and handles cases (#268, D49).
+- **Súdwest-Fryslân's own case types** (OpenZaakBrug's Open Zaak export, 86 published case types) loaded into Open Zaak at start, and a Dutch runbook for the demo with three scenarios: `docs/demo-tezza.md` (#286, D50).
+- **Licence overview per repository** on every card of the Launcher, for all four environments: green, orange or red in one line, the parts and their licences to unfold; no notice to click away (#273).
+- **Haal Centraal** (the RvIG's BRP test API with fictional people) as a small environment to try the Launcher in seconds, with a browser test of the Launcher's behaviour (#284).
+
+### Changed
+- **The Launcher is unambiguous** (`docs/launcher-behaviour.md`): nothing runs, one environment runs, or the round runs. While one runs, the other cards are grey and do nothing; while the round runs only *Rondgang stoppen* works, and it also stops the environment the round is at. *Openen* stays clickable on the active environment. No in-between state after a click, no technical error texts (#284).
+- Order of the environments: Mijn Bureau, Tezza, Nextcloud Common Ground, Valtimo (#270).
+
+### Fixed
+- Tezza's *Mijn taken* and *Processen* answered 403: its authorization profiles are now published, as Contezza's README says, with `launcher` in them (#286, D51). GZAC's *Mijn taken* answered 502 (#268).
+- The boot no longer hangs on the boot splash with a dock and two screens (#271).
+- Mijn Bureau's "apps reageren" step shows which app it waits for, so it no longer looks stuck (#272).
+- A failed start says *Starten mislukt* with the reason instead of *Klaar*; starting one environment while another runs starts the right one (#282); no frozen time estimate (#279).
+- `guest.txt` on the stick has the journal of this boot and the Docker containers (#274).
+
 ## [0.1.0-rc.1] - 2026-10-18
 
 First version, as a release candidate for testing on real hardware. Release checklist: [#175](https://github.com/EduardWitteveen/dawo-appliance/issues/175). The release is the live disk image `dawo-appliance-live.img`, downloaded from SourceForge (larger than GitHub's 2 GiB asset limit) and written with Rufus or balenaEtcher.
