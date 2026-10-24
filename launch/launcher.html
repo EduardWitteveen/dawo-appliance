@@ -26,7 +26,7 @@
   h1 { font-size: 1.7rem; margin: 0 0 4px; }
   .lead { color: var(--muted); margin: 0 0 28px; }
   .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-  .card.blocked { opacity: .5; }
+  .card.blocked, .cycle.blocked { opacity: .5; }
   .blocked-note { font-size: .9rem; color: var(--muted); margin: 6px 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
           padding: 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -226,15 +226,27 @@ function licencesBlock(env) {
 // One environment at a time (ADR 0008, #284): the one that is not stopped,
 // or waits for its notice. While it is there the other cards are greyed out
 // and cannot be started; it has to be stopped first.
+// The round (rondgang) the same way: while it runs, it alone is in charge
+// and only "Rondgang stoppen" can be pressed (every card is greyed out, also
+// the one it is at); while an environment runs, the round cannot be started.
 function activeEnv(data) {
   return data.find(e => e.state !== "stopped" || e.pending) || null;
 }
 // END active environment
+let ROUND_ACTIVE = false;   // from /api/cycle
+let ACTIVE_ENV = null;      // from /api/environments
 
 function card(env, active) {
   const actions = el("div", { class: "actions" });
-  const blocked = !!active && active.id !== env.id;
-  if (env.pending) {
+  const round = ROUND_ACTIVE;
+  const isActive = !!active && active.id === env.id;
+  // Greyed out: every card but the active one. Openen is no control, so the
+  // active environment opens when it is ready, also while the round runs.
+  const blocked = !!active ? !isActive : round;
+  if (round) {
+    // the round's own button stops it; only Openen
+    if (env.state === "ready") actions.append(el("a", { class: "button primary", href: env.url, target: "_blank", rel: "noopener" }, "Openen"));
+  } else if (env.pending) {
     // the notice block carries the buttons
   } else if (env.state === "stopped") {
     actions.append(el("button", { class: "primary", onclick: () => act("start", env), ...(acting || blocked ? { disabled: "" } : {}) }, "Starten"));
@@ -275,8 +287,10 @@ function card(env, active) {
             el("a", { href: l.url, target: "_blank", rel: "noopener" }, l.title),
             l.login ? el("span", { class: "linklogin" }, " · " + l.login) : null))))
       : null,
-    blocked && env.state === "stopped"
-      ? el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${active.title}.`) : null,
+    round && isActive ? el("p", { class: "blocked-note" }, "Gestart door de rondgang; stoppen gaat met 'Rondgang stoppen'.")
+      : round ? el("p", { class: "blocked-note" }, "De rondgang loopt: stop eerst de rondgang.")
+      : blocked && env.state === "stopped"
+        ? el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${active.title}.`) : null,
     el("div", { class: "message" }, busy[env.id] || ""),
     actions);
 }
@@ -383,6 +397,9 @@ function render(data) {
   const key = d => [d.closest(".card").getAttribute("aria-label"), d.className, d.parentElement.className,
                     (d.querySelector("summary")?.textContent || "").split(" ")[0]].join("|");
   const active = activeEnv(data);
+  const changed = (ACTIVE_ENV && ACTIVE_ENV.id) !== (active && active.id);
+  ACTIVE_ENV = active;
+  if (changed && lastCycleData) renderCycle(lastCycleData);
   const opened = new Set([...grid.querySelectorAll("details[open]")].map(key));
   grid.replaceChildren(...(data.length ? data.map(e => card(e, active)) : [el("p", {}, "Er zijn geen omgevingen.")]));
   for (const d of grid.querySelectorAll("details")) {
@@ -423,7 +440,9 @@ async function cycleAct(verb) {
   } catch (e) { /* the next refresh shows the state */ }
   lastCycle = ""; refreshCycle(); lastJson = ""; refresh();
 }
+let lastCycleData = null;
 function renderCycle(c) {
+  lastCycleData = c;
   const box = document.getElementById("cycle");
   if (!c.available) { box.replaceChildren(); return; }
   const kids = [];
@@ -442,7 +461,8 @@ function renderCycle(c) {
         el("span", { class: "auto-text", "data-what": "De rondgang" }, "Start automatisch…"),
         el("button", { onclick: cancelAuto }, "Niet automatisch starten")));
     }
-    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start") }, "Rondgang nu starten")));
+    kids.push(el("div", { class: "actions" }, el("button", { onclick: () => cycleAct("start"), ...(ACTIVE_ENV ? { disabled: "" } : {}) }, "Rondgang nu starten")));
+    if (ACTIVE_ENV) kids.push(el("p", { class: "blocked-note" }, `Er draait al een omgeving: stop eerst ${ACTIVE_ENV.title}.`));
   }
   if (c.can_persist) {
     // A marker on the stick: the round begins at once at the next start-up too.
@@ -452,7 +472,7 @@ function renderCycle(c) {
   if (c.last && c.last.length) {
     kids.push(el("ul", { class: "cycle-last" }, ...c.last.slice(-3).map(l => el("li", {}, l))));
   }
-  box.replaceChildren(el("section", { class: "cycle" + (c.active ? " active" : "") }, ...kids));
+  box.replaceChildren(el("section", { class: "cycle" + (c.active ? " active" : "") + (!c.active && ACTIVE_ENV ? " blocked" : "") }, ...kids));
   tickCycle();
 }
 function tickCycle() {
@@ -476,7 +496,11 @@ async function refreshCycle() {
     const text = await r.text();
     if (text === lastCycle) return;
     lastCycle = text;
-    renderCycle(JSON.parse(text));
+    const c = JSON.parse(text);
+    const was = ROUND_ACTIVE;
+    ROUND_ACTIVE = !!c.active;
+    renderCycle(c);
+    if (was !== ROUND_ACTIVE) { lastJson = ""; refresh(); }
   } catch (e) { /* the next refresh tries again */ }
 }
 refreshCycle();
