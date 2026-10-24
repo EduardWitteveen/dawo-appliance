@@ -147,7 +147,9 @@ let
             # exists, tries every environment in turn (none is set up here, so
             # each is skipped) and reports it.
             touch rondgang-marker
-            launcher --port 18793 --cycle-file $PWD/rondgang-marker --cycle-hold 1 --cycle-gap 1 \
+            # Without notices: one would hold the round up for its seconds (#270 put Tezza second).
+            jq 'del(.environments[]?.notice)' ${json} > nonotice.json
+            LAUNCH_CATALOG=$PWD/nonotice.json launcher --port 18793 --cycle-file $PWD/rondgang-marker --cycle-hold 1 --cycle-gap 1 \
               --cycle-ready-timeout 3 --cycle-report $PWD/rondgang.log 2>> launcher.log & pid=$!
             for _ in $(seq 1 80); do grep -q "rondgang stopt" rondgang.log 2>/dev/null && break; sleep 0.5; done
             grep -q "ronde 1 mijn-bureau: overgeslagen" rondgang.log || { cat rondgang.log launcher.log >&2; fail "round: mijn-bureau not tried"; }
@@ -198,13 +200,16 @@ let
               echo '#!/bin/sh'
               echo "echo \"\$*\" >> $PWD/fl.log"
               echo 'case "$1" in'
-              echo "  --list) exec $real \"\$@\" ;;"
+              # Without notices: the round's next environment starts at once (#270 put Tezza second).
+              echo "  --list) if [ -n \"\$KEEP_NOTICES\" ]; then exec $real \"\$@\"; fi; $real \"\$@\" | jq -c 'del(.environments[]?.notice)' ;;"
               echo "  --status) cat $PWD/fake-status.json ;;"
               echo "  --check) cat $PWD/fake-check.json ;;"
               echo '  *) sleep 2 ;;'
               echo 'esac'
             } > fake-launch
             chmod +x fake-launch
+            # The round goes in catalogue order: the one after mijn-bureau.
+            second="$(jq -r '.environments[1].id' "$LAUNCH_CATALOG_SRC")"
             : > fl.log
             touch marker5
             launcher --port 18798 --launch $PWD/fake-launch --cycle-file $PWD/marker5 --cycle-gap 1 --cycle-hold 300 \
@@ -219,16 +224,16 @@ let
             code="$(curl -s -o busy.json -w '%{http_code}' -X POST -H "X-Launcher-Token: $token" http://127.0.0.1:18798/api/stop/mijn-bureau)"
             [ "$code" = 409 ] || fail "a second action while one runs answered $code, want 409: $(cat busy.json)"
             wait "$spid" || true
-            for _ in $(seq 1 40); do grep -q "valtimo --yes" fl.log && break; sleep 0.5; done
+            for _ in $(seq 1 40); do grep -q "^$second --yes" fl.log && break; sleep 0.5; done
             grep -q "ronde 1 mijn-bureau: klaar na .*door de gebruiker gestopt, door naar de volgende" rondgang5.log \
               || { cat rondgang5.log >&2; fail "a Stop on the round's card did not move the round on"; }
-            grep -q "valtimo --yes" fl.log || { cat fl.log rondgang5.log >&2; fail "the round did not go on with valtimo"; }
+            grep -q "^$second --yes" fl.log || { cat fl.log rondgang5.log >&2; fail "the round did not go on with $second"; }
             [ "$(curl -sf http://127.0.0.1:18798/api/cycle | jq -r .active)" = true ] || fail "the round ended on a card's Stop"
             # The notice before a start (#261): shown, cancelled, then started after its seconds.
             jq '(.environments[] | select(.id == "valtimo")) += {notice: {title: "Licentie onduidelijk", text: "Voorwaarden", seconds: 2, level: "danger"}}' \
               "$LAUNCH_CATALOG_SRC" > notice.json
             : > fl.log
-            LAUNCH_CATALOG=$PWD/notice.json launcher --port 18799 --launch $PWD/fake-launch 2>> launcher.log & npid=$!
+            KEEP_NOTICES=1 LAUNCH_CATALOG=$PWD/notice.json launcher --port 18799 --launch $PWD/fake-launch 2>> launcher.log & npid=$!
             for _ in $(seq 1 50); do curl -sf http://127.0.0.1:18799/ -o p6.html && break; sleep 0.2; done
             ntoken="$(grep -o 'const TOKEN = "[0-9a-f]*"' p6.html | grep -o '[0-9a-f]\{32\}')"
             curl -sf -X POST -H "X-Launcher-Token: $ntoken" http://127.0.0.1:18799/api/start/valtimo > n1.json
