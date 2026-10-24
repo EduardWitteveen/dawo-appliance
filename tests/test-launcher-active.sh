@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Behaviour test for the launcher page (#284): the situations of
-# docs/launcher-behaviour.md (idle, one environment active, the round), run on
+# docs/launcher-behaviour.md (idle, one environment active, the round; grey
+# is inert), run on
 # the page's own script with a minimal DOM. Per card and for the round's box
 # it checks what docs/launcher-behaviour.md says: grey or not, which buttons
 # (and whether they are disabled), and the line. Skips without Node.
@@ -20,9 +21,16 @@ let pass = 0, fail = 0;
 const ok = (c, msg) => { if (c) { pass++; console.log("  PASS " + msg); } else { fail++; console.log("  FAIL " + msg); } };
 
 // A minimal DOM: elements are plain objects; the page's own el() builds them.
-const node = tag => ({ tag, className: "", attrs: {}, children: [], style: {}, dataset: {},
-  append(...k) { this.children.push(...k); }, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {},
-  replaceChildren(...k) { this.children = k; }, querySelectorAll() { return []; },
+const node = tag => ({ tag, className: "", attrs: {}, children: [], style: {}, dataset: {}, parent: null,
+  append(...k) { for (const c of k) { if (typeof c === "object") c.parent = this; this.children.push(c); } },
+  setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {},
+  replaceChildren(...k) { this.children = []; this.append(...k); },
+  // By tag name ("details", "a", "button"); the page's inert() uses them.
+  querySelectorAll(sel) { const out = []; const f = n => (n.children || []).forEach(k => { if (typeof k === "object") { if (k.tag === sel) out.push(k); f(k); } }); f(this); return out; },
+  remove() { if (this.parent) this.parent.children = this.parent.children.filter(c => c !== this); },
+  replaceWith(x) { if (!this.parent) return; const i = this.parent.children.indexOf(this); this.parent.children.splice(i, 1, x); if (typeof x === "object") x.parent = this.parent; },
+  get textContent() { const t = n => typeof n === "string" ? n : (n.children || []).map(t).join(""); return t(this); },
+  set textContent(v) { this.children = [String(v)]; },
   // ".name": the first descendant with that class; an empty element otherwise (the page writes into it)
   querySelector(sel) { const c = sel.replace(/^\./, ""); const f = n => (n.children || []).reduce((hit, k) =>
     hit || (typeof k === "object" && (new RegExp(`\\b${c}\\b`).test(k.className || "") ? k : f(k))), null); return f(this) || node("div"); },
@@ -40,7 +48,7 @@ const look = n => ({
   grey: /\bblocked\b/.test(n.className || n.attrs.class || ""),
   buttons: all(n, x => x.tag === "button" || (x.tag === "a" && /\bbutton\b/.test(x.className || x.attrs.class || "")))
     .map(b => texts(b) + ("disabled" in b.attrs ? " (disabled)" : "")),
-  note: all(n, x => /blocked-note/.test(x.className || x.attrs.class || "")).map(texts).join(" "),
+  note: all(n, x => /blocked-note|round-note/.test(x.className || x.attrs.class || "")).map(texts).join(" "),
 });
 const env = (id, state, extra = {}) => ({ id, title: id.toUpperCase(), version: "", summary: "", url: "http://x/", problems: [], state, ...extra });
 const cards = (data, round = false) => { page.setRound(round); page.render(data); return Object.fromEntries(data.map((e, i) => [e.id, look(roots.grid.children[i])])); };
@@ -61,9 +69,9 @@ for (const [state, want, extra] of [
 ]) {
   c = cards([env("x", state, extra), env("o", "stopped")]);
   ok(!c.x.grey && same(c.x.buttons, want), `card X ${state}: normal, ${want.join(" + ")}`);
-  ok(c.o.grey && same(c.o.buttons, ["Starten (disabled)"]) && c.o.note === "Er draait al een omgeving: stop eerst X.", `${state}: other card grey, Starten disabled, says to stop X first`);
+  ok(c.o.grey && same(c.o.buttons, []) && c.o.note === "", `${state}: other card grey and inert (no buttons, no line)`);
   r = box({ active: false });
-  ok(r.grey && r.buttons.includes("Rondgang nu starten (disabled)") && r.note === "Er draait al een omgeving: stop eerst X.", `${state}: round box grey, cannot start, says to stop X first`);
+  ok(r.grey && same(r.buttons, []) && r.note === "", `${state}: round box grey and inert`);
 }
 c = cards([env("x", "stopped", { pending: { at: 1 }, notice: { title: "t", text: "n" } }), env("o", "stopped")]);
 ok(!c.x.grey && same(c.x.buttons, ["Nu starten", "Niet starten"]) && c.o.grey, "card X waits for its notice: Nu starten + Niet starten; other card grey");
@@ -72,10 +80,10 @@ console.log("-- round --");
 r = box({ active: true, round: 1, phase: "up", env: "x" });
 ok(!r.grey && r.buttons.includes("Rondgang stoppen"), "round box: normal, Rondgang stoppen");
 c = cards([env("x", "starting", { progress: { step: 1, steps: 2, label: "x", started: 1, expected: 10 } }), env("o", "stopped")], true);
-ok(!c.x.grey && same(c.x.buttons, []) && c.x.note === "Gestart door de rondgang; stoppen gaat met 'Rondgang stoppen'.", "card X starting: normal, no buttons, says the round stops it");
+ok(!c.x.grey && same(c.x.buttons, []) && c.x.note === "Gestart door de rondgang.", "card X starting: normal, no buttons, says the round started it");
 c = cards([env("x", "ready"), env("o", "stopped")], true);
 ok(!c.x.grey && same(c.x.buttons, ["Openen"]), "card X ready: Openen only");
-ok(c.o.grey && same(c.o.buttons, []) && c.o.note === "De rondgang loopt: stop eerst de rondgang.", "other card: grey, no buttons, says to stop the round first");
+ok(c.o.grey && same(c.o.buttons, []) && c.o.note === "", "other card: grey and inert (no buttons, no line)");
 c = cards([env("x", "stopped"), env("o", "stopped")], true);
 ok(c.x.grey && c.o.grey && same(c.x.buttons, []), "between two environments: every card grey, no buttons");
 

@@ -62,7 +62,10 @@ let
       q = lib.escapeShellArg;
       allPhases = [
         { name = "vm"; label = "Virtuele machine starten"; typical = 120; }
-        { name = "park"; label = "Andere omgevingen even stilzetten (er draait er één tegelijk)"; typical = 15; }
+        # "Voorbereiden" (#284): it checks the guest's Docker and K3s and stops
+        # what else runs, which mostly is nothing; "Andere omgevingen even
+        # stilzetten" puzzled the maintainer when nothing else ran.
+        { name = "park"; label = "Voorbereiden"; typical = 15; }
         { name = "net"; label = "Wachten op internet (wifi Dawo of een netwerkkabel)"; typical = 5; }
       ] ++ e.phases;
       driverEnv = e.env // {
