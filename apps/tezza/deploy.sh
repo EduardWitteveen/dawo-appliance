@@ -9,12 +9,13 @@
 # (hosts/appliance/live-tezza.nix). Every phase is idempotent. Nothing of Tezza
 # is in the image: everything is downloaded from Contezza when it starts.
 #
-#   deploy.sh --phase <name>    park | docker | source | pull | up | ready | setup
+#   deploy.sh --phase <name>    park | docker | source | pull | up | ready | catalog | setup
 #   deploy.sh --stop            stop the containers (the other environment)
 #   deploy.sh --dry-run --phase <name>   print what would run
 #
 # Inputs come from the environment, set by the host from the manifest:
 #   TZ_REPO TZ_REV TZ_OVERRIDE DOCKER_URL DOCKER_SHA COMPOSE_URL COMPOSE_SHA
+#   TZ_SWF_URL TZ_SWF_SHA (optional: Súdwest-Fryslân's case types, #286)
 #
 # Experimental and unofficial. Not for production.
 # SPDX-License-Identifier: EUPL-1.2
@@ -263,6 +264,41 @@ beheer_site() {
   curl -fsS --max-time 30 -u admin:admin -H 'Content-Type: application/json'     -d '{"query":{"query":"TYPE:\"st:site\" AND ASPECT:\"tza:site\" AND =tza:siteType:\"beheer\"","language":"afts"}}'     http://localhost:8080/alfresco/api/-default-/public/search/versions/1/search 2>/dev/null     | python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)["list"]["entries"] else 1)' 2>/dev/null
 }
 
+# Súdwest-Fryslân's own case types (#286): its Open Zaak catalogue export
+# (OpenZaakBrug, EUPL-1.2, pinned by commit and SHA-256 in the manifest),
+# made importable in this Open Zaak by swf-convert.py, imported with Open
+# Zaak's own command, and the newest published version of each case type
+# published (swf-publish.py). Once: when the catalogue is there it is left
+# alone. Tezza's setup then makes a site and groups per case type, so it runs
+# again. Should any of it fail, Tezza works without these case types.
+phase_catalog() {
+  log "Súdwest-Fryslân's case types in Open Zaak"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "DRY-RUN: curl ${TZ_SWF_URL:-<none>}; swf-convert.py; manage.py import; swf-publish.py"; return 0
+  fi
+  if [[ -z "${TZ_SWF_URL:-}" ]]; then info "no catalogue configured"; return 0; fi
+  if compose exec -T openzaak-db psql -U openzaak -d openzaak -tAc "select 1 from catalogi_catalogus where domein = 'SWF'" 2>/dev/null | grep -q 1; then
+    info "already in Open Zaak"; return 0
+  fi
+  # set -e does not work in a subshell that is an if's condition: run it, then look.
+  local rc=0
+  set +e
+  ( set -e
+       download_verified "${TZ_SWF_URL}" "${TZ_SWF_SHA:?}" "${DOWNLOADS}/swf-catalogus.zip"
+       python3 "${STATE_DIR}/swf-convert.py" "${DOWNLOADS}/swf-catalogus.zip" "${STATE_DIR}/swf-catalogus-oz.zip" "${STATE_DIR}/selectielijst.json"
+       compose cp "${STATE_DIR}/swf-catalogus-oz.zip" openzaak:/tmp/swf.zip
+       compose exec -T openzaak python src/manage.py import --import-file /tmp/swf.zip
+       compose exec -T openzaak python src/manage.py shell < "${STATE_DIR}/swf-publish.py"
+  ); rc=$?
+  set -e
+  if [[ "${rc}" -eq 0 ]]; then
+    rm -f "${STATE_DIR}/setup.done" # a site and groups per new case type
+    info "Súdwest-Fryslân's case types are in Open Zaak"
+  else
+    info "Súdwest-Fryslân's case types could not be loaded; Tezza works without them"
+  fi
+}
+
 phase_setup() {
   log "Tezza's setup (upstream's steps) and the login launcher / launcher"
   if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd launcher; Alfresco admin launcher; kcadm master launcher"; return 0; fi
@@ -391,6 +427,7 @@ case "${PHASE}" in
   pull) phase_pull ;;
   up) phase_up ;;
   ready) phase_ready ;;
+  catalog) phase_catalog ;;
   setup) phase_setup ;;
   *) die "unknown or missing --phase (park, docker, source, pull, up, ready, setup)" ;;
 esac

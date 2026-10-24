@@ -5,7 +5,7 @@
 # Linux, WSL and Windows Git Bash (Python 3 as `python3` or `python`).
 #
 # Asserts:
-#   1. every phase (park, docker, source, pull, up, ready, setup) and --stop run in
+#   1. every phase (park, docker, source, pull, up, ready, catalog, setup) and --stop run in
 #      --dry-run without error and print what they would do; an unknown
 #      phase fails;
 #   2. every service our override pins has
@@ -29,7 +29,7 @@ export TZ_OVERRIDE=environments/tezza/compose/override.yaml TZ_STATE_DIR
 export DOCKER_URL=https://example.invalid/docker-1.tgz DOCKER_SHA=00 COMPOSE_URL=https://example.invalid/compose COMPOSE_SHA=00
 
 echo "-- 1. dry runs --"
-for p in park docker source pull up ready setup; do
+for p in park docker source pull up ready catalog setup; do
   out="$(bash "${DRIVER}" --dry-run --phase "${p}" 2>&1)"; rc=$?
   if [[ "${rc}" -eq 0 ]] && grep -q '==>' <<<"${out}" && grep -q 'DRY-RUN' <<<"${out}"; then
     ok "--phase ${p} --dry-run prints its steps"
