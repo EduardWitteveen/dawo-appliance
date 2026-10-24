@@ -264,7 +264,13 @@ def cycle_worker():
                     with _LOCK:
                         CYCLE["until"] = None
             if stop.is_set():
-                cycle_report(f"ronde {n} {eid}: rondgang gestopt tijdens het starten")
+                # Rondgang stoppen leads back to nothing running (#284,
+                # docs/launcher-behaviour.md): the environment it was
+                # starting stops too.
+                with _LOCK:
+                    CYCLE.update(phase="stopping", env=eid, until=None)
+                rc, out, err = act(["--stop", eid], timeout=600)
+                cycle_report(f"ronde {n} {eid}: rondgang gestopt tijdens het starten; " + ("gestopt" if rc == 0 else f"stoppen mislukt (exit {rc})"))
                 break
             if CYCLE["skip"].is_set():
                 # The user stopped it on its card (#257): the round goes on.
@@ -273,7 +279,10 @@ def cycle_worker():
             if result.startswith("klaar"):
                 if not cycle_wait(OPTS.cycle_hold, "up", eid, nxt):
                     if stop.is_set():
-                        cycle_report(f"ronde {n} {eid}: {result}; rondgang gestopt (blijft draaien)")
+                        with _LOCK:
+                            CYCLE.update(phase="stopping", env=eid, until=None)
+                        rc, out, err = act(["--stop", eid], timeout=600)
+                        cycle_report(f"ronde {n} {eid}: {result}; rondgang gestopt; " + ("gestopt" if rc == 0 else f"stoppen mislukt (exit {rc})"))
                         break
                     cycle_report(f"ronde {n} {eid}: {result}; door de gebruiker gestopt, door naar de volgende")
                     continue
