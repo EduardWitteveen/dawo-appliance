@@ -239,6 +239,9 @@ stop_others() {
 
 start() {
   local id="$1" yes="${2:-}" answer
+  # Local: stop_others runs stop(), which fills its own list; a global one
+  # made a start of Tezza start Nextcloud instead (#282, the preview).
+  local -a units
   require_env "${id}"
   if ! check "${id}"; then
     if [[ "${yes}" != "--yes" ]]; then
@@ -274,6 +277,7 @@ start() {
 
 stop() {
   local id="$1" i
+  local -a units
   require_env "${id}"
   mapfile -t units < <(units_of "${id}")
   if (( ${#units[@]} == 0 )); then

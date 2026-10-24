@@ -356,6 +356,9 @@ let
             grep -n "stop deploy.service" sc.log > /dev/null || fail "Mijn Bureau's unit not stopped: $(cat sc.log)"
             last_stop=$(grep -n '^stop guest.service' sc.log | tail -n1 | cut -d: -f1); first_start=$(grep -n '^start --no-block' sc.log | head -n1 | cut -d: -f1)
             [ -n "$last_stop" ] && [ -n "$first_start" ] && [ "$last_stop" -lt "$first_start" ] || fail "stop before start: $(cat sc.log)"
+            # It starts Valtimo's units, not those of the one it stopped (#282).
+            [ "$(grep '^start --no-block' sc.log | tail -n1)" = "start --no-block guest.service vt.service" ] \
+              || fail "starts the wrong environment after stopping the other: $(cat sc.log)"
             # Nothing else runs (only the shared guest): no stop.
             rm -f up.d/deploy.service; : > sc.log
             LAUNCH_SYSTEMCTL=$PWD/fake2 FAKE_UP=$PWD/up.d LAUNCH_CONFIG=$PWD/config3.json launch valtimo </dev/null > out || fail "start valtimo 2"
