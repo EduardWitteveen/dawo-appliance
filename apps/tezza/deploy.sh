@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Deploys the Tezza environment (#261) in the guest: Contezza's own demo setup,
 # tezza-packaging at a pinned commit (git.contezza.nl/community/tezza-packaging,
-# its docker-compose.yml and resources/), the document base of it (Alfresco
-# with Tezza, Share, Keycloak, LDAP; not the ZGW part, which needs more memory
-# than the guest has), plus our override file
+# its docker-compose.yml and resources/), the complete product as Contezza
+# ships it (Alfresco with Tezza, Share, Keycloak, LDAP, GZAC, Open Zaak,
+# Notificaties, Objecten), plus our override file
 # (environments/tezza/compose/override.yaml). Runs in the Ubuntu guest as root,
 # one phase at a time, called by the host runner
 # (hosts/appliance/live-tezza.nix). Every phase is idempotent. Nothing of Tezza
@@ -37,17 +37,20 @@ STATE_DIR="${TZ_STATE_DIR:-/var/lib/dawo-appliance-tezza}"
 SRC_DIR="${STATE_DIR}/tezza-packaging"
 DOWNLOADS="${STATE_DIR}/downloads"
 DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
-# The document base of upstream's compose (its README: Tezza at :8082, the
-# Admin Tools at :8084, Share at :8081). Upstream has no profiles: the
-# services are named. Open Zaak is in (#268: Tezza's case views ask it; about
-# 1 GB). Left out: the rest of the ZGW part (gzac, notificaties, objecten,
-# objecttypen, personen-mock; about 4 GB more) and the apps that
-# Contezza's price list marks as Enterprise-only (tezza-rm, tezza-reports,
-# tezza-akten).
+# Every service of upstream's compose (the maintainer, 24 October: the
+# product as Contezza ships it; without GZAC, Tezza registers no cases) but
+# app-tezza-akten, which does not start in upstream's setup either (see the
+# override). Upstream has no profiles: the services are named. Tezza at :8082,
+# the Admin Tools at :8084, Share at :8081, Open Zaak at :8000, GZAC at :9091.
 SERVICES=(platform platform-ass platform-db platform-activemq platform-transform-core-aio
-          identity identity-db openldap share app-tezza app-tezza-admin
+          identity identity-db openldap share
+          app-tezza app-tezza-admin app-tezza-rm app-tezza-reports
           authorization-profiles authorization-profiles-db
-          openzaak openzaak-celery openzaak-db openzaak-redis)
+          gzac-backend gzac-db gzac-frontend personen-mock
+          openzaak openzaak-celery openzaak-db openzaak-redis
+          notificaties notificaties-celery notificaties-db notificaties-rabbitmq notificaties-redis
+          objecten objecten-celery objecten-db objecten-redis
+          objecttypen objecttypen-db objecttypen-redis)
 # The compose project (the directory name).
 PROJECT="tezza-packaging"
 DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
@@ -190,7 +193,7 @@ phase_source() {
 }
 
 phase_pull() {
-  log "pull the images of the document base (by digest)"
+  log "pull the images of the product (by digest)"
   compose pull --quiet "${SERVICES[@]}"
 }
 
@@ -239,11 +242,11 @@ alfresco() { # alfresco METHOD PATH [JSON]: Alfresco's REST API as upstream's ad
 }
 
 # Upstream's own first-run step ("01. Setup" in the Admin Tools: the
-# webscript contezza/config/setup) stops at its first step that needs the ZGW
-# part we leave out (createObjecttypeSites asks the Objecttypen API). So its
-# steps are called one by one, in its order, by their names in upstream's
-# library (tezza-api.lib.js), through the JavaScript console the platform
-# ships (OOTBee); a step that needs ZGW fails and the next one goes on. The
+# webscript contezza/config/setup) stops at its first failing step, and some
+# steps fail until another service is up (createObjecttypeSites asks the
+# Objecttypen API). So its steps are called one by one, in its order, by their
+# names in upstream's library (tezza-api.lib.js), through the JavaScript
+# console the platform ships (OOTBee); a failing step is tried again. The
 # Tezza app configuration comes from upstream's webscript contezza/config/tezza.
 # Then the login launcher / launcher (#258): a user in upstream's LDAP (Keycloak signs
 # in against it), an Alfresco administrator, an admin of Keycloak's console.
@@ -251,7 +254,7 @@ SETUP_STEPS=(createSites createRootGroups createServiceAccount createFolderTempl
              createZaaktypeSites createObjecttypeSites createAuditRole createPostintakeDummyData
              assignLDAPUsersToZaaktypeGroups assignLDAPUsersToGroups createRMRoles createRootRMGroups
              addRMGroupsToRMRoles assignLDAPUsersToRMGroups)
-# Steps that need the ZGW part we leave out (the Objecttypen API).
+# Steps that may keep failing without stopping the setup (the Objecttypen API).
 SETUP_STEPS_ZGW=(createObjecttypeSites)
 
 # What the app checks before it lets an administrator in ("Setup vereist"
@@ -337,6 +340,18 @@ EOF
   [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco person launcher: HTTP ${code}"
   code="$(alfresco POST groups/GROUP_ALFRESCO_ADMINISTRATORS/members '{"id":"launcher","memberType":"PERSON"}')"
   [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco administrators: HTTP ${code}"
+  # The same groups as upstream's admin (TEZZA_CREATE_ZAKEN, the sites per
+  # case type, records management): without them 'Maken' offered no
+  # 'Registreer zaak' to launcher (local test of 24 October).
+  local g n=0
+  while IFS= read -r g; do
+    g="${g%$'\r'}"
+    code="$(alfresco POST "groups/${g}/members" '{"id":"launcher","memberType":"PERSON"}' || true)"
+    [[ "${code}" == 201 ]] && n=$((n + 1))
+  done < <(curl -fsS --max-time 120 -u admin:admin \
+             "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/people/admin/groups?maxItems=1000" \
+           | python3 -c 'import json, sys; [print(e["entry"]["id"]) for e in json.load(sys.stdin)["list"]["entries"] if e["entry"]["id"] != "GROUP_EVERYONE"]')
+  info "launcher is in admin's groups (${n} added)"
   # Keycloak's own console (master realm), next to upstream's admin / admin.
   local kc=(/opt/keycloak/bin/kcadm.sh) cfg=(--config /tmp/dawo-kcadm.config)
   if compose exec -T identity "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8181/auth \
