@@ -298,10 +298,12 @@ let
             # Start and stop through the bound units (#228), with a fake systemctl.
             printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$FAKE_LOG"' \
               '[ "$1" = is-active ] && [ -e "$FAKE_ACTIVE" ] && exit 0' \
-              '[ "$1" = is-active ] && exit 3' 'exit 0' > fake-systemctl
+              '[ "$1" = is-active ] && exit 3' \
+              '[ "$1" = is-failed ] && [ -e "$FAKE_FAILED" ] && exit 0' \
+              '[ "$1" = is-failed ] && exit 1' 'exit 0' > fake-systemctl
             chmod +x fake-systemctl
             echo '{"dataPath":"/tmp","reserveGiB":6,"environments":{"mijn-bureau":{"units":["guest.service","deploy.service"]}}}' > config.json
-            export LAUNCH_SYSTEMCTL=$PWD/fake-systemctl LAUNCH_CONFIG=$PWD/config.json FAKE_LOG=$PWD/sc.log FAKE_ACTIVE=$PWD/active
+            export LAUNCH_SYSTEMCTL=$PWD/fake-systemctl LAUNCH_CONFIG=$PWD/config.json FAKE_LOG=$PWD/sc.log FAKE_ACTIVE=$PWD/active FAKE_FAILED=$PWD/failed
             export LAUNCH_MEMINFO=$PWD/mem32 LAUNCH_FREE_GIB=100 LAUNCH_KVM_DEVICE=$PWD/kvm LAUNCH_INTERNET_URL=file://$PWD/net
             launch mijn-bureau </dev/null > out || fail "start exit"; grep -q "wordt gestart" out || fail "start message"
             grep -qx "start --no-block guest.service deploy.service" sc.log || fail "start runs the units in order"
@@ -327,11 +329,25 @@ let
             rm -f active
             LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
             [ "$(jq -r '.[0] | has("progress")' out.json)" = false ] || fail "no progress when the environment is stopped"
+            # A failed start (#282): failed, not "Klaar", even when its URL
+            # answers; the progress file's error comes along.
+            echo '{"step":6,"steps":9,"label":"Starten","started":1,"expected":60,"error":"Deze stap is drie keer mislukt."}' > progress.json
+            touch failed
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/up.json launch --status --json > out.json
+            [ "$(jq -r '.[0].state' out.json)" = failed ] || fail "a failed unit whose URL answers must be failed, not $(jq -r '.[0].state' out.json)"
+            [ "$(jq -r '.[0].progress.error' out.json)" = "Deze stap is drie keer mislukt." ] || fail "failed: the progress error"
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/up.json launch --status > out
+            grep -q "Mijn Bureau: starten mislukt: Deze stap is drie keer mislukt." out || fail "--status says the start failed: $(cat out)"
+            touch active
+            LAUNCH_CONFIG=$PWD/config2.json LAUNCH_CATALOG=$PWD/down.json launch --status --json > out.json
+            [ "$(jq -r '.[0].state' out.json)" = starting ] || fail "started again (active) is starting, not failed"
+            rm -f active failed
             # One environment at a time (#246): Mijn Bureau runs (its own unit is
             # active), Valtimo starts: Mijn Bureau stops first, all its units.
             mkdir -p up.d && touch up.d/guest.service up.d/deploy.service
             printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$FAKE_LOG"' \
-              '[ "$1" = is-active ] && { u="$3"; [ -z "$u" ] && u="$2"; [ -e "$FAKE_UP/$u" ] && exit 0; exit 3; }' 'exit 0' > fake2
+              '[ "$1" = is-active ] && { u="$3"; [ -z "$u" ] && u="$2"; [ -e "$FAKE_UP/$u" ] && exit 0; exit 3; }' \
+              '[ "$1" = is-failed ] && exit 1' 'exit 0' > fake2
             chmod +x fake2
             echo '{"dataPath":"/tmp","reserveGiB":6,"environments":{"mijn-bureau":{"units":["guest.service","deploy.service"]},"valtimo":{"units":["guest.service","vt.service"]}}}' > config3.json
             : > sc.log
