@@ -94,18 +94,16 @@ services:
   # 8.x adds AGPLv3, #273).
   # Upstream starts Open Zaak as soon as its database container runs, with no
   # restart policy; its start script stops at the first error (set -e). On
-  # the Dell run of 23 October it never answered on :8000. It now waits for a
-  # healthy database and starts again after a failure.
+  # the Dell run of 23 October it never answered on :8000. It now starts
+  # again after a failure, until its database answers. Not a depends_on
+  # condition on a healthy database: on the next run that held up the whole
+  # `compose up` for 12 minutes and then failed it (the database took longer
+  # while Alfresco started); deploy.sh's ready phase waits for :8000 instead.
   openzaak:
     image: docker.io/openzaak/open-zaak:1.28.0@sha256:2c023fa44aa4e77c37f7e9ae3941f82630d0805cf7fda79bdc06294cf002beb5
     mem_limit: 1g
     environment:
       - UWSGI_PROCESSES=2
-    depends_on: !override
-      openzaak-db:
-        condition: service_healthy
-      openzaak-redis:
-        condition: service_started
     restart: on-failure
 
   openzaak-celery:
@@ -113,22 +111,11 @@ services:
     mem_limit: 768m
     environment:
       - CELERY_WORKER_CONCURRENCY=1
-    depends_on: !override
-      openzaak-db:
-        condition: service_healthy
-      openzaak-redis:
-        condition: service_started
     restart: on-failure
 
   openzaak-db:
     image: docker.io/postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
     mem_limit: 512m
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openzaak -d openzaak -h 127.0.0.1"]
-      interval: 10s
-      timeout: 5s
-      retries: 60
-      start_period: 120s
 
   openzaak-redis:
     image: docker.io/library/redis:8.2.2@sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd
