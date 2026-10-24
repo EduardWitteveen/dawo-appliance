@@ -69,18 +69,111 @@ let
         (p "links: each needs a title and a url")
       ++ lib.optional (env ? notice && (!(isStr (env.notice.title or null)) || !(isStr (env.notice.text or null))
            || !(builtins.isInt (env.notice.seconds or 60)) || !(builtins.elem (env.notice.level or "info") [ "info" "danger" ])))
-        (p "notice: needs a title and a text; seconds an integer; level info or danger");
+        (p "notice: needs a title and a text; seconds an integer; level info or danger")
+      ++ lib.optional (!(builtins.isList (env.components or [ ]))
+           || lib.any (c: !(isStr (c.name or null)) || !(isStr (c.repo or null)) || !(isStr (c.license or null))) (env.components or [ ]))
+        (p "components: each needs a name, a repo and a license")
+      ++ lib.optional (builtins.isList (env.components or [ ]) && unknownIds (env.components or [ ]) != [ ])
+        (p "components: licence ids without a class in nix/launch.nix (open, restricted or other): ${lib.concatStringsSep ", " (unknownIds env.components)}");
+
+  # The licences of an environment's components, per repository (#273). The
+  # question behind it (maintainer): can we keep running and developing the
+  # product ourselves when the supplier stops? Each component is
+  #   open       an open-source licence (OSI / EUPL), or a choice that
+  #              includes one; for an "AND" every part must be open
+  #   restricted source available but not open source (SSPL, RSAL, BUSL, ...)
+  #   unknown    no licence found (NOASSERTION)
+  #   closed     explicitly proprietary (LicenseRef-proprietary...)
+  # Card: red when something is closed, yellow when something is restricted
+  # or unknown, green when all is open.
+  openIds = [
+    "EUPL-1.2" "Apache-2.0" "MIT" "BSD-2-Clause" "BSD-3-Clause" "ISC" "Zlib" "MPL-2.0" "EPL-2.0"
+    "PostgreSQL" "OLDAP-2.8" "GPL-2.0-only" "GPL-2.0-or-later" "GPL-3.0-only" "GPL-3.0-or-later"
+    "LGPL-2.1-only" "LGPL-2.1-or-later" "LGPL-3.0-only" "LGPL-3.0-or-later" "AGPL-3.0-only" "AGPL-3.0-or-later"
+    # Distributions whose packages are all under open-source licences, by
+    # their own policy (evidence per component).
+    "LicenseRef-Ubuntu-main" "LicenseRef-Alpine-main"
+  ];
+  restrictedIds = [ "SSPL-1.0" "LicenseRef-RSALv2" "BUSL-1.1" "Elastic-2.0" ];
+  # Other names that may appear as an alternative next to an open licence.
+  otherIds = [ "LicenseRef-Element-Commercial" ];
+  alternatives = expr: map (a: lib.head (lib.splitString " WITH " (lib.trim a)))
+    (lib.splitString " OR " (lib.replaceStrings [ "(" ")" ] [ "" "" ] expr));
+  conjuncts = expr: lib.splitString " AND " expr;
+  isClosed = c: lib.hasPrefix "LicenseRef-proprietary" c.license;
+  classOf = c:
+    if isClosed c then "closed"
+    else if c.license == "NOASSERTION" then "unknown"
+    else if lib.all (part: lib.any (a: builtins.elem a openIds) (alternatives part)) (conjuncts c.license) then "open"
+    else if lib.any (a: builtins.elem a restrictedIds) (lib.concatMap alternatives (conjuncts c.license)) then "restricted"
+    else "unknown";
+  # Licence ids we do not know: the check names them, so each gets a class.
+  unknownIds = comps: lib.unique (lib.filter
+    (a: !(builtins.elem a (openIds ++ restrictedIds ++ otherIds ++ [ "NOASSERTION" ])) && !(lib.hasPrefix "LicenseRef-proprietary" a))
+    (lib.concatMap (c: lib.concatMap alternatives (conjuncts c.license)) comps));
+  licences = comps:
+    let
+      byClass = k: lib.filter (c: classOf c == k) comps;
+      names = k: map (c: c.name) (byClass k);
+      open = byClass "open";
+      counts = lib.foldl' (acc: c: acc // { ${c.license} = (acc.${c.license} or 0) + 1; }) { } open;
+      closed = names "closed"; restricted = names "restricted"; unknown = names "unknown";
+      level = if closed != [ ] then "red" else if restricted != [ ] || unknown != [ ] then "yellow" else "green";
+      list = l: lib.concatStringsSep ", " l;
+    in
+    {
+      total = lib.length comps;
+      open = lib.length open;
+      inherit counts closed restricted unknown level;
+      # Why this colour, in the audience's words.
+      reason =
+        lib.optionalString (closed != [ ])
+          "Niet open source (gesloten): ${list closed}. Stopt de leverancier, dan kun je deze onderdelen niet zelf verder draaien of ontwikkelen. "
+        + lib.optionalString (restricted != [ ])
+          "Beperkte licentie (broncode in te zien, maar geen open source): ${list restricted}. "
+        + lib.optionalString (unknown != [ ])
+          "Geen licentie gevonden: ${list unknown}. Zonder licentie mag je het formeel niet zelf aanpassen of verspreiden. "
+        + lib.optionalString (level == "green")
+          "Alles is open source: je kunt het zelf blijven draaien en verder ontwikkelen, ook zonder de leverancier.";
+      classes = map (c: { inherit (c) name; class = classOf c; }) comps;
+    };
+  # The licences go on the card only: red starts like every other
+  # environment, without a notice to click away (the maintainer, 24 October:
+  # the card already says it is red, and opens for the details).
+  withLicences = env:
+    if !(env ? components) then env
+    else env // { licences = licences env.components; };
 
   ids = map (e: e.id or "") entries;
   problems =
     lib.optional ((catalogToml.schema or null) != 1) "environments/catalog.toml: schema must be 1"
     ++ lib.optional (entries == [ ]) "environments/catalog.toml: no [[environment]] entries"
     ++ lib.optional (lib.length (lib.unique ids) != lib.length ids) "environments/catalog.toml: duplicate ids"
-    ++ lib.concatMap envProblems envs;
+    ++ lib.concatMap envProblems envs
+    ++ licenceSelfTest;
+
+  # The colour rule of #273 on made-up components.
+  licenceSelfTest =
+    let
+      c = license: { name = license; repo = "r"; inherit license; };
+      green = licences [ (c "EUPL-1.2") (c "Apache-2.0") (c "EUPL-1.2") (c "AGPL-3.0-only OR SSPL-1.0 OR LicenseRef-RSALv2") ];
+      yellow = licences [ (c "EUPL-1.2") (c "NOASSERTION") ];
+      restricted = licences [ (c "EUPL-1.2") (c "LicenseRef-RSALv2 OR SSPL-1.0") (c "MIT AND SSPL-1.0") ];
+      red = withLicences { components = [ (c "EUPL-1.2") (c "NOASSERTION") (c "LicenseRef-proprietary-x") ]; };
+      own = withLicences { components = [ (c "LicenseRef-proprietary") ]; notice = { title = "eigen"; }; };
+    in
+    lib.optional (green.level != "green" || green.counts."EUPL-1.2" != 2 || green.open != 4)
+      "launch.nix self-test: all open source (a choice with an open licence included) must be green with counts per licence"
+    ++ lib.optional (yellow.level != "yellow" || yellow.unknown != [ "NOASSERTION" ]) "launch.nix self-test: no licence must be yellow"
+    ++ lib.optional (restricted.level != "yellow" || restricted.restricted != [ "LicenseRef-RSALv2 OR SSPL-1.0" "MIT AND SSPL-1.0" ])
+      "launch.nix self-test: source-available only must be restricted (yellow)"
+    ++ lib.optional (red.licences.level != "red" || red ? notice || red.licences.closed != [ "LicenseRef-proprietary-x" ])
+      "launch.nix self-test: a proprietary component must be red, without a notice before the start"
+    ++ lib.optional (own.notice.title != "eigen") "launch.nix self-test: an environment's own notice wins";
 
   catalog = {
     schema = 1;
-    environments = map ({ e, env, ... }: env // { path = "environments/${e.path}"; }) envs;
+    environments = map ({ e, env, ... }: withLicences env // { path = "environments/${e.path}"; }) envs;
   };
   json = pkgs.writeText "launch-catalog.json" (builtins.toJSON catalog);
 

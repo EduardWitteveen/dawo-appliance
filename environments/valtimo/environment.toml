@@ -78,3 +78,131 @@ login = "launcher / launcher of admin / admin"
 title = "Keycloak beheer"
 url = "http://localhost:8081/auth/admin/"
 login = "launcher / launcher of admin / admin"
+
+# What runs, per source repository, and its licence (#273), as found in each
+# repository at the pinned revision; researched 2026-10-23.
+[[components]]
+name = "gzac-docker-compose"
+repo = "https://github.com/generiekzaakafhandelcomponent/gzac-docker-compose"
+license = "NOASSERTION"
+evidence = "no LICENSE/COPYING at 7159648 (only README.md, docker-compose.yaml, imports/); GitHub API: no licence"
+
+[[components]]
+name = "Valtimo backend libraries (GZAC)"
+repo = "https://github.com/valtimo-platform/valtimo-backend-libraries"
+license = "EUPL-1.2"
+evidence = "Maven Central com.ritense.valtimo:core:13.4.1.RELEASE POM <license> EUPL 1.2; LICENSE.MD (EUPL 1.2) on default branch (public tags stop at 13.2.1)"
+
+[[components]]
+name = "Valtimo frontend libraries (GZAC)"
+repo = "https://github.com/valtimo-platform/valtimo-frontend-libraries"
+license = "EUPL-1.2"
+evidence = "npm @valtimo/components 13.4.1 license field EUPL-1.2; package.json EUPL-1.2 (no LICENSE file in repo)"
+
+[[components]]
+name = "GZAC evenementenvergunning demo (backend and frontend images)"
+repo = "https://hub.docker.com/r/ritense/gzac-evenementenvergunning-demo-backend"
+license = "NOASSERTION"
+evidence = "no public source repository found for the 13.4.1 demo images; no licence label in the image config or on Docker Hub"
+
+[[components]]
+name = "Keycloak"
+repo = "https://github.com/keycloak/keycloak"
+license = "Apache-2.0"
+evidence = "LICENSE.txt at tag 26.2.2"
+
+[[components]]
+name = "PostgreSQL"
+repo = "https://github.com/postgres/postgres"
+license = "PostgreSQL"
+evidence = "COPYRIGHT (PostgreSQL Licence); image postgres:17.4"
+
+[[components]]
+name = "PostGIS"
+repo = "https://github.com/postgis/postgis"
+license = "GPL-2.0-or-later"
+evidence = "COPYING (GPLv2) at tag 3.4.0; project states GPLv2 or later (known); image postgis/postgis:17-3.4"
+
+[[components]]
+name = "RabbitMQ"
+repo = "https://github.com/rabbitmq/rabbitmq-server"
+license = "MPL-2.0"
+evidence = "LICENSE + LICENSE-MPL-RabbitMQ at tags v4.1.0 and v4.1.8 (images rabbitmq:4.1.0-management, 4.1-management = 4.1.8)"
+
+[[components]]
+name = "Open Zaak"
+repo = "https://github.com/open-zaak/open-zaak"
+license = "EUPL-1.2"
+evidence = "LICENSE.md (EUPL v. 1.2) at tag 1.25.0"
+
+[[components]]
+name = "Open Notificaties"
+repo = "https://github.com/open-zaak/open-notificaties"
+license = "EUPL-1.2"
+evidence = "LICENCE.md (EUPL v. 1.2) at tag 1.13.0"
+
+[[components]]
+name = "Objecten API"
+repo = "https://github.com/maykinmedia/objects-api"
+license = "EUPL-1.2"
+evidence = "LICENSE.md (EUPL v. 1.2) at tag 3.3.0"
+
+[[components]]
+name = "Objecttypen API"
+repo = "https://github.com/maykinmedia/objecttypes-api"
+license = "EUPL-1.2"
+evidence = "LICENSE.md (EUPL v. 1.2) at tag 3.3.0"
+
+[[components]]
+name = "Open Formulieren"
+repo = "https://github.com/open-formulieren/open-forms"
+license = "EUPL-1.2"
+evidence = "LICENSE.md (EUPL v. 1.2) at tag 3.1.9"
+
+[[components]]
+name = "Redis"
+repo = "https://github.com/redis/redis"
+license = "AGPL-3.0-only OR SSPL-1.0 OR LicenseRef-RSALv2"
+evidence = "LICENSE.txt at tag 8.2.2 (tri-licence since Redis 8)"
+
+[[components]]
+name = "BusyBox"
+repo = "https://git.busybox.net/busybox"
+license = "GPL-2.0-only"
+evidence = "known (LICENSE: GPLv2 only); image busybox:1.37.0 (open-forms-busybox)"
+
+[[components]]
+name = "Docker Engine (dockerd)"
+repo = "https://github.com/moby/moby"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); static bundle docker-29.9.1.tgz, manifest valtimo.tooling"
+
+[[components]]
+name = "Docker CLI"
+repo = "https://github.com/docker/cli"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "containerd"
+repo = "https://github.com/containerd/containerd"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "runc"
+repo = "https://github.com/opencontainers/runc"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); in docker-29.9.1.tgz"
+
+[[components]]
+name = "Docker Compose"
+repo = "https://github.com/docker/compose"
+license = "Apache-2.0"
+evidence = "LICENSE (default branch); v5.6.0, manifest valtimo.tooling"
+
+[[components]]
+name = "Ubuntu 24.04 LTS (guest VM)"
+repo = "https://cloud-images.ubuntu.com/releases/noble/release-20260911/"
+license = "LicenseRef-Ubuntu-main"
+evidence = "a distribution: every package has its own licence (/usr/share/doc/*/copyright); Ubuntu's licence policy requires application software in main to be free software with full source code that may be modified and redistributed (exceptions: some firmware and fonts); the cloud image is built from main. Canonical's IP policy only limits the Ubuntu trademarks on modified copies (canonical.com/legal/intellectual-property-policy)"

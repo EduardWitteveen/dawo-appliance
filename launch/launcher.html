@@ -82,6 +82,22 @@
   .links summary { cursor: pointer; color: var(--accent); }
   .links ul { margin: 6px 0 0; padding-left: 18px; }
   .linklogin { color: var(--muted); }
+  .licences { font-size: .85rem; margin: 4px 0; }
+  .licences summary { cursor: pointer; }
+  .licences ul { margin: 6px 0 0; padding-left: 18px; }
+  .lic-green > summary::before, .lic-yellow > summary::before, .lic-red > summary::before { content: "● "; }
+  .lic-green > summary::before { color: #2e7d32; }
+  .lic-yellow > summary::before { color: #b58900; }
+  .lic-red > summary::before { color: #c62828; }
+  .lic-reason, .lic-count { margin: 6px 0; }
+  .lic-sub { margin: 4px 0 0 12px; }
+  .lic-sub > summary { color: var(--accent); }
+  .lic-item { list-style: none; margin-left: -18px; }
+  .lic-item::before { content: "● "; }
+  .lic-item.lic-open::before { color: #2e7d32; }
+  .lic-item.lic-restricted::before, .lic-item.lic-unknown::before { color: #b58900; }
+  .lic-item.lic-closed::before { color: #c62828; }
+  .lic-item.lic-closed { font-weight: 600; }
   .cycle-last { margin: 0; padding-left: 18px; color: var(--muted); font-size: .85rem; }
   .pdetail { color: var(--muted); font-size: .8rem; font-style: italic; overflow-wrap: anywhere; }
   .perror { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
@@ -162,6 +178,46 @@ function noticeBlock(env) {
       el("button", { onclick: () => act("cancel", env) }, "Niet starten")));
 }
 
+// BEGIN licences
+// Licences per repository (#273). Closed, one quiet line with the colour as a
+// dot (the maintainer's review of 23 October: the red text shouted, was too
+// long, and named the colour twice). Opened: why, the count, and two lists
+// that open on their own: the parts (not clearly open source first) and the
+// licences used.
+const LIC_CLASS = { closed: "gesloten", restricted: "beperkte licentie", unknown: "geen licentie gevonden", open: "open source" };
+const LIC_ORDER = { closed: 0, restricted: 1, unknown: 2, open: 3 };
+const LIC_TITLE = { green: "Alles open source", yellow: "Onduidelijke licenties", red: "Niet alles open source" };
+function licencesBlock(env) {
+  const l = env.licences;
+  if (!l || !l.total) return null;
+  // The count per licence: a choice counts as its first, "-only" and
+  // "-or-later" together (the list has the full expression).
+  const short = {};
+  for (const [k, n] of Object.entries(l.counts || {})) {
+    const s = k.split(" OR ")[0].replace(/-(only|or-later)$/, "").replace(/^LicenseRef-/, "");
+    short[s] = (short[s] || 0) + n;
+  }
+  const used = Object.entries(short).sort((a, b) => b[1] - a[1]).map(([k, n]) => el("li", {}, `${k}: ${n}`));
+  const cls = Object.fromEntries((l.classes || []).map(c => [c.name, c.class]));
+  const comps = [...(env.components || [])].sort((a, b) => LIC_ORDER[cls[a.name] || "unknown"] - LIC_ORDER[cls[b.name] || "unknown"]);
+  const what = c => {
+    const k = cls[c.name] || "unknown";
+    if (k === "open") return c.license.replace(/^LicenseRef-/, "");
+    if (c.license.startsWith("LicenseRef-proprietary") || c.license === "NOASSERTION") return LIC_CLASS[k];
+    return `${LIC_CLASS[k]} (${c.license})`;
+  };
+  const items = comps.map(c => el("li", { class: "lic-item lic-" + (cls[c.name] || "unknown") },
+    el("a", { href: c.repo, target: "_blank", rel: "noopener" }, c.name),
+    el("span", {}, " · " + what(c))));
+  return el("details", { class: "licences lic-" + l.level },
+    el("summary", {}, LIC_TITLE[l.level] || "Licenties"),
+    l.reason ? el("p", { class: "lic-reason" }, l.reason) : null,
+    el("p", { class: "lic-count" }, `${l.open} van ${l.total} onderdelen open source.`),
+    el("details", { class: "lic-sub" }, el("summary", {}, `Onderdelen (${items.length})`), el("ul", {}, ...items)),
+    used.length ? el("details", { class: "lic-sub" }, el("summary", {}, `Gebruikte licenties (${used.length})`), el("ul", {}, ...used)) : null);
+}
+// END licences
+
 function card(env) {
   const actions = el("div", { class: "actions" });
   if (env.pending) {
@@ -182,6 +238,7 @@ function card(env) {
       el("div", { class: "logo", "aria-hidden": "true" }, env.title.charAt(0)),
       el("div", {}, el("p", { class: "title" }, env.title), el("span", { class: "version" }, env.version))),
     el("p", { class: "summary" }, env.summary),
+    licencesBlock(env),
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
     env.state === "starting" ? progressBlock(env) : null,
     env.state === "stopped" && env.autostart ? autoBlock(env) : null,
@@ -284,7 +341,16 @@ setInterval(tick, 1000);
 let lastData = [];
 function render(data) {
   const grid = document.getElementById("grid");
+  // Keep opened lists (links, licences) open across a redraw.
+  // The key: card, class, parent and the summary's first word (the licence
+  // block has two sub-lists with the same class).
+  const key = d => [d.closest(".card").getAttribute("aria-label"), d.className, d.parentElement.className,
+                    (d.querySelector("summary")?.textContent || "").split(" ")[0]].join("|");
+  const opened = new Set([...grid.querySelectorAll("details[open]")].map(key));
   grid.replaceChildren(...(data.length ? data.map(card) : [el("p", {}, "Er zijn geen omgevingen.")]));
+  for (const d of grid.querySelectorAll("details")) {
+    if (opened.has(key(d))) d.open = true;
+  }
   tick();
 }
 
