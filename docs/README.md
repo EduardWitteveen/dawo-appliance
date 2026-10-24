@@ -13,6 +13,7 @@ One line per document. Generated files are marked; never edit those by hand.
 | [`purpose.md`](purpose.md) | Why the project exists, what it adds, where it deviates from upstream, what it costs, what "done" means for v0.1. |
 | [`deviations.md`](deviations.md) | Every deviation from upstream or common practice, one line each, with the reason and where it is motivated. |
 | [`architecture.md`](architecture.md) | The boot-to-demo flow, topology, component boundaries, manifest trust chain, safety model. |
+| [`launcher-behaviour.md`](launcher-behaviour.md) | What the Launcher page lets you do per situation (idle, one environment active, the round): grey or not, which buttons, which line; written before it is programmed and checked by `tests/test-launcher-active.sh` (#284). |
 | [`roadmap.md`](roadmap.md) | The vertical slices 0-7 with their state and what each verified. |
 | [`STATUS.md`](STATUS.md) | Session handoff: now / next / recently done. Printed by `bash scripts/status.sh`. |
 
