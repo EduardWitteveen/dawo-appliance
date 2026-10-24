@@ -660,6 +660,17 @@
         "image": "harbor.contezza.nl/public/tezza-share:4.15.2",
         "digest": "sha256:c9de28cb644be164d5bd3fec25bc3c77d35b2059bbebb4d47aeb555b58bb9bc4"
       }
+    },
+    "swf_catalogue": {
+      "note": "Súdwest-Fryslân's own case types for the Tezza environment (#286): its Open Zaak catalogue export, made importable by apps/tezza/swf/convert.py and imported at start (deploy.sh phase catalog). Downloaded at start, never in the image.",
+      "repo": "https://github.com/Sudwest-Fryslan/OpenZaakBrug",
+      "rev": "1217e19b06a4b705f57f0e1e71e2abe4a97fe615",
+      "path": "examples/soap/openzaak-export-catalogus-zaaktypes.zip",
+      "url": "https://raw.githubusercontent.com/Sudwest-Fryslan/OpenZaakBrug/1217e19b06a4b705f57f0e1e71e2abe4a97fe615/examples/soap/openzaak-export-catalogus-zaaktypes.zip",
+      "sha256": "f7c194f22b21a739e3c8ae37c609513c84108504c36ee090d8ec724cd7a499e7",
+      "license": "EUPL-1.2",
+      "contents": "1 catalogue (SWF, RSIN 823288444), 123 case types (86 published after import: the newest published version per code), 308 document types, 714 status types, 762 role types, 488 result types",
+      "inspected": "2026-10-24"
     }
   }
 }
