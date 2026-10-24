@@ -74,6 +74,57 @@ if diff <(sed -n '/# BEGIN dawo-docker.service/,/# END dawo-docker.service/p' ap
 else
   bad "the dawo-docker unit differs from apps/valtimo/deploy.sh"
 fi
+echo "-- 5. ready: quiet wait, diagnostics on a timeout (#268) --"
+# A fake curl that never connects (as Open Zaak on the Dell run of 23
+# October) and a fake docker that answers ps/logs.
+fake="$(mktemp -d)"; mkdir -p "${fake}/bin" "${fake}/state/tezza-packaging"
+cat > "${fake}/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+# Like curl: the error is printed with -S (show-error), not with -s alone.
+[[ " $* " =~ \ -[a-zA-Z]*S ]] && echo "curl: (7) Failed to connect to localhost port 8000 after 0 ms: Couldn't connect to server" >&2
+exit 7
+EOF
+cat > "${fake}/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+case " $* " in
+  *" ps "*) echo "tezza-packaging-openzaak-1  Exited (1) 40 minutes ago" ;;
+  *" logs "*) echo "FAKE-LOG django.db.utils.OperationalError" ;;
+esac
+EOF
+chmod +x "${fake}/bin/curl" "${fake}/bin/docker"
+out="$(PATH="${fake}/bin:${PATH}" DAWO_DOCKER_DIR="${fake}" TZ_STATE_DIR="${fake}/state" TZ_READY_TIMEOUT=0 \
+       bash "${DRIVER}" --phase ready 2>&1)"; rc=$?
+if [[ "${rc}" -ne 0 ]] && grep -q 'does not answer' <<<"${out}"; then ok "ready fails when a service does not answer"; else bad "ready (exit ${rc}): ${out}"; fi
+if ! grep -q 'curl: (' <<<"${out}"; then ok "ready does not print curl's error per attempt"; else bad "ready prints curl errors: ${out}"; fi
+if grep -q 'Exited (1)' <<<"${out}" && grep -q 'FAKE-LOG' <<<"${out}"; then ok "ready prints the containers and the logs of the one that does not answer"; else bad "ready gives no diagnostics: ${out}"; fi
+rm -rf "${fake}"
+res="$("${PY}" - <<'EOF'
+import re
+txt = open("environments/tezza/compose/override.yaml", encoding="utf-8").read()
+def block(svc):
+    m = re.search(r"^  %s:\n((?:    .*\n|\n)*)" % re.escape(svc), txt, re.M)
+    return m.group(1) if m else ""
+bad = []
+for svc in ("openzaak", "openzaak-celery"):
+    b = block(svc)
+    if "restart: on-failure" not in b: bad.append(f"{svc}: no restart: on-failure")
+    # No blocking condition: it held up `compose up` and then failed it
+    # (Dell run of 24 October).
+    if "condition: service_healthy" in b: bad.append(f"{svc}: compose up waits for a healthy database")
+print("OK" if not bad else "; ".join(bad))
+EOF
+)"
+if [[ "${res}" == OK ]]; then ok "Open Zaak restarts after a failure and does not hold up compose up"; else bad "${res}"; fi
+# gzac-backend's dev profile (it does not start without it) also moves its
+# port to 9092; upstream's apps proxy to gzac-backend.local:8080, so 'Mijn
+# taken' answered 502 (local test of 24 October).
+gz="$(awk '/^  gzac-backend:/{f=1; print; next} f && /^  [a-z]/{exit} f' environments/tezza/compose/override.yaml)"
+if grep -q 'SPRING_PROFILES_ACTIVE: "localhost,dev"' <<<"${gz}" && grep -q 'SERVER_PORT: "8080"' <<<"${gz}"; then
+  ok "gzac-backend runs with the dev profile on upstream's port 8080"
+else
+  bad "gzac-backend: dev profile without SERVER_PORT 8080 (its port moves to 9092): ${gz}"
+fi
+
 echo
 echo "test-tezza-driver: ${pass} passed, ${fail} failed"
 [[ "${fail}" -eq 0 ]]

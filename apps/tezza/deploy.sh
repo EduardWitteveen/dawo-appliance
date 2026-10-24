@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Deploys the Tezza environment (#261) in the guest: Contezza's own demo setup,
 # tezza-packaging at a pinned commit (git.contezza.nl/community/tezza-packaging,
-# its docker-compose.yml and resources/), the document base of it (Alfresco
-# with Tezza, Share, Keycloak, LDAP; not the ZGW part, which needs more memory
-# than the guest has), plus our override file
+# its docker-compose.yml and resources/), the complete product as Contezza
+# ships it (Alfresco with Tezza, Share, Keycloak, LDAP, GZAC, Open Zaak,
+# Notificaties, Objecten), plus our override file
 # (environments/tezza/compose/override.yaml). Runs in the Ubuntu guest as root,
 # one phase at a time, called by the host runner
 # (hosts/appliance/live-tezza.nix). Every phase is idempotent. Nothing of Tezza
@@ -37,15 +37,20 @@ STATE_DIR="${TZ_STATE_DIR:-/var/lib/dawo-appliance-tezza}"
 SRC_DIR="${STATE_DIR}/tezza-packaging"
 DOWNLOADS="${STATE_DIR}/downloads"
 DOCKER_DIR="${DAWO_DOCKER_DIR:-/opt/dawo-docker}" # overridable for tests outside the guest
-# The document base of upstream's compose (its README: Tezza at :8082, the
-# Admin Tools at :8084, Share at :8081). Upstream has no profiles: the
-# services are named. Left out: the ZGW part (gzac, openzaak, notificaties,
-# objecten, objecttypen, personen-mock; about 5 GB more) and the apps that
-# Contezza's price list marks as Enterprise-only (tezza-rm, tezza-reports,
-# tezza-akten).
+# Every service of upstream's compose (the maintainer, 24 October: the
+# product as Contezza ships it; without GZAC, Tezza registers no cases) but
+# app-tezza-akten, which does not start in upstream's setup either (see the
+# override). Upstream has no profiles: the services are named. Tezza at :8082,
+# the Admin Tools at :8084, Share at :8081, Open Zaak at :8000, GZAC at :9091.
 SERVICES=(platform platform-ass platform-db platform-activemq platform-transform-core-aio
-          identity identity-db openldap share app-tezza app-tezza-admin
-          authorization-profiles authorization-profiles-db)
+          identity identity-db openldap share
+          app-tezza app-tezza-admin app-tezza-rm app-tezza-reports
+          authorization-profiles authorization-profiles-db
+          gzac-backend gzac-db gzac-frontend personen-mock
+          openzaak openzaak-celery openzaak-db openzaak-redis
+          notificaties notificaties-celery notificaties-db notificaties-rabbitmq notificaties-redis
+          objecten objecten-celery objecten-db objecten-redis
+          objecttypen objecttypen-db objecttypen-redis)
 # The compose project (the directory name).
 PROJECT="tezza-packaging"
 DOCKER_SOCK="${DAWO_DOCKER_SOCK:-unix:///run/dawo-docker.sock}"
@@ -188,7 +193,7 @@ phase_source() {
 }
 
 phase_pull() {
-  log "pull the images of the document base (by digest)"
+  log "pull the images of the product (by digest)"
   compose pull --quiet "${SERVICES[@]}"
 }
 
@@ -207,13 +212,24 @@ phase_up() {
 # answer. Bounded: 30 minutes (the first start creates the repository).
 phase_ready() {
   log "wait until Tezza is ready"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: wait for :8181 realm tezza, :8080 Alfresco readiness, :8082"; return 0; fi
-  local waited=0 url
-  for url in http://localhost:8181/auth/realms/tezza \
-             http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready- \
-             http://localhost:8082/; do
-    until curl -fsS -o /dev/null --max-time 5 "${url}"; do
-      [[ "${waited}" -ge 1800 ]] && die "${url} does not answer after ${waited}s"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: wait for :8181 realm tezza, :8080 Alfresco readiness, :8082, :8000 Open Zaak"; return 0; fi
+  # One line a minute instead of curl's error every 5 s: the launcher shows
+  # the last line, and "curl: (7) ..." told the user nothing (#268). When a
+  # service does not answer in time, the log gets the containers and that
+  # service's log, so the cause is on the stick.
+  local timeout="${TZ_READY_TIMEOUT:-1800}" waited=0 entry url svc name
+  for entry in "identity Keycloak http://localhost:8181/auth/realms/tezza" \
+               "platform Alfresco http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-" \
+               "app-tezza Tezza http://localhost:8082/" \
+               "openzaak Open-Zaak http://localhost:8000/admin/"; do
+    read -r svc name url <<<"${entry}"
+    until curl -fs -o /dev/null --max-time 5 "${url}"; do
+      if [[ "${waited}" -ge "${timeout}" ]]; then
+        echo "== containers"; compose ps -a 2>&1 || true
+        echo "== ${svc} (log, last 60 lines)"; compose logs --no-color --tail 60 "${svc}" 2>&1 || true
+        die "${url} does not answer after ${waited}s"
+      fi
+      [[ "${waited}" -gt 0 && $((waited % 60)) -eq 0 ]] && info "waiting for ${name//-/ } (${url}), ${waited}s"
       sleep 5; waited=$((waited + 5))
     done
     info "${url} answers (${waited}s)"
@@ -226,11 +242,11 @@ alfresco() { # alfresco METHOD PATH [JSON]: Alfresco's REST API as upstream's ad
 }
 
 # Upstream's own first-run step ("01. Setup" in the Admin Tools: the
-# webscript contezza/config/setup) stops at its first step that needs the ZGW
-# part we leave out (createObjecttypeSites asks the Objecttypen API). So its
-# steps are called one by one, in its order, by their names in upstream's
-# library (tezza-api.lib.js), through the JavaScript console the platform
-# ships (OOTBee); a step that needs ZGW fails and the next one goes on. The
+# webscript contezza/config/setup) stops at its first failing step, and some
+# steps fail until another service is up (createObjecttypeSites asks the
+# Objecttypen API). So its steps are called one by one, in its order, by their
+# names in upstream's library (tezza-api.lib.js), through the JavaScript
+# console the platform ships (OOTBee); a failing step is tried again. The
 # Tezza app configuration comes from upstream's webscript contezza/config/tezza.
 # Then the login launcher / launcher (#258): a user in upstream's LDAP (Keycloak signs
 # in against it), an Alfresco administrator, an admin of Keycloak's console.
@@ -238,7 +254,7 @@ SETUP_STEPS=(createSites createRootGroups createServiceAccount createFolderTempl
              createZaaktypeSites createObjecttypeSites createAuditRole createPostintakeDummyData
              assignLDAPUsersToZaaktypeGroups assignLDAPUsersToGroups createRMRoles createRootRMGroups
              addRMGroupsToRMRoles assignLDAPUsersToRMGroups)
-# Steps that need the ZGW part we leave out (the Objecttypen API).
+# Steps that may keep failing without stopping the setup (the Objecttypen API).
 SETUP_STEPS_ZGW=(createObjecttypeSites)
 
 # What the app checks before it lets an administrator in ("Setup vereist"
@@ -324,6 +340,18 @@ EOF
   [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco person launcher: HTTP ${code}"
   code="$(alfresco POST groups/GROUP_ALFRESCO_ADMINISTRATORS/members '{"id":"launcher","memberType":"PERSON"}')"
   [[ "${code}" == 201 || "${code}" == 409 ]] || info "Alfresco administrators: HTTP ${code}"
+  # The same groups as upstream's admin (TEZZA_CREATE_ZAKEN, the sites per
+  # case type, records management): without them 'Maken' offered no
+  # 'Registreer zaak' to launcher (local test of 24 October).
+  local g n=0
+  while IFS= read -r g; do
+    g="${g%$'\r'}"
+    code="$(alfresco POST "groups/${g}/members" '{"id":"launcher","memberType":"PERSON"}' || true)"
+    [[ "${code}" == 201 ]] && n=$((n + 1))
+  done < <(curl -fsS --max-time 120 -u admin:admin \
+             "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/people/admin/groups?maxItems=1000" \
+           | python3 -c 'import json, sys; [print(e["entry"]["id"]) for e in json.load(sys.stdin)["list"]["entries"] if e["entry"]["id"] != "GROUP_EVERYONE"]')
+  info "launcher is in admin's groups (${n} added)"
   # Keycloak's own console (master realm), next to upstream's admin / admin.
   local kc=(/opt/keycloak/bin/kcadm.sh) cfg=(--config /tmp/dawo-kcadm.config)
   if compose exec -T identity "${kc[@]}" config credentials "${cfg[@]}" --server http://localhost:8181/auth \
@@ -334,7 +362,15 @@ EOF
     compose exec -T identity "${kc[@]}" set-password "${cfg[@]}" -r master --username launcher --new-password launcher >/dev/null
     compose exec -T identity "${kc[@]}" add-roles "${cfg[@]}" -r master --uusername launcher --rolename admin >/dev/null
   fi
-  info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console)"
+  # Open Zaak's admin (#268): a superuser next to upstream's admin / admin.
+  compose exec -T openzaak python src/manage.py shell -c "
+from django.contrib.auth import get_user_model
+U = get_user_model()
+u = U.objects.filter(username='launcher').first() or U(username='launcher', email='launcher@example.com')
+u.is_active = u.is_staff = u.is_superuser = True
+u.set_password('launcher')
+u.save()" >/dev/null 2>&1 || info "Open Zaak: no launcher login (its admin keeps admin / admin)"
+  info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console, Open Zaak)"
 }
 
 # The other environment starts: stop the containers (they keep their data).

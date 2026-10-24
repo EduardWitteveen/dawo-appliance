@@ -198,9 +198,11 @@ in
   # for the tmpfs root on a 32 GB laptop. K3s fits; Mijn Bureau does not yet.
   appliance.guest = {
     # Room for Mijn Bureau's laptop profile (ADR 0007: ~7.3 GiB requests,
-    # 11.3 GiB limits); fitToHost still keeps 6 GiB for the desktop.
+    # 11.3 GiB limits) and for Tezza as Contezza ships it (about 12 GiB in a
+    # local test, #268); fitToHost still keeps 6 GiB for the desktop, so a
+    # 32 GB laptop gets 20 GiB and a smaller one less.
     vcpus = lib.mkForce 8;
-    memoryGiB = lib.mkForce 16;
+    memoryGiB = lib.mkForce 20;
     autostart = lib.mkForce true;
     imageOverride = pinnedImage;
     # Whatever laptop the stick is plugged into: size the guest to it, or

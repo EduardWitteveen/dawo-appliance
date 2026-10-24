@@ -1,5 +1,5 @@
 # The Tezza environment on the live USB (#261, ADR 0008): Contezza's own demo
-# setup (tezza-packaging, the document base) in the guest, deployed by
+# setup (tezza-packaging, the complete product) in the guest, deployed by
 # apps/tezza/deploy.sh through the compose-environment runner
 # (live-compose-environments.nix). Nothing of Tezza is in this image: it is
 # downloaded from Contezza when the user starts it (after the Launcher's
@@ -25,14 +25,16 @@ in
     phases = [
       { name = "docker"; label = "Docker installeren"; typical = 40; }
       { name = "source"; label = "Tezza ophalen (de demo van Contezza)"; typical = 15; }
-      { name = "pull"; label = "Onderdelen downloaden (ongeveer 6 GB)"; typical = 900; }
-      { name = "up"; label = "Tezza starten"; typical = 60; }
-      { name = "ready"; label = "Wachten tot Tezza klaar is (de eerste keer wordt alles ingericht)"; typical = 420; }
+      { name = "pull"; label = "Onderdelen downloaden (ongeveer 8 GB)"; typical = 1500; }
+      { name = "up"; label = "Tezza starten"; typical = 300; }
+      { name = "ready"; label = "Wachten tot Tezza klaar is (de eerste keer wordt alles ingericht)"; typical = 600; }
       { name = "setup"; label = "Tezza inrichten (sites, groepen, sjablonen) en de login dawo"; typical = 120; }
     ];
-    ports = [ 8082 8084 8181 ];
+    # Tezza, its Admin Tools, Keycloak and Open Zaak (#268).
+    ports = [ 8082 8084 8181 8000 ];
     # Upstream's README: "127.0.0.1 identity" (the realm's issuer).
-    hostNames = [ "identity" ];
+    # Tezza's case views ask Open Zaak by its compose alias (#268).
+    hostNames = [ "identity" "openzaak.local" ];
     readyUrl = "http://localhost:8082/";
   };
 }
