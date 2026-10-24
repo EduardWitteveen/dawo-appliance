@@ -23,6 +23,7 @@ Targeted documentation addressing municipal stakeholder concerns, explicitly aut
 | Document | What it answers |
 | --- | --- |
 | [`demo-script.md`](demo-script.md) | A 5-minute meeting demonstration script for municipal decision makers, highlighting sovereignty and local processing. |
+| [`demo-tezza.md`](demo-tezza.md) | Draaiboek (Dutch, for whoever demonstrates): Tezza from the USB-SSD with Súdwest-Fryslân's own case types, three scenarios, what to do when something stalls (#286). |
 | [`demo-hardware.md`](demo-hardware.md) | Hardware requirements, BIOS/UEFI settings, USB media creation and safe verification for demo laptops. |
 | [`audience/voor-gemeenten.md`](audience/voor-gemeenten.md) | For municipalities (Dutch): why this exists, what works, what you need and the FAQ; moved out of the README to keep the front page short (#253). |
 | [`audience/mijn-bureau-apps.md`](audience/mijn-bureau-apps.md) | For everyone: a tour of the Mijn Bureau apps in the demo (sign-in, Bureaublad, Nextcloud, Collabora, Element) with real-hardware screenshots, and the apps left out of the laptop profile. |
