@@ -12,7 +12,9 @@
 #     (gzac-backend)        definition destructionProcedureDossier is a draft,
 #                           which needs a dev profile ("This Valtimo
 #                           environment does not support drafts"); without it
-#                           Tezza cannot register cases
+#                           Tezza cannot register cases. The dev profile also
+#                           moves its port to 9092: SERVER_PORT keeps upstream's
+#                           8080, where the apps proxy /gzac/ ('Mijn taken')
 #   LDAP_REMOVE_CONFIG_...  osixia/openldap deletes its bootstrap directory
 #     (openldap)            after the first start, and every later start fails
 #                           copying the seed there: the image's own switch
@@ -56,6 +58,7 @@ services:
     image: harbor.contezza.nl/public/tezza-gzac-backend:4.15.2@sha256:49c49df627e7c5456ffc59999b8155566ba59d2ceb114f6d7568e8e92868c2b6
     environment:
       SPRING_PROFILES_ACTIVE: "localhost,dev"
+      SERVER_PORT: "8080"
 
   gzac-db:
     image: postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
