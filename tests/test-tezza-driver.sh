@@ -115,6 +115,15 @@ print("OK" if not bad else "; ".join(bad))
 EOF
 )"
 if [[ "${res}" == OK ]]; then ok "Open Zaak restarts after a failure and does not hold up compose up"; else bad "${res}"; fi
+# gzac-backend's dev profile (it does not start without it) also moves its
+# port to 9092; upstream's apps proxy to gzac-backend.local:8080, so 'Mijn
+# taken' answered 502 (local test of 24 October).
+gz="$(awk '/^  gzac-backend:/{f=1; print; next} f && /^  [a-z]/{exit} f' environments/tezza/compose/override.yaml)"
+if grep -q 'SPRING_PROFILES_ACTIVE: "localhost,dev"' <<<"${gz}" && grep -q 'SERVER_PORT: "8080"' <<<"${gz}"; then
+  ok "gzac-backend runs with the dev profile on upstream's port 8080"
+else
+  bad "gzac-backend: dev profile without SERVER_PORT 8080 (its port moves to 9092): ${gz}"
+fi
 
 echo
 echo "test-tezza-driver: ${pass} passed, ${fail} failed"
