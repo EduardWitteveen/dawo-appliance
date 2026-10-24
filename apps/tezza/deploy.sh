@@ -9,12 +9,13 @@
 # (hosts/appliance/live-tezza.nix). Every phase is idempotent. Nothing of Tezza
 # is in the image: everything is downloaded from Contezza when it starts.
 #
-#   deploy.sh --phase <name>    park | docker | source | pull | up | ready | setup
+#   deploy.sh --phase <name>    park | docker | source | pull | up | ready | catalog | setup
 #   deploy.sh --stop            stop the containers (the other environment)
 #   deploy.sh --dry-run --phase <name>   print what would run
 #
 # Inputs come from the environment, set by the host from the manifest:
 #   TZ_REPO TZ_REV TZ_OVERRIDE DOCKER_URL DOCKER_SHA COMPOSE_URL COMPOSE_SHA
+#   TZ_SWF_URL TZ_SWF_SHA (optional: Súdwest-Fryslân's case types, #286)
 #
 # Experimental and unofficial. Not for production.
 # SPDX-License-Identifier: EUPL-1.2
@@ -198,13 +199,28 @@ phase_pull() {
 }
 
 # Upstream's README: the network is created first (it is external).
+# Upstream's users of the authorization profiles, with launcher in every
+# profile that has admin (the override mounts it instead of upstream's file).
+ap_users() {
+  python3 - "${SRC_DIR}/resources/ap/default.users.json" "${SRC_DIR}/resources/ap/dawo.users.json" <<'PY'
+import json, sys
+roles = json.load(open(sys.argv[1], encoding="utf-8"))
+for r in roles:
+    if any(u["id"] == "admin" for u in r.get("users", [])) and not any(u["id"] == "launcher" for u in r["users"]):
+        r["users"].append({"id": "launcher", "displayName": "Launcher Demo"})
+with open(sys.argv[2], "w", encoding="utf-8") as f:
+    json.dump(roles, f, ensure_ascii=False, indent=2)
+PY
+}
+
 phase_up() {
   log "start Tezza (docker compose up -d: ${SERVICES[*]})"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: docker network create -d bridge dev_network"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: dawo.users.json; docker network create -d bridge dev_network"
   elif ! "${DOCKER_DIR}/bin/docker" -H "${DOCKER_SOCK}" network inspect dev_network >/dev/null 2>&1; then
     "${DOCKER_DIR}/bin/docker" -H "${DOCKER_SOCK}" network create -d bridge dev_network >/dev/null
     info "network dev_network created"
   fi
+  [[ "${DRY_RUN}" -eq 1 ]] || ap_users || die "could not write the users of the authorization profiles"
   compose up -d "${SERVICES[@]}"
 }
 
@@ -263,9 +279,44 @@ beheer_site() {
   curl -fsS --max-time 30 -u admin:admin -H 'Content-Type: application/json'     -d '{"query":{"query":"TYPE:\"st:site\" AND ASPECT:\"tza:site\" AND =tza:siteType:\"beheer\"","language":"afts"}}'     http://localhost:8080/alfresco/api/-default-/public/search/versions/1/search 2>/dev/null     | python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)["list"]["entries"] else 1)' 2>/dev/null
 }
 
+# Súdwest-Fryslân's own case types (#286): its Open Zaak catalogue export
+# (OpenZaakBrug, EUPL-1.2, pinned by commit and SHA-256 in the manifest),
+# made importable in this Open Zaak by swf-convert.py, imported with Open
+# Zaak's own command, and the newest published version of each case type
+# published (swf-publish.py). Once: when the catalogue is there it is left
+# alone. Tezza's setup then makes a site and groups per case type, so it runs
+# again. Should any of it fail, Tezza works without these case types.
+phase_catalog() {
+  log "Súdwest-Fryslân's case types in Open Zaak"
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "DRY-RUN: curl ${TZ_SWF_URL:-<none>}; swf-convert.py; manage.py import; swf-publish.py"; return 0
+  fi
+  if [[ -z "${TZ_SWF_URL:-}" ]]; then info "no catalogue configured"; return 0; fi
+  if compose exec -T openzaak-db psql -U openzaak -d openzaak -tAc "select 1 from catalogi_catalogus where domein = 'SWF'" 2>/dev/null | grep -q 1; then
+    info "already in Open Zaak"; return 0
+  fi
+  # set -e does not work in a subshell that is an if's condition: run it, then look.
+  local rc=0
+  set +e
+  ( set -e
+       download_verified "${TZ_SWF_URL}" "${TZ_SWF_SHA:?}" "${DOWNLOADS}/swf-catalogus.zip"
+       python3 "${STATE_DIR}/swf-convert.py" "${DOWNLOADS}/swf-catalogus.zip" "${STATE_DIR}/swf-catalogus-oz.zip" "${STATE_DIR}/selectielijst.json"
+       compose cp "${STATE_DIR}/swf-catalogus-oz.zip" openzaak:/tmp/swf.zip
+       compose exec -T openzaak python src/manage.py import --import-file /tmp/swf.zip
+       compose exec -T openzaak python src/manage.py shell < "${STATE_DIR}/swf-publish.py"
+  ); rc=$?
+  set -e
+  if [[ "${rc}" -eq 0 ]]; then
+    rm -f "${STATE_DIR}/setup.done" # a site and groups per new case type
+    info "Súdwest-Fryslân's case types are in Open Zaak"
+  else
+    info "Súdwest-Fryslân's case types could not be loaded; Tezza works without them"
+  fi
+}
+
 phase_setup() {
   log "Tezza's setup (upstream's steps) and the login launcher / launcher"
-  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd launcher; Alfresco admin launcher; kcadm master launcher"; return 0; fi
+  if [[ "${DRY_RUN}" -eq 1 ]]; then echo "DRY-RUN: jsconsole: ${SETUP_STEPS[*]}; GET contezza/config/tezza; ldapadd launcher; Alfresco admin launcher; kcadm master launcher; publish the authorization profiles"; return 0; fi
   # Done before only counts when the app's own check agrees (an earlier run
   # marked it done while createSites had failed: the Dell, 2026-10-18).
   if [[ -f "${STATE_DIR}/setup.done" ]] && ! beheer_site; then
@@ -370,6 +421,37 @@ u = U.objects.filter(username='launcher').first() or U(username='launcher', emai
 u.is_active = u.is_staff = u.is_superuser = True
 u.set_password('launcher')
 u.save()" >/dev/null 2>&1 || info "Open Zaak: no launcher login (its admin keeps admin / admin)"
+  # Upstream's last setup step (its README, "Setup script uitvoeren"): publish
+  # the authorization profiles. That gives the users their roles in Keycloak
+  # (ROLE_USER, ROLE_ADMIN, ...); without them GZAC answers 403 ('Mijn taken').
+  # A profile published before does not take new users from dawo.users.json:
+  # launcher is added to those through the API, and they are published again.
+  python3 - <<'PY' || die "upstream's authorization profiles were not published"
+import json, urllib.parse, urllib.request
+tok = json.load(urllib.request.urlopen(urllib.request.Request(
+    "http://localhost:8181/auth/realms/tezza/protocol/openid-connect/token",
+    data=urllib.parse.urlencode({"grant_type": "password", "client_id": "alfresco-client",
+                                 "username": "admin", "password": "admin"}).encode()), timeout=60))["access_token"]
+def call(method, path, body=None):
+    req = urllib.request.Request("http://localhost:9093/api/authorization/profiles" + path, method=method,
+                                 data=None if body is None else json.dumps(body).encode(),
+                                 headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=900) as r:
+        raw = r.read()
+        return json.loads(raw) if raw else None
+call("POST", "/publish?preview=false&allowRepublish=true")
+added = []
+for p in call("GET", "?size=1000")["data"]:
+    ids = [u["id"] for u in p.get("users") or []]
+    if "admin" in ids and "launcher" not in ids:
+        p["users"].append({"id": "launcher", "displayName": "Launcher Demo"})
+        for k in ("sites", "userGroups"):  # its update fails on a missing list
+            p.setdefault(k, [])
+        call("PUT", "/" + p["id"], {k: v for k, v in p.items() if k != "metadata"})
+        call("POST", "/" + p["id"] + "/publish")
+        added.append(p["name"])
+print("    authorization profiles published; launcher added to: " + (", ".join(added) or "none (it was there)"))
+PY
   info "login launcher / launcher (Tezza, Share, Admin Tools, Keycloak console, Open Zaak)"
 }
 
@@ -391,6 +473,7 @@ case "${PHASE}" in
   pull) phase_pull ;;
   up) phase_up ;;
   ready) phase_ready ;;
+  catalog) phase_catalog ;;
   setup) phase_setup ;;
   *) die "unknown or missing --phase (park, docker, source, pull, up, ready, setup)" ;;
 esac

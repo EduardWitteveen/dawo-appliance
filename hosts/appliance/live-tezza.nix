@@ -13,6 +13,7 @@
 let
   manifest = builtins.fromJSON (builtins.readFile ../../manifest/appliance-manifest.json);
   up = manifest.upstream.tezza_packaging;
+  swf = manifest.tezza.swf_catalogue;
   stateDir = "/var/lib/dawo-appliance-tezza";
 in
 {
@@ -20,14 +21,23 @@ in
     title = "Tezza";
     driver = ../../apps/tezza/deploy.sh;
     inherit stateDir;
-    files."override.yaml" = ../../environments/tezza/compose/override.yaml;
-    env = { TZ_REPO = up.url; TZ_REV = up.rev; TZ_OVERRIDE = "${stateDir}/override.yaml"; TZ_STATE_DIR = stateDir; };
+    files = {
+      "override.yaml" = ../../environments/tezza/compose/override.yaml;
+      # Súdwest-Fryslân's case types (#286).
+      "swf-convert.py" = ../../apps/tezza/swf/convert.py;
+      "swf-publish.py" = ../../apps/tezza/swf/publish.py;
+    };
+    env = {
+      TZ_REPO = up.url; TZ_REV = up.rev; TZ_OVERRIDE = "${stateDir}/override.yaml"; TZ_STATE_DIR = stateDir;
+      TZ_SWF_URL = swf.url; TZ_SWF_SHA = swf.sha256;
+    };
     phases = [
       { name = "docker"; label = "Docker installeren"; typical = 40; }
       { name = "source"; label = "Tezza ophalen (de demo van Contezza)"; typical = 15; }
       { name = "pull"; label = "Onderdelen downloaden (ongeveer 8 GB)"; typical = 1500; }
       { name = "up"; label = "Tezza starten"; typical = 300; }
       { name = "ready"; label = "Wachten tot Tezza klaar is (de eerste keer wordt alles ingericht)"; typical = 600; }
+      { name = "catalog"; label = "De zaaktypes van Súdwest-Fryslân laden"; typical = 180; }
       { name = "setup"; label = "Tezza inrichten (sites, groepen, sjablonen) en de login dawo"; typical = 120; }
     ];
     # Tezza, its Admin Tools, Keycloak and Open Zaak (#268).
