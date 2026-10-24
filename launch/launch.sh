@@ -152,6 +152,18 @@ units_active() {
   return 1
 }
 
+# Whether one of the environment's own units failed: its start gave up
+# (#282: the card said "Klaar" after a failed start, because the URL
+# answered). Starting it again clears that.
+units_failed() {
+  local u
+  while IFS= read -r u; do
+    [[ -n "${u}" ]] || continue
+    if "${systemctl_bin}" is-failed --quiet "${u}"; then return 0; fi
+  done < <(own_units_of "$1")
+  return 1
+}
+
 # Whether a health URL answers: an HTTP status 200-399. A liveness check, not
 # a trust check (-k): an environment on this machine may use a certificate
 # authority made at run time that this check does not know (#235: the
@@ -177,7 +189,8 @@ status() {
     if answers_at "${url}"; then answers=true; fi
     active=false; progress=""
     if units_active "${id}"; then active=true; progress="$(progress_of "${id}")"; fi
-    if [[ "${answers}" == true && -z "${progress}" ]]; then state=ready
+    if [[ "${active}" == false ]] && units_failed "${id}"; then state=failed; progress="$(progress_of "${id}")"
+    elif [[ "${answers}" == true && -z "${progress}" ]]; then state=ready
     elif [[ "${active}" == true ]]; then state=starting
     else state=stopped; fi
     if [[ "${json}" == "--json" ]]; then
@@ -193,6 +206,8 @@ status() {
           else
             echo "${title}: wordt gestart"
           fi ;;
+        failed)
+          echo "${title}: starten mislukt$( [[ -n "${progress}" ]] && jq -r '(.error // "") | if . == "" then "" else ": " + . end' <<<"${progress}")" ;;
         *) echo "${title}: niet actief" ;;
       esac
     fi
@@ -224,6 +239,9 @@ stop_others() {
 
 start() {
   local id="$1" yes="${2:-}" answer
+  # Local: stop_others runs stop(), which fills its own list; a global one
+  # made a start of Tezza start Nextcloud instead (#282, the preview).
+  local -a units
   require_env "${id}"
   if ! check "${id}"; then
     if [[ "${yes}" != "--yes" ]]; then
@@ -259,6 +277,7 @@ start() {
 
 stop() {
   local id="$1" i
+  local -a units
   require_env "${id}"
   mapfile -t units < <(units_of "${id}")
   if (( ${#units[@]} == 0 )); then

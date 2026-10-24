@@ -247,7 +247,9 @@ def cycle_worker():
             result, seen_starting = None, False
             while not stop.is_set() and not CYCLE["skip"].is_set() and result is None:
                 state, error = env_state(eid)
-                if state == "ready":
+                if state == "failed":
+                    result = f"MISLUKT na {int(time.time() - t0)} s: {error or 'de start is mislukt'}"
+                elif state == "ready":
                     result = f"klaar na {int(time.time() - t0)} s"
                 elif error:
                     result = f"MISLUKT na {int(time.time() - t0)} s: {error}"
@@ -346,6 +348,8 @@ def environments():
             "links": [{"title": l.get("title", ""), "url": l.get("url", ""), "login": l.get("login", "")}
                       for l in env.get("links", []) if isinstance(l, dict)],
             "state": states.get(eid, {}).get("state", "stopped"),
+            # Whether its URL answers: after a failed start part of it may (#282).
+            "answers": bool(states.get(eid, {}).get("answers")),
             # While it starts: {step, steps, label, started, since, expected,
             # error} as the environment wrote it (#232), else None.
             "progress": states.get(eid, {}).get("progress"),

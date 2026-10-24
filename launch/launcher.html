@@ -39,6 +39,8 @@
   .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
   .state.ready .dot { background: var(--ok); }
   .state.starting .dot { background: var(--busy); animation: pulse 1.2s infinite; }
+  .state.failed .dot { background: #c62828; }
+  .failed-text { font-size: .9rem; margin: 6px 0; }
   @keyframes pulse { 50% { opacity: .3; } }
   .warn { background: var(--warn-bg); color: var(--warn); border-radius: 8px;
           padding: 10px 12px; font-size: .9rem; }
@@ -118,7 +120,7 @@
 <script>
 "use strict";
 const TOKEN = "__LAUNCHER_TOKEN__";
-const STATE = { ready: "Klaar", starting: "Wordt gestart…", stopped: "Niet actief" };
+const STATE = { ready: "Klaar", starting: "Wordt gestart…", stopped: "Niet actief", failed: "Starten mislukt" };
 const busy = {};
 let acting = false;
 
@@ -224,6 +226,11 @@ function card(env) {
     // the notice block carries the buttons
   } else if (env.state === "stopped") {
     actions.append(el("button", { class: "primary", onclick: () => act("start", env), ...(acting ? { disabled: "" } : {}) }, "Starten"));
+  } else if (env.state === "failed") {
+    // A failed start (#282): try again or stop it; what answers opens from
+    // a link in the text (two buttons fit on one line).
+    actions.append(el("button", { class: "primary", onclick: () => act("start", env), ...(acting ? { disabled: "" } : {}) }, "Opnieuw proberen"));
+    actions.append(el("button", { onclick: () => act("stop", env), ...(acting ? { disabled: "" } : {}) }, "Stoppen"));
   } else {
     if (env.state === "ready") {
       actions.append(el("a", { class: "button primary", href: env.url, target: "_blank", rel: "noopener" }, "Openen"));
@@ -241,6 +248,9 @@ function card(env) {
     licencesBlock(env),
     el("div", { class: "state " + env.state }, el("span", { class: "dot" }), STATE[env.state] || env.state),
     env.state === "starting" ? progressBlock(env) : null,
+    env.state === "failed" && !env.pending
+      ? el("p", { class: "failed-text" }, ((env.progress || {}).error || "Het starten is niet gelukt.") + " ",
+          env.answers ? el("a", { href: env.url, target: "_blank", rel: "noopener" }, "Openen wat wel werkt") : null) : null,
     env.state === "stopped" && env.autostart ? autoBlock(env) : null,
     env.pending && env.notice ? noticeBlock(env) : null,
     env.state === "stopped" && !env.pending && env.notice
